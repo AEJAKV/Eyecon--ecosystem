@@ -1,7 +1,6 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import Image, { getImageProps } from 'next/image';
-import Link from 'next/link';
 import { useApp } from './provider';
 import { Header, Footer, Button, Icon, Gift, Referral, Loading, Notice, Stars } from './ui';
 import { DEMO, services, collections, clinic } from '@/lib/config';
@@ -93,13 +92,149 @@ function Hero({ children }) {
   );
 }
 
-/* A brand photograph, or a quiet placeholder with the brand name while the file is missing. */
-function BrandImage({ brand }) {
-  const [missing, setMissing] = useState(false), ref = useRef(null);
+// Photographs known to be missing, so a fallback shows at once instead of retrying the request.
+const missingPhotos = new Set();
+
+/* A photograph that fills its frame, or the fallback passed as children while the file is missing. */
+function Photo({ src, alt, sizes, children }) {
+  const [missing, setMissing] = useState(missingPhotos.has(src)), ref = useRef(null);
+  const fail = () => { missingPhotos.add(src); setMissing(true); };
   // An image that failed before the page became interactive never fires onError, so check once on mount.
-  useEffect(() => { const img = ref.current; if (img?.complete && !img.naturalWidth) setMissing(true); }, []);
-  if (missing) return <span className="brand-placeholder"><strong>{brand.name}</strong>{' '}<small>Photograph to follow</small></span>;
-  return <Image ref={ref} src={'/images/brands/' + brand.slug + '.webp'} alt={brand.name + ' eyewear'} fill sizes="(max-width: 860px) 78vw, 24vw" onError={() => setMissing(true)} />;
+  useEffect(() => { const img = ref.current; if (img?.complete && !img.naturalWidth) fail(); }, []);
+  return missing ? children : <Image ref={ref} src={src} alt={alt} fill sizes={sizes} onError={fail} />;
+}
+
+function BrandImage({ brand }) {
+  return <Photo src={'/images/brands/' + brand.slug + '.webp'} alt={brand.name + ' eyewear'} sizes="(max-width: 860px) 78vw, 24vw"><span className="brand-placeholder"><strong>{brand.name}</strong>{' '}<small>Photograph to follow</small></span></Photo>;
+}
+
+/* What one appointment involves: photograph, who it is for, three points and the booking button. */
+function ServiceDetail({ service, href, leaving = false }) {
+  return (
+    <div className={`service-detail ${leaving ? 'leaving' : ''}`} aria-hidden={leaving || undefined}>
+      <div className="service-photo">
+        <Photo src={'/images/services/' + service.id + '.webp'} alt={leaving ? '' : service.name} sizes="(max-width: 860px) 100vw, 36vw"><span className="service-photo-fallback"><Icon name={service.icon} size={56} /></span></Photo>
+      </div>
+      <p className="service-meta">{service.meta}</p>
+      <h3>{service.name}</h3>
+      <ul className="service-points">{service.points.map(point => <li key={point}>{point}</li>)}</ul>
+      <Button href={href} tabIndex={leaving ? -1 : undefined}>Book this visit</Button>
+    </div>
+  );
+}
+
+// Is point p inside the triangle a, b, c?
+function insideTriangle(p, a, b, c) {
+  const side = (u, v, w) => (u.x - w.x) * (v.y - w.y) - (v.x - w.x) * (u.y - w.y);
+  const d1 = side(p, a, b), d2 = side(p, b, c), d3 = side(p, c, a);
+  return !((d1 < 0 || d2 < 0 || d3 < 0) && (d1 > 0 || d2 > 0 || d3 > 0));
+}
+
+/* Appointments set like an optometrist’s eye chart: each line a size smaller, and only the line you are reading is sharp.
+   Hover, keyboard focus or a click picks a line; its detail crossfades into the panel beside the chart.
+
+   Hovering uses the “safe triangle” (menu-aim) pattern so that travelling from a line to the panel does not select
+   every line crossed on the way: a line entered while the mouse is heading for the panel waits, and is only selected
+   if the mouse stops on it or turns away. A click pins a line; other lines then only preview on hover. */
+const AIM_WAIT = 250, HOVER_INTENT = 120, AIM_TOLERANCE = 20, STOPPED_AFTER = 90;
+
+function Appointments({ serviceHref }) {
+  const [active, setActive] = useState(0), [leaving, setLeaving] = useState(null), [pinned, setPinned] = useState(null), [preview, setPreview] = useState(null);
+  // Timers read the latest values from refs rather than from the render they were created in.
+  const current = useRef(0), pin = useRef(null), over = useRef(null), trail = useRef([]), pending = useRef(0), pointer = useRef(''), panel = useRef(null);
+
+  function select(index) {
+    if (index === current.current) return;
+    setLeaving(current.current);
+    current.current = index;
+    setActive(index);
+  }
+  function cancel() { clearTimeout(pending.current); pending.current = 0; }
+  // The outgoing detail stays just long enough to fade out.
+  useEffect(() => { if (leaving === null) return; const timer = setTimeout(() => setLeaving(null), 380); return () => clearTimeout(timer); }, [leaving, active]);
+  useEffect(() => cancel, []);
+
+  // True while the mouse is travelling from where it was a moment ago towards the panel’s left edge.
+  function aiming(point) {
+    const from = trail.current[0], box = panel.current?.getBoundingClientRect();
+    if (!from || !box || (from.x === point.x && from.y === point.y)) return false;
+    return insideTriangle(point, from, { x: box.left, y: box.top - AIM_TOLERANCE }, { x: box.left, y: box.bottom + AIM_TOLERANCE });
+  }
+  function track(e) {
+    if (e.pointerType !== 'mouse') return;
+    trail.current = [...trail.current.slice(-3), { x: e.clientX, y: e.clientY, at: performance.now() }];
+  }
+  function enter(index, e) {
+    if (e.pointerType !== 'mouse') return;
+    over.current = index;
+    cancel();
+    if (pin.current !== null) { setPreview(index === pin.current ? null : index); return; }
+    if (index === current.current) return;
+    const settle = () => {
+      if (over.current !== index || pin.current !== null) return; // moved on, or a line was pinned meanwhile
+      const last = trail.current[trail.current.length - 1];
+      const stopped = !last || performance.now() - last.at > STOPPED_AFTER;
+      if (stopped || !aiming(last)) select(index);
+      else pending.current = setTimeout(settle, AIM_WAIT); // still heading for the panel: keep waiting
+    };
+    pending.current = setTimeout(settle, aiming({ x: e.clientX, y: e.clientY }) ? AIM_WAIT : HOVER_INTENT);
+  }
+  function leave(index, e) {
+    if (e.pointerType !== 'mouse') return;
+    if (over.current === index) { over.current = null; cancel(); }
+    setPreview(p => (p === index ? null : p));
+  }
+  function focus(index, e) {
+    // Keyboard focus selects at once. A pin on another line is dropped so the dot never disagrees with the panel.
+    if (!e.target.matches(':focus-visible')) return;
+    cancel();
+    if (pin.current !== null && pin.current !== index) { pin.current = null; setPinned(null); setPreview(null); }
+    select(index);
+  }
+  function click(index) {
+    cancel();
+    const touch = pointer.current === 'touch';
+    pointer.current = '';
+    select(index);
+    if (touch) return; // a tap just opens the line, as before
+    // A mouse click or Enter / Space pins the line; clicking the pinned line again releases it.
+    const next = pin.current === index ? null : index;
+    pin.current = next; setPinned(next); setPreview(null);
+  }
+
+  return (
+    <section className="appointments" id="appointments" aria-labelledby="appointments-title">
+      <div className="container">
+        <div className="section-intro">
+          <h2 id="appointments-title">Choose your appointment</h2>
+          <p>Every visit is with a licensed optometrist. Find the line that fits you.</p>
+        </div>
+        <div className="chart-layout">
+          <ol className="chart" onPointerMove={track}>
+            {services.map((s, i) => <li key={s.id}>
+              <button type="button" className={`chart-row ${i === active ? 'active' : ''} ${i === pinned ? 'pinned' : ''} ${i === preview ? 'preview' : ''}`} style={{ '--i': i }} aria-expanded={i === active} aria-controls="service-panel"
+                onPointerEnter={e => enter(i, e)} onPointerLeave={e => leave(i, e)} onPointerDown={e => { pointer.current = e.pointerType; }} onFocus={e => focus(i, e)} onClick={() => click(i)}>
+                <span>{i === pinned && <i className="chart-pin" aria-hidden="true" />}{s.name}{i === pinned && <span className="sr-only"> (kept selected)</span>}</span>
+                <i className="chart-arrow" aria-hidden="true" />
+              </button>
+            </li>)}
+          </ol>
+          <div className="service-panel" id="service-panel" aria-live="polite" ref={panel} onPointerEnter={cancel}>
+            <ServiceDetail key={services[active].id} service={services[active]} href={serviceHref(services[active].id)} />
+            {leaving !== null && leaving !== active && <ServiceDetail key={'leaving-' + services[leaving].id} service={services[leaving]} href={serviceHref(services[leaving].id)} leaving />}
+          </div>
+        </div>
+      </div>
+      <div className="urgent-strip">
+        <div className="container">
+          <p>Urgent eye concern? Talk to the team now.</p>
+          {clinic.phone
+            ? <a className="button" href={'tel:' + clinic.phone}><Icon name="phone" size={18} />Call {clinic.phone}</a>
+            : <span className="urgent-pending"><Icon name="phone" size={18} />Phone to be confirmed</span>}
+        </div>
+      </div>
+    </section>
+  );
 }
 
 /* Brand carousel. The track is a native scroll-snap list, so swiping and trackpads work without script;
@@ -226,24 +361,7 @@ export default function Landing({ slug }) {
 
       <Collections href={serviceHref('styling')} />
 
-      <section className="section container" id="appointments" aria-labelledby="appointments-title">
-        <div className="section-intro">
-          <h2 id="appointments-title">Choose your appointment</h2>
-          <p>Every visit is with a licensed optometrist. Pick the care you need to see available times.</p>
-        </div>
-        <ol className="service-list">
-          {services.map(s => <li key={s.id}><Link className="service-row" href={serviceHref(s.id)}>
-            <Icon name={s.icon} size={26} />
-            <span className="service-text"><strong>{s.name}</strong><small>{s.description}</small></span>
-            <span className="service-cta">Book</span>
-          </Link></li>)}
-          <li><div className="service-row emergency">
-            <Icon name="phone" size={26} />
-            <span className="service-text"><strong>Urgent eye concerns</strong><small>Call the clinic so the team can guide your next step.</small></span>
-            {clinic.phone ? <a className="service-cta" href={'tel:' + clinic.phone}>Call</a> : <span className="service-cta pending-text">Phone to be confirmed</span>}
-          </div></li>
-        </ol>
-      </section>
+      <Appointments serviceHref={serviceHref} />
 
       <section className="care-section" aria-labelledby="care-title">
         <div className="container care-layout">

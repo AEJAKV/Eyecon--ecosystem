@@ -189,20 +189,45 @@ h3 { font-weight: 500; }
 .section-intro h2 { margin: 0; }
 .section-intro p { color: var(--muted); max-width: 32rem; margin: 0; }
 
-/* Appointment list */
-.service-list { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: 1fr 1fr; column-gap: 3.5rem; }
-.service-list li { border-top: 1px solid var(--line); }
-.service-list li:nth-last-child(-n+2) { border-bottom: 1px solid var(--line); }
-.service-row { display: flex; align-items: center; gap: 1.25rem; padding: 1.6rem .25rem; min-height: 112px; text-decoration: none; color: inherit; transition: background .3s var(--ease), padding .3s var(--ease); }
-.service-row svg { color: var(--gold-text); }
-.service-text { flex: 1; min-width: 0; }
-.service-text strong { display: block; font-weight: 500; font-size: 1.08rem; margin-bottom: .2rem; }
-.service-text small { display: block; font-size: .92rem; line-height: 1.55; color: var(--muted); }
-.service-cta { font-size: .88rem; font-weight: 500; letter-spacing: .04em; padding: .5rem 0; position: relative; }
-a.service-row .service-cta::after, a.service-cta::after { content: ''; position: absolute; left: 0; right: 0; bottom: .3rem; height: 1px; background: currentColor; transform: scaleX(0); transform-origin: right; transition: transform .35s var(--ease); }
-a.service-row:hover { background: var(--white); padding-inline: 1rem; }
-a.service-row:hover .service-cta::after, a.service-cta:hover::after { transform: scaleX(1); transform-origin: left; }
-.service-row.emergency .service-text strong { color: var(--ink); }
+/* ---------- Appointments: an eye chart beside a detail panel ---------- */
+.appointments { padding-top: 6rem; }
+.chart-layout { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, .8fr); gap: clamp(2.5rem, 6vw, 6rem); align-items: start; padding-bottom: 6rem; }
+.chart { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--line); }
+.chart li { border-bottom: 1px solid var(--line); }
+/* Each line is a size smaller than the one above, like the rows of an eye chart */
+.chart-row { display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; width: 100%; padding: 1.15rem .25rem; border: 0; background: none; color: var(--ink); text-align: left; font-family: var(--serif); font-variation-settings: 'opsz' 28; font-size: clamp(calc(1.9rem - var(--i) * .14rem), calc(4.2vw - var(--i) * .4vw), calc(3.4rem - var(--i) * .32rem)); line-height: 1.12; letter-spacing: -.01em; opacity: .35; filter: blur(1.5px); transition: opacity .35s var(--ease), filter .35s var(--ease); }
+.chart-row.active { opacity: 1; filter: none; }
+.chart-row:focus-visible { outline-offset: -3px; }
+/* While a line is pinned, hovering another only lifts it a little as a preview */
+.chart-row.preview { opacity: .62; filter: blur(.5px); }
+.chart-pin { display: inline-block; width: .5rem; height: .5rem; margin-right: .9rem; border-radius: 50%; background: var(--gold); vertical-align: middle; animation: detail-in .35s var(--ease) both; }
+.chart-arrow { position: relative; flex: none; width: 3rem; height: 1px; background: var(--gold); opacity: 0; transform: translateX(-1rem); transition: opacity .35s var(--ease), transform .35s var(--ease); }
+.chart-arrow::after { content: ''; position: absolute; right: 0; top: -3px; width: 7px; height: 7px; border-top: 1px solid var(--gold); border-right: 1px solid var(--gold); transform: rotate(45deg); }
+.chart-row:hover .chart-arrow, .chart-row:focus-visible .chart-arrow { opacity: 1; transform: none; }
+
+.service-panel { position: sticky; top: 6.5rem; }
+.service-detail { animation: detail-in .35s var(--ease) both; }
+.service-detail.leaving { position: absolute; inset: 0; overflow: hidden; pointer-events: none; animation: detail-out .35s var(--ease) both; }
+@keyframes detail-in { from { opacity: 0; } }
+@keyframes detail-out { to { opacity: 0; } }
+.service-photo { position: relative; aspect-ratio: 16 / 9; overflow: hidden; margin-bottom: 1.5rem; background: var(--tint); }
+.service-photo img { object-fit: cover; }
+.service-photo-fallback { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: linear-gradient(160deg, #f3ecdc, var(--tint)); color: var(--gold-text); }
+.service-meta { margin: 0 0 .6rem; font-size: .8rem; letter-spacing: .12em; text-transform: uppercase; color: var(--gold-text); }
+.service-detail h3 { margin: 0 0 1.1rem; font-family: var(--serif); font-variation-settings: 'opsz' 28; font-size: clamp(1.6rem, 2.2vw, 2.1rem); font-weight: 400; line-height: 1.12; }
+.service-points { margin: 0 0 1.75rem; padding: 0; list-style: none; }
+.service-points li { position: relative; padding: .6rem 0 .6rem 1.6rem; border-top: 1px solid var(--line); color: var(--muted); }
+.service-points li:last-child { border-bottom: 1px solid var(--line); }
+.service-points li::before { content: ''; position: absolute; left: 0; top: 1.25rem; width: .8rem; height: 1px; background: var(--gold); }
+
+/* Urgent concerns: an ink strip across the full width */
+.urgent-strip { background: var(--ink); color: #fff; }
+.urgent-strip .container { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem 2rem; padding-block: 1.75rem; }
+.urgent-strip p { margin: 0; font-family: var(--serif); font-variation-settings: 'opsz' 28; font-size: clamp(1.35rem, 2vw, 1.8rem); line-height: 1.2; }
+.urgent-strip .button { background: var(--paper); color: var(--ink); border-color: var(--paper); }
+.urgent-strip .button:hover { border-color: var(--gold); }
+.urgent-strip :focus-visible { outline-color: #fff; }
+.urgent-pending { display: inline-flex; align-items: center; gap: .6rem; color: #c9ccd1; font-style: italic; }
 
 /* Doctors */
 .care-section { background: var(--soft); padding: 6rem 0; }
@@ -437,8 +462,11 @@ details p { margin: 1rem 0 0; color: var(--muted); }
   .brand-track { --gap: .9rem; --card: 78vw; padding-inline: 1.5rem; scroll-padding-inline: 1.5rem; }
   .section { padding-block: 4rem; }
   .section-intro { grid-template-columns: 1fr; gap: 1rem; margin-bottom: 2rem; }
-  .service-list { grid-template-columns: 1fr; }
-  .service-list li:nth-last-child(2) { border-bottom: 0; }
+  .appointments { padding-top: 4rem; }
+  .chart-layout { grid-template-columns: 1fr; gap: 2.5rem; padding-bottom: 4rem; }
+  .chart-row { padding-block: 1rem; }
+  .chart-arrow { display: none; }
+  .service-panel { position: relative; top: auto; }
   .care-section { padding: 4rem 0; }
   .care-layout { grid-template-columns: 1fr; gap: 2.5rem; }
   .trust { grid-template-columns: 1fr; }
@@ -483,5 +511,6 @@ details p { margin: 1rem 0 0; color: var(--muted); }
   *, *::before, *::after { animation-duration: .01ms !important; animation-delay: 0s !important; transition-duration: .01ms !important; }
   .hero-photo.soft img { filter: none; }
   .hero-lens, .lens-ring, .lens-hint { display: none; }
+  .chart-row { filter: none; }
   .scroll-cue::after { animation: none; }
 }
