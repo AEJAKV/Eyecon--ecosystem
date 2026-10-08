@@ -2,6 +2,7 @@ import '@fontsource-variable/bodoni-moda/opsz.css';
 import '@fontsource-variable/jost';
 import './globals.css';
 import './site.css';
+import './workspace.css';
 import { Provider } from '@/components/provider';
 import { PreviewBar } from '@/components/ui';
 import { clinic,DEMO } from '@/lib/config';
