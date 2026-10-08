@@ -220,6 +220,9 @@ h3 { font-weight: 500; }
 .service-points li:last-child { border-bottom: 1px solid var(--line); }
 .service-points li::before { content: ''; position: absolute; left: 0; top: 1.25rem; width: .8rem; height: 1px; background: var(--gold); }
 
+/* Phone layout (shown below 860px): chips over a swipeable track of cards */
+.appointment-mobile, .only-mobile { display: none; }
+
 /* Urgent concerns: an ink strip across the full width */
 .urgent-strip { background: var(--ink); color: #fff; }
 .urgent-strip .container { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem 2rem; padding-block: 1.75rem; }
@@ -462,11 +465,36 @@ details p { margin: 1rem 0 0; color: var(--muted); }
   .brand-track { --gap: .9rem; --card: 78vw; padding-inline: 1.5rem; scroll-padding-inline: 1.5rem; }
   .section { padding-block: 4rem; }
   .section-intro { grid-template-columns: 1fr; gap: 1rem; margin-bottom: 2rem; }
-  .appointments { padding-top: 4rem; }
-  .chart-layout { grid-template-columns: 1fr; gap: 2.5rem; padding-bottom: 4rem; }
-  .chart-row { padding-block: 1rem; }
-  .chart-arrow { display: none; }
-  .service-panel { position: relative; top: auto; }
+  /* Appointments on phones: no eye chart, no blur. Chips, then cards you swipe. */
+  .appointments { padding-top: 3.5rem; }
+  .appointments .section-intro { margin-bottom: 1.25rem; }
+  .appointments h2 { font-size: 2rem; }
+  .only-desktop, .chart-layout { display: none; }
+  .only-mobile, .appointment-mobile { display: block; }
+  .appointment-mobile { --pad: 1.25rem; padding-bottom: 3rem; }
+  .appointment-chips { display: flex; gap: .5rem; padding: .25rem var(--pad); overflow-x: auto; scrollbar-width: none; }
+  .appointment-chips::-webkit-scrollbar, .appointment-track::-webkit-scrollbar { display: none; }
+  .appointment-chips button { flex: none; min-height: 44px; padding: 0 1.15rem; border: 1px solid #b9b8b2; border-radius: 999px; background: none; color: var(--ink); font-size: .95rem; white-space: nowrap; transition: background .25s var(--ease), color .25s, border-color .25s; }
+  .appointment-chips button[aria-pressed=true] { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+  .appointment-track { --card: 84vw; --gap: .9rem; display: flex; gap: var(--gap); margin-top: 1.1rem; padding-inline: var(--pad); overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x mandatory; scroll-padding-inline: var(--pad); scrollbar-width: none; }
+  .appointment-track:focus-visible { outline: 3px solid var(--gold-text); outline-offset: -3px; }
+  .appointment-card { flex: 0 0 var(--card); display: flex; flex-direction: column; scroll-snap-align: start; background: var(--white); border: 1px solid var(--line); }
+  /* Empty space after the last card, so it can travel all the way to the start of the track */
+  .appointment-track-end { flex: 0 0 calc(100% - var(--card) - var(--gap)); }
+  .appointment-card .service-photo { aspect-ratio: 16 / 10; margin: 0; }
+  .appointment-card-body { flex: 1; display: flex; flex-direction: column; padding: 1.15rem 1.15rem 1.25rem; }
+  .appointment-card .service-meta { font-size: .72rem; letter-spacing: .1em; margin-bottom: .5rem; }
+  .appointment-card h3 { margin: 0 0 .8rem; font-family: var(--serif); font-variation-settings: 'opsz' 28; font-size: 1.35rem; font-weight: 400; line-height: 1.15; }
+  .appointment-card .service-points { margin-bottom: 1.25rem; font-size: .95rem; }
+  .appointment-card .service-points li { padding-block: .5rem; }
+  .appointment-card .service-points li::before { top: 1.1rem; }
+  .appointment-card .button { width: 100%; margin-top: auto; }
+  .appointment-dots { display: flex; justify-content: center; align-items: center; gap: .4rem; margin-top: 1.25rem; }
+  .appointment-dots span { width: 6px; height: 6px; border-radius: 3px; background: #c4c3bd; transition: width .3s var(--ease), background .3s; }
+  .appointment-dots .active { width: 22px; background: var(--ink); }
+  .urgent-strip .container { flex-direction: column; align-items: stretch; gap: 1.1rem; padding-block: 2rem; }
+  .urgent-strip .button, .urgent-pending { width: 100%; min-height: 52px; justify-content: center; }
+  .urgent-pending { border: 1px solid #4a4f57; border-radius: var(--radius); }
   .care-section { padding: 4rem 0; }
   .care-layout { grid-template-columns: 1fr; gap: 2.5rem; }
   .trust { grid-template-columns: 1fr; }

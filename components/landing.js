@@ -123,6 +123,60 @@ function ServiceDetail({ service, href, leaving = false }) {
   );
 }
 
+/* Phone layout for the appointments: a row of chips over a swipeable, scroll-snap track of cards, one per service.
+   Every card is fully readable; swiping moves the active chip and dot, and tapping a chip scrolls to its card. */
+function AppointmentCards({ serviceHref }) {
+  const [active, setActive] = useState(0);
+  const track = useRef(null), chips = useRef(null), moving = useRef(0), frame = useRef(0);
+  const last = services.length - 1;
+  const step = () => track.current.children[1].offsetLeft - track.current.children[0].offsetLeft;
+  const smooth = () => (window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth');
+  function go(index) {
+    setActive(index);
+    // Ignore the cards passed on the way, so the chips do not flicker through each one.
+    clearTimeout(moving.current);
+    moving.current = setTimeout(() => { moving.current = 0; }, 1200);
+    track.current.scrollTo({ left: index * step(), behavior: smooth() });
+  }
+  function settle() { clearTimeout(moving.current); moving.current = 0; }
+  function follow() {
+    if (moving.current || frame.current) return;
+    frame.current = requestAnimationFrame(() => { // at most one reading per frame
+      frame.current = 0;
+      if (!track.current) return;
+      setActive(Math.max(0, Math.min(last, Math.round(track.current.scrollLeft / step()))));
+    });
+  }
+  // Keep the active chip in view by scrolling the chip row only, never the page.
+  useEffect(() => {
+    const row = chips.current, chip = row?.children[active];
+    if (chip && row.clientWidth) row.scrollTo({ left: chip.offsetLeft - (row.clientWidth - chip.offsetWidth) / 2, behavior: smooth() });
+  }, [active]);
+  useEffect(() => () => { clearTimeout(moving.current); cancelAnimationFrame(frame.current); }, []);
+  return (
+    <div className="appointment-mobile">
+      <div className="appointment-chips" ref={chips} role="group" aria-label="Choose an appointment type">
+        {services.map((s, i) => <button type="button" key={s.id} aria-pressed={i === active} onClick={() => go(i)}>{s.short}</button>)}
+      </div>
+      <div className="appointment-track" ref={track} role="region" aria-label="Appointment types" tabIndex={0} onScroll={follow} onScrollEnd={settle}>
+        {services.map(s => <article className="appointment-card" key={s.id} role="group" aria-label={s.name}>
+          <div className="service-photo">
+            <Photo src={'/images/services/' + s.id + '.webp'} alt={s.name} sizes="84vw"><span className="service-photo-fallback"><Icon name={s.icon} size={48} /></span></Photo>
+          </div>
+          <div className="appointment-card-body">
+            <p className="service-meta">{s.meta}</p>
+            <h3>{s.name}</h3>
+            <ul className="service-points">{s.points.map(point => <li key={point}>{point}</li>)}</ul>
+            <Button href={serviceHref(s.id)}>Book this visit</Button>
+          </div>
+        </article>)}
+        <span className="appointment-track-end" aria-hidden="true" />
+      </div>
+      <div className="appointment-dots" aria-hidden="true">{services.map((s, i) => <span key={s.id} className={i === active ? 'active' : undefined} />)}</div>
+    </div>
+  );
+}
+
 // Is point p inside the triangle a, b, c?
 function insideTriangle(p, a, b, c) {
   const side = (u, v, w) => (u.x - w.x) * (v.y - w.y) - (v.x - w.x) * (u.y - w.y);
@@ -207,7 +261,8 @@ function Appointments({ serviceHref }) {
       <div className="container">
         <div className="section-intro">
           <h2 id="appointments-title">Choose your appointment</h2>
-          <p>Every visit is with a licensed optometrist. Find the line that fits you.</p>
+          <p className="only-desktop">Every visit is with a licensed optometrist. Find the line that fits you.</p>
+          <p className="only-mobile">Swipe to explore. Every visit is with a licensed optometrist.</p>
         </div>
         <div className="chart-layout">
           <ol className="chart" onPointerMove={track}>
@@ -225,6 +280,7 @@ function Appointments({ serviceHref }) {
           </div>
         </div>
       </div>
+      <AppointmentCards serviceHref={serviceHref} />
       <div className="urgent-strip">
         <div className="container">
           <p>Urgent eye concern? Talk to the team now.</p>
@@ -315,20 +371,22 @@ export default function Landing({ slug }) {
     }
   }, [slug, data.affiliates, ready]);
 
-  // Mobile booking bar: appears once the hero button scrolls away, hides at the closing call to action.
+  // Mobile booking bar: appears once the hero button scrolls away, hides at the closing call to action,
+  // and steps aside while the appointment cards are on screen so it never covers their own Book buttons.
   useEffect(() => {
     if (!loaded || error) return;
-    const hero = document.querySelector('.hero-actions .button'), final = document.querySelector('.final-cta .button');
+    const hero = document.querySelector('.hero-actions .button'), final = document.querySelector('.final-cta .button'), cards = document.querySelector('.appointment-track');
     if (!hero || !final) return;
-    let heroPast = false, finalVisible = false;
+    let heroPast = false, finalVisible = false, cardsVisible = false;
     const observer = new IntersectionObserver(entries => {
       for (const entry of entries) {
         if (entry.target === hero) heroPast = !entry.isIntersecting && entry.boundingClientRect.top < 0;
         if (entry.target === final) finalVisible = entry.isIntersecting;
+        if (entry.target === cards) cardsVisible = entry.isIntersecting;
       }
-      setFloating(heroPast && !finalVisible);
+      setFloating(heroPast && !finalVisible && !cardsVisible);
     });
-    observer.observe(hero); observer.observe(final);
+    observer.observe(hero); observer.observe(final); if (cards) observer.observe(cards);
     return () => observer.disconnect();
   }, [loaded, error]);
 
