@@ -58,7 +58,9 @@ export default function BookingFlow() {
   const [captchaKey, setCaptchaKey] = useState(0);
   const [added, setAdded] = useState('');
   const [calendar, setCalendar] = useState('google');
-  const [details, setDetails] = useState({ name: '', email: '', phone: '', firstVisit: '', insurance: '', policy: '', brands: [], smsConsent: false, website: '' });
+  // A brand passed in the link (from the collections carousel) arrives already chosen; unknown names are ignored.
+  const linkedBrand = brands.find(b => b.toLowerCase() === (params.get('brand') || '').trim().toLowerCase());
+  const [details, setDetails] = useState({ name: '', email: '', phone: '', firstVisit: '', insurance: '', policy: '', brands: linkedBrand ? [linkedBrand] : [], smsConsent: false, website: '' });
   const titleRef = useRef(null), firstRender = useRef(true);
 
   useEffect(() => { setCalendar(preferredCalendar()); }, []);

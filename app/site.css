@@ -146,13 +146,42 @@ h3 { font-weight: 500; }
 .hero-text > *:nth-child(6) { animation-delay: .4s; }
 @keyframes rise { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
 
-/* ---------- Collections ---------- */
-.collections { padding: 4.5rem 0 4rem; border-block: 1px solid var(--line); background: var(--white); text-align: center; }
-.collections-title { font-family: var(--sans); font-size: .85rem; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); font-weight: 500; margin-bottom: 1.75rem; }
-.brand-line { display: flex; flex-wrap: wrap; justify-content: center; gap: .2em 1.1em; font-family: var(--serif); font-variation-settings: 'opsz' 28; font-size: clamp(1.5rem, 2.7vw, 2.6rem); line-height: 1.35; margin: 0 auto 1.75rem; max-width: 72rem; }
-.brand { transition: color .25s; }
-.brand:hover { color: var(--gold-text); }
-.collections-note { color: var(--muted); margin: 0 auto; max-width: 34rem; }
+/* ---------- Collections carousel ---------- */
+.collections { padding: 5.5rem 0; overflow: hidden; background: var(--white); border-bottom: 1px solid var(--line); }
+/* The story lines up with the page container; the track runs on to the right edge of the window */
+.collections-inner { display: grid; grid-template-columns: minmax(0, 24rem) minmax(0, 1fr); align-items: center; gap: clamp(2.5rem, 5vw, 5rem); padding-left: max(1.5rem, calc((100vw - 1250px) / 2)); }
+.collections-title { margin: 0 0 2.5rem; font-family: var(--sans); font-size: .85rem; font-weight: 500; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.carousel-count { margin: 0 0 .9rem; font-size: .85rem; letter-spacing: .12em; text-transform: uppercase; color: var(--gold-text); font-variant-numeric: tabular-nums; }
+/* Every story shares one grid cell, so the active one crossfades in and the block never changes height */
+.brand-stories { display: grid; margin-bottom: 2rem; }
+.brand-story { grid-area: 1 / 1; opacity: 0; visibility: hidden; transition: opacity .45s var(--ease), visibility 0s .45s; }
+.brand-story.active { opacity: 1; visibility: visible; transition: opacity .6s .12s var(--ease), visibility 0s; }
+.brand-story h3 { margin: 0 0 1rem; font-family: var(--serif); font-variation-settings: 'opsz' 28; font-size: clamp(2.6rem, 4.4vw, 4.4rem); font-weight: 400; line-height: 1.02; letter-spacing: -.015em; }
+.brand-story p { margin: 0; max-width: 23rem; color: var(--muted); font-size: 1.05rem; }
+.carousel-controls { display: flex; align-items: center; gap: .6rem; margin-top: 2.75rem; }
+.carousel-arrow { display: inline-flex; align-items: center; justify-content: center; width: 48px; height: 48px; border: 1px solid #b9b8b2; border-radius: var(--radius); background: none; color: var(--ink); transition: background .3s var(--ease), color .3s, border-color .3s; }
+.carousel-arrow:hover:not(:disabled) { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+.carousel-arrow:disabled { opacity: .35; }
+.carousel-progress { position: relative; flex: 1; height: 2px; margin-left: 1rem; overflow: hidden; background: var(--line); }
+.carousel-progress span { position: absolute; inset: 0; background: var(--ink); transform-origin: left; transition: transform .6s var(--ease); }
+
+.brand-track { --gap: 1.25rem; --card: calc((100% - var(--gap) * 2) / 2.5); display: flex; gap: var(--gap); margin: 0; padding: 0; list-style: none; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x mandatory; scrollbar-width: none; }
+.brand-track::-webkit-scrollbar { display: none; }
+.brand-track:focus-visible { outline: 3px solid var(--gold-text); outline-offset: 6px; }
+.brand-track li { flex: 0 0 var(--card); scroll-snap-align: start; }
+/* Empty space after the last card, so it can travel all the way to the start of the track */
+.brand-track .brand-track-end { flex-basis: calc(100% - var(--card) - var(--gap)); scroll-snap-align: none; }
+.brand-card { display: block; width: 100%; padding: 0; border: 0; background: none; color: inherit; cursor: pointer; }
+.brand-card:focus-visible { outline-offset: -3px; }
+.brand-media { position: relative; display: block; aspect-ratio: 4 / 5; overflow: hidden; background: var(--soft); }
+.brand-media > * { filter: grayscale(1); opacity: .55; transition: filter .6s var(--ease), opacity .6s var(--ease), transform 1.2s var(--ease); }
+.brand-media img { object-fit: cover; }
+/* The active card is in full colour and drifts slowly closer */
+.brand-card[aria-current] .brand-media > * { filter: none; opacity: 1; transform: scale(1.06); transition: filter .6s var(--ease), opacity .6s var(--ease), transform 6s ease-out; }
+.brand-placeholder { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .9rem; padding: 1.75rem; text-align: center; background: linear-gradient(165deg, var(--soft), var(--tint)); }
+.brand-placeholder::before { content: ''; position: absolute; inset: .9rem; border: 1px solid rgba(180, 154, 103, .55); }
+.brand-placeholder strong { font-family: var(--serif); font-variation-settings: 'opsz' 28; font-size: clamp(1.5rem, 2.2vw, 2.1rem); font-weight: 400; line-height: 1.1; }
+.brand-placeholder small { font-size: .7rem; letter-spacing: .16em; text-transform: uppercase; color: var(--gold-text); }
 
 /* ---------- Sections ---------- */
 .section { padding-block: 6rem; }
@@ -397,6 +426,15 @@ details p { margin: 1rem 0 0; color: var(--muted); }
   .hero .referral { margin-bottom: .7rem; }
   .hero .referral img { width: 34px; height: 34px; }
   .collections { padding: 3.25rem 0; }
+  .collections-inner { grid-template-columns: 1fr; gap: 2rem; padding-left: 0; }
+  .collections-story { padding-inline: 1.5rem; }
+  .collections-title { margin-bottom: 1.75rem; }
+  .brand-stories { margin-bottom: 1.5rem; }
+  .brand-story h3 { font-size: clamp(2.4rem, 11vw, 3.4rem); }
+  .carousel-controls { margin-top: 1.75rem; }
+  .carousel-arrow { display: none; }
+  .carousel-progress { margin-left: 0; }
+  .brand-track { --gap: .9rem; --card: 78vw; padding-inline: 1.5rem; scroll-padding-inline: 1.5rem; }
   .section { padding-block: 4rem; }
   .section-intro { grid-template-columns: 1fr; gap: 1rem; margin-bottom: 2rem; }
   .service-list { grid-template-columns: 1fr; }

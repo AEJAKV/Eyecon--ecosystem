@@ -4,7 +4,7 @@ import Image, { getImageProps } from 'next/image';
 import Link from 'next/link';
 import { useApp } from './provider';
 import { Header, Footer, Button, Icon, Gift, Referral, Loading, Notice, Stars } from './ui';
-import { DEMO, services, brands, clinic } from '@/lib/config';
+import { DEMO, services, collections, clinic } from '@/lib/config';
 
 /* Hero photograph. Art direction: a 16:9 crop above 860px and a 9:16 crop on phones.
    Only the matching source is downloaded, so it is prioritised with fetchPriority rather than preload. */
@@ -93,6 +93,73 @@ function Hero({ children }) {
   );
 }
 
+/* A brand photograph, or a quiet placeholder with the brand name while the file is missing. */
+function BrandImage({ brand }) {
+  const [missing, setMissing] = useState(false), ref = useRef(null);
+  // An image that failed before the page became interactive never fires onError, so check once on mount.
+  useEffect(() => { const img = ref.current; if (img?.complete && !img.naturalWidth) setMissing(true); }, []);
+  if (missing) return <span className="brand-placeholder"><strong>{brand.name}</strong>{' '}<small>Photograph to follow</small></span>;
+  return <Image ref={ref} src={'/images/brands/' + brand.slug + '.webp'} alt={brand.name + ' eyewear'} fill sizes="(max-width: 860px) 78vw, 24vw" onError={() => setMissing(true)} />;
+}
+
+/* Brand carousel. The track is a native scroll-snap list, so swiping and trackpads work without script;
+   arrows, the keyboard and clicking a card move it one brand at a time. No autoplay. */
+function Collections({ href }) {
+  const [active, setActive] = useState(0);
+  const track = useRef(null), moving = useRef(0);
+  const last = collections.length - 1, brand = collections[active];
+  const step = () => track.current.children[1].offsetLeft - track.current.children[0].offsetLeft;
+  function go(index) {
+    const next = Math.max(0, Math.min(last, index));
+    setActive(next);
+    // Ignore the scroll positions passed on the way there, so the story does not flicker through every brand.
+    clearTimeout(moving.current);
+    moving.current = setTimeout(() => { moving.current = 0; }, 1200);
+    track.current.scrollTo({ left: next * step(), behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+  }
+  function settle() { clearTimeout(moving.current); moving.current = 0; }
+  function follow() {
+    if (moving.current) return;
+    const index = Math.max(0, Math.min(last, Math.round(track.current.scrollLeft / step())));
+    if (index !== active) setActive(index);
+  }
+  function keys(e) {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    e.preventDefault();
+    go(active + (e.key === 'ArrowRight' ? 1 : -1));
+  }
+  return (
+    <section className="collections" aria-labelledby="collections-title" onKeyDown={keys}>
+      <div className="collections-inner">
+        <div className="collections-story">
+          <h2 id="collections-title" className="collections-title">Our collections</h2>
+          <p className="carousel-count" aria-live="polite" aria-atomic="true"><span className="sr-only">{brand.name}, </span>{active + 1} of {collections.length}</p>
+          <div className="brand-stories">
+            {collections.map((b, i) => <div key={b.slug} className={`brand-story ${i === active ? 'active' : ''}`} aria-hidden={i !== active}>
+              <h3>{b.name}</h3>
+              <p>{b.line}</p>
+            </div>)}
+          </div>
+          <Button href={href + '&brand=' + encodeURIComponent(brand.name)}>Book a styling visit</Button>
+          <div className="carousel-controls">
+            <button type="button" className="carousel-arrow" aria-label="Previous brand" disabled={active === 0} onClick={() => go(active - 1)}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M19 12H5m6-6-6 6 6 6" /></svg></button>
+            <button type="button" className="carousel-arrow" aria-label="Next brand" disabled={active === last} onClick={() => go(active + 1)}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6" /></svg></button>
+            <span className="carousel-progress" aria-hidden="true"><span style={{ transform: `scaleX(${(active + 1) / collections.length})` }} /></span>
+          </div>
+        </div>
+        <ul className="brand-track" ref={track} tabIndex={0} aria-label="Brands. Use the left and right arrow keys to move." onScroll={follow} onScrollEnd={settle}>
+          {collections.map((b, i) => <li key={b.slug}>
+            <button type="button" className="brand-card" aria-current={i === active ? 'true' : undefined} onClick={() => go(i)}>
+              <span className="brand-media"><BrandImage brand={b} /></span>
+            </button>
+          </li>)}
+          <li className="brand-track-end" aria-hidden="true" />
+        </ul>
+      </div>
+    </section>
+  );
+}
+
 export default function Landing({ slug }) {
   const { data, ready } = useApp();
   const [affiliate, setAffiliate] = useState(null);
@@ -157,13 +224,7 @@ export default function Landing({ slug }) {
         </div>
       </Hero>
 
-      <section className="collections" aria-labelledby="collections-title">
-        <div className="container">
-          <h2 id="collections-title" className="collections-title">The collections</h2>
-          <p className="brand-line">{brands.map(b => <span key={b} className="brand">{b}</span>)}</p>
-          <p className="collections-note">Tell us which designers you love when you book, and we’ll have them ready for your visit.</p>
-        </div>
-      </section>
+      <Collections href={serviceHref('styling')} />
 
       <section className="section container" id="appointments" aria-labelledby="appointments-title">
         <div className="section-intro">

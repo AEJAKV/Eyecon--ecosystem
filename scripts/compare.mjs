@@ -1,11 +1,11 @@
 // Side-by-side before/after images from two screenshot folders.
-// Usage: node scripts/compare.mjs [before] [after]   Saves into screenshots/compare/.
+// Usage: node scripts/compare.mjs [before] [after] [output]   Saves into screenshots/compare/ unless an output folder is named.
 import { mkdir, readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { chromium } from 'playwright';
 
-const [before = 'before', after = 'after'] = process.argv.slice(2);
-const root = path.resolve('screenshots'), out = path.join(root, 'compare');
+const [before = 'before', after = 'after', output = 'compare'] = process.argv.slice(2);
+const root = path.resolve('screenshots'), out = path.join(root, path.basename(output));
 await mkdir(out, { recursive: true });
 const names = (await readdir(path.join(root, after))).filter(f => f.endsWith('.png'));
 const afterOnly = new Set(names), shared = (await readdir(path.join(root, before))).filter(f => afterOnly.has(f));
