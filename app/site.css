@@ -82,7 +82,7 @@ h3 { font-weight: 500; }
 .gift.compact .gift-value { font-size: 1.8rem; padding-right: .9rem; }
 
 /* ---------- Hero: full-bleed photograph with the copy set inside it ---------- */
-.hero { --r: 150px; position: relative; isolation: isolate; height: 100svh; min-height: 640px; overflow: hidden; background: #b7a691; color: #fff; touch-action: pan-y; }
+.hero { --r: 150px; position: relative; isolation: isolate; height: 100svh; min-height: 640px; overflow: hidden; background: #1c1917; color: #fff; touch-action: pan-y; }
 .hero-photo { position: absolute; inset: 0; display: block; }
 .hero-photo img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: 62% 28%; transform: scale(1.04); }
 .hero > .hero-photo { z-index: -4; }
@@ -104,7 +104,7 @@ h3 { font-weight: 500; }
 @keyframes lens-open { from { clip-path: circle(0 at var(--x) var(--y)); } }
 @keyframes ring-in { from { opacity: 0; transform: scale(.4); } }
 /* A gentle gradient rising from the bottom edge */
-.hero::after { content: ''; position: absolute; inset: 0; z-index: -2; pointer-events: none; background: linear-gradient(to bottom, rgba(20, 24, 29, .56), rgba(20, 24, 29, .3) 11%, rgba(20, 24, 29, 0) 24%), linear-gradient(to top, rgba(20, 24, 29, .64), rgba(20, 24, 29, .4) 40%, rgba(20, 24, 29, 0) 82%); }
+.hero::after { content: ''; position: absolute; inset: 0; z-index: -2; pointer-events: none; background: linear-gradient(to bottom, rgba(20, 24, 29, .5), rgba(20, 24, 29, .24) 11%, rgba(20, 24, 29, 0) 24%), linear-gradient(to top, rgba(20, 24, 29, .5), rgba(20, 24, 29, .26) 40%, rgba(20, 24, 29, 0) 82%); }
 /* The copy sits in the lower middle: the free space above and below it is split so its centre lands about 68% down */
 /* The copy never blocks the lens: only its links, buttons and chip take the pointer */
 .hero-copy { position: absolute; inset: 0; pointer-events: none; display: flex; flex-direction: column; align-items: center; padding: 2rem clamp(1.25rem, 4vw, 3rem) 1.25rem; }
@@ -112,7 +112,7 @@ h3 { font-weight: 500; }
 .hero-copy::after { content: ''; flex: 14 1 0; min-height: 1.5rem; }
 .hero-text { position: relative; display: flex; flex-direction: column; align-items: center; max-width: 100%; text-align: center; text-shadow: 0 1px 2px rgba(20, 24, 29, .35), 0 2px 22px rgba(20, 24, 29, .45); }
 /* Soft dark glow behind the copy, fading out well before the edges of the photograph */
-.hero-text::before { content: ''; position: absolute; inset: -42% -45%; z-index: -1; pointer-events: none; background: radial-gradient(closest-side, rgba(20, 24, 29, .46), rgba(20, 24, 29, .44) 62%, rgba(20, 24, 29, .22) 84%, rgba(20, 24, 29, 0)); }
+.hero-text::before { content: ''; position: absolute; inset: -42% -45%; z-index: -1; pointer-events: none; background: radial-gradient(closest-side, rgba(20, 24, 29, .45), rgba(20, 24, 29, .4) 60%, rgba(20, 24, 29, .18) 84%, rgba(20, 24, 29, 0)); }
 .hero h1 { margin: 0 0 .9rem; max-width: 18ch; color: #fff; font-size: clamp(2.4rem, 4.8vw, 4.75rem); }
 .hero-description { max-width: 34rem; margin: 0 0 1.35rem; color: rgba(255, 255, 255, .88); font-size: 1.15rem; }
 .hero-actions { display: flex; align-items: center; justify-content: center; gap: .9rem; flex-wrap: wrap; margin: .2rem 0 1.1rem; }
@@ -273,20 +273,69 @@ h3 { font-weight: 500; }
   .doctor-card:hover .doctor-pill { background: #fff; }
 }
 
-/* Reviews and insurance */
-.trust { display: grid; grid-template-columns: 1fr 1.2fr; gap: 4rem; align-items: start; }
-.rating-card { padding: 2.75rem; background: var(--ink); color: var(--paper); }
-.rating-card h2 { font-size: clamp(1.8rem, 2.6vw, 2.5rem); margin-bottom: 1.5rem; }
-.rating-figure { font-family: var(--serif); font-size: clamp(4.5rem, 8vw, 6.5rem); line-height: 1; margin: 0 0 .75rem; }
-.rating-pending { color: #6d727a; font-size: .9rem; letter-spacing: .1em; text-transform: uppercase; margin: 0 0 .75rem; }
-.rating-card .stars { margin-bottom: 1rem; }
-.rating-card .muted { color: #a9adb3; max-width: 26rem; }
-.rating-card .text-link { color: var(--paper); }
-.rating-card .text-link:hover { color: #e3d4b1; }
-.insurance h2 { font-size: clamp(1.8rem, 2.6vw, 2.5rem); }
-.insurance > p { color: var(--muted); max-width: 32rem; }
-.insurer-list { list-style: none; display: flex; flex-wrap: wrap; gap: .6rem; padding: 0; margin: 1.5rem 0 2rem; }
-.insurer-list li { padding: .55rem 1rem; border: 1px solid var(--line); background: var(--white); font-size: .92rem; }
+/* ---------- In their words: rating seal and one review at a time ---------- */
+.voices { padding: 7rem 0; background: var(--paper); }
+.voices-layout { display: grid; grid-template-columns: 28% minmax(0, 1fr); align-items: center; gap: clamp(2rem, 5vw, 5rem); }
+.rating-seal { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .3rem; width: 200px; height: 200px; margin-inline: auto; border: 1px solid rgba(180, 154, 103, .6); border-radius: 50%; color: var(--ink); text-align: center; text-decoration: none; }
+.rating-seal strong { font-family: var(--serif); font-variation-settings: 'opsz' 28; font-size: 3.6rem; font-weight: 400; line-height: 1; }
+.rating-seal .stars { margin: .2rem 0 .25rem; color: var(--gold); }
+.rating-seal > span:not(.stars):not(.seal-arc):not(.seal-title) { font-size: .78rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.rating-seal:focus-visible { outline-offset: 6px; }
+/* On hover a short champagne arc travels slowly round the ring */
+.seal-arc { position: absolute; inset: -2px; border-radius: 50%; background: conic-gradient(var(--gold) 0 16%, transparent 16%); -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2.5px)); mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2.5px)); opacity: 0; transition: opacity .5s var(--ease); }
+a.rating-seal:hover .seal-arc, a.rating-seal:focus-visible .seal-arc { opacity: 1; animation: seal-turn 8s linear infinite; }
+@keyframes seal-turn { to { transform: rotate(360deg); } }
+.rating-seal.empty { gap: .7rem; }
+.seal-title { max-width: 8rem; font-family: var(--serif); font-variation-settings: 'opsz' 28; font-size: 1.5rem; line-height: 1.15; }
+.rating-seal.empty .text-link { font-size: .88rem; }
+
+.voices-label { margin: 0 0 1.5rem; font-family: var(--sans); font-size: .82rem; font-weight: 500; line-height: 1.4; letter-spacing: .16em; text-transform: uppercase; color: var(--gold-text); }
+.voice-stage { position: relative; }
+.voice-stage:focus-visible { outline: 3px solid var(--gold-text); outline-offset: 10px; }
+.voice { margin: 0; animation: detail-in .35s var(--ease) both; }
+.voice.leaving { position: absolute; inset: 0; pointer-events: none; animation: detail-out .35s var(--ease) both; }
+.voice blockquote { margin: 0; }
+.voice blockquote p, .voice-empty { max-width: 26ch; margin: 0; font-family: var(--serif); font-variation-settings: 'opsz' 28; font-size: clamp(1.8rem, 2.6vw, 2.6rem); line-height: 1.2; letter-spacing: -.01em; text-wrap: balance; }
+.voice figcaption { margin-top: 1.5rem; font-size: .95rem; font-weight: 500; }
+.voice figcaption span { font-weight: 400; color: var(--muted); }
+.voice-empty { margin-bottom: 1.5rem; }
+.voice-controls { display: flex; align-items: center; gap: .6rem; margin-top: 2rem; }
+.voice-arrow { display: inline-flex; align-items: center; justify-content: center; width: 46px; height: 46px; border: 1px solid #b9b8b2; border-radius: 50%; background: none; color: var(--ink); transition: background .3s var(--ease), color .3s, border-color .3s; }
+.voice-arrow:hover { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+.voice-count { margin-left: .8rem; font-size: .85rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+/* Phone-only pieces of “In their words” (shown below 860px): a swipeable track of reviews with dots */
+.voice-track, .voice-dots { display: none; }
+
+/* ---------- Your visit, prepared: a ticket with a perforation down the middle ---------- */
+.prepared { padding-bottom: 7rem; background: var(--paper); }
+.prepared > .container { padding-top: 6rem; border-top: 1px solid var(--line); }
+.prepared-intro { margin-bottom: 3rem; text-align: center; }
+.prepared-intro h2 { margin: 0 0 .8rem; font-size: clamp(2rem, 3vw, 2.6rem); }
+.prepared-intro p { margin: 0; color: var(--muted); }
+.ticket { --notch: 22px; position: relative; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); max-width: 1000px; margin-inline: auto; background: var(--white); border: 1px solid var(--line); border-radius: 6px; }
+.ticket-half { min-width: 0; padding: 2.75rem clamp(1.5rem, 4vw, 3.25rem) 2.5rem; }
+.ticket-half h3 { margin: 0 0 1rem; font-family: var(--serif); font-variation-settings: 'opsz' 28; font-size: 1.6rem; font-weight: 400; line-height: 1.15; }
+.ticket-half > p { margin: 0 0 1.5rem; color: var(--muted); }
+.ticket-half > .pending-text { margin: 0; }
+/* The perforation, and a semicircle notch where it meets the top and bottom edges (filled with the page colour) */
+.ticket-perforation { position: absolute; top: 0; bottom: 0; left: 50%; border-left: 1px dashed #c4c3bd; }
+.ticket::before, .ticket::after { content: ''; position: absolute; left: 50%; width: var(--notch); height: var(--notch); margin-left: calc(var(--notch) / -2); border: 1px solid var(--line); border-radius: 50%; background: var(--paper); }
+.ticket::before { top: calc(var(--notch) / -2 - 1px); clip-path: inset(50% -1px -1px -1px); }
+.ticket::after { bottom: calc(var(--notch) / -2 - 1px); clip-path: inset(-1px -1px 50% -1px); }
+.insurer-pills { display: flex; flex-wrap: wrap; gap: .5rem; margin: 0; padding: 0; list-style: none; }
+.insurer-pills li { padding: .45rem 1rem; border: 1px solid #c4c3bd; border-radius: 999px; font-size: .92rem; }
+.bring-list { margin: 0; padding: 0; list-style: none; }
+.bring-list li { display: flex; align-items: center; gap: 1rem; padding: .9rem 0; border-top: 1px solid var(--line); }
+.bring-list li:last-child { border-bottom: 1px solid var(--line); }
+.bring-list svg { color: var(--gold); }
+.ticket-foot { grid-column: 1 / -1; display: flex; justify-content: center; padding: 1.4rem 1.5rem 1.6rem; border-top: 1px solid var(--line); }
+/* The link sits on the perforation, so it carries the card colour behind it */
+.arrow-link { position: relative; z-index: 1; display: inline-flex; align-items: center; gap: .9rem; min-height: 44px; padding-inline: 1.25rem; background: var(--white); color: var(--ink); font-weight: 500; letter-spacing: .03em; text-decoration: none; }
+.arrow-link i { position: relative; width: 2.25rem; height: 1px; background: var(--gold); transition: width .35s var(--ease); }
+.arrow-link i::after { content: ''; position: absolute; right: 0; top: -3px; width: 7px; height: 7px; border-top: 1px solid var(--gold); border-right: 1px solid var(--gold); transform: rotate(45deg); }
+.arrow-link:hover i { width: 3.25rem; }
+.arrow-link:hover { color: var(--gold-text); }
 details { border-block: 1px solid var(--line); padding: 1.1rem 0; margin-top: 2rem; }
 summary { cursor: pointer; font-weight: 500; list-style: none; display: flex; justify-content: space-between; align-items: center; }
 summary::-webkit-details-marker { display: none; }
@@ -456,7 +505,6 @@ details p { margin: 1rem 0 0; color: var(--muted); }
 /* ---------- Responsive ---------- */
 @media (max-width: 1100px) {
   .booking-shell { gap: 3rem; }
-  .trust { gap: 2.5rem; }
 }
 @media (max-width: 860px) {
   .header-actions { gap: 1rem; }
@@ -477,7 +525,7 @@ details p { margin: 1rem 0 0; color: var(--muted); }
   .site-header.overlay:not(.scrolled) .call-link { border-color: rgba(255, 255, 255, .55); }
   @media (min-width: 600px) { .hero-copy::before { min-height: 42svh; } }
   .hero-photo img { object-position: 50% 18%; }
-  .hero::after { background: linear-gradient(to bottom, rgba(20, 24, 29, .56), rgba(20, 24, 29, .3) 11%, rgba(20, 24, 29, 0) 22%), linear-gradient(to top, rgba(20, 24, 29, .68), rgba(20, 24, 29, .5) 45%, rgba(20, 24, 29, .28) 66%, rgba(20, 24, 29, 0) 90%); }
+  .hero::after { background: linear-gradient(to bottom, rgba(20, 24, 29, .5), rgba(20, 24, 29, .24) 11%, rgba(20, 24, 29, 0) 22%), linear-gradient(to top, rgba(20, 24, 29, .5), rgba(20, 24, 29, .3) 45%, rgba(20, 24, 29, .12) 66%, rgba(20, 24, 29, 0) 88%); }
   .hero-text::before { inset: -30% -60%; }
   .hero-description { font-size: 1rem; line-height: 1.5; margin-bottom: .85rem; }
   .hero .gift { border-radius: 1.75rem; padding: .5rem 1.1rem .5rem 1rem; margin-bottom: .85rem; }
@@ -561,8 +609,43 @@ details p { margin: 1rem 0 0; color: var(--muted); }
   /* While the sheet is open the page behind does not scroll, and the floating Book bar steps aside */
   .sheet-open { overflow: hidden; }
   .sheet-open .mobile-book.visible { transform: translateY(110%); }
-  .trust { grid-template-columns: 1fr; }
-  .rating-card { padding: 2rem; }
+  /* In their words on phones: the seal on top, then the reviews as a swipeable track with dots */
+  .voices { padding: 4.5rem 0; }
+  .voices-layout { grid-template-columns: minmax(0, 1fr); gap: 2.25rem; text-align: center; }
+  .rating-seal { width: 160px; height: 160px; margin-inline: auto; }
+  .rating-seal strong { font-size: 2.9rem; }
+  .rating-seal > span:not(.stars):not(.seal-arc):not(.seal-title) { font-size: .7rem; }
+  .seal-title { font-size: 1.3rem; }
+  .voices-main .text-link { display: inline-flex; align-items: center; min-height: 44px; }
+  .voices-label { margin-bottom: 1.1rem; }
+  .voice-stage, .voice-controls { display: none; }
+  .voice-track { display: flex; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x mandatory; scrollbar-width: none; }
+  .voice-track::-webkit-scrollbar { display: none; }
+  .voice-track:focus-visible { outline: 3px solid var(--gold-text); outline-offset: 6px; }
+  .voice-track .voice { flex: 0 0 100%; scroll-snap-align: center; animation: none; }
+  .voice blockquote p, .voice-empty { max-width: 22ch; margin-inline: auto; font-size: 1.6rem; line-height: 1.25; }
+  .voice-empty { margin-bottom: 1rem; }
+  .voice figcaption { margin-top: 1.1rem; }
+  .voice-dots { display: flex; justify-content: center; align-items: center; gap: .4rem; margin-top: 1.5rem; }
+  .voice-dots span { width: 6px; height: 6px; border-radius: 3px; background: #c4c3bd; transition: width .3s var(--ease), background .3s; }
+  .voice-dots .active { width: 22px; background: var(--ink); }
+  .prepared { padding-bottom: 4.5rem; }
+  .prepared > .container { padding-top: 4rem; }
+  .prepared-intro { margin-bottom: 2rem; }
+  /* Stacked: the perforation runs across, with the notches on the left and right edges */
+  .ticket { grid-template-columns: minmax(0, 1fr); }
+  .ticket-half { padding: 2rem 1.5rem; }
+  .ticket-perforation, .ticket::before, .ticket::after { display: none; }
+  .ticket-half + .ticket-half { position: relative; border-top: 1px dashed #c4c3bd; }
+  .ticket-half + .ticket-half::before, .ticket-half + .ticket-half::after { content: ''; position: absolute; top: calc(var(--notch) / -2); width: var(--notch); height: var(--notch); border: 1px solid var(--line); border-radius: 50%; background: var(--paper); }
+  .ticket-half + .ticket-half::before { left: calc(var(--notch) / -2 - 1px); clip-path: inset(-1px -1px -1px 50%); }
+  .ticket-half + .ticket-half::after { right: calc(var(--notch) / -2 - 1px); clip-path: inset(-1px 50% -1px -1px); }
+  /* Insurers in one row that scrolls sideways, out to the edges of the card */
+  .insurer-pills { flex-wrap: nowrap; margin-inline: -1.5rem; padding-inline: 1.5rem; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; }
+  .insurer-pills::-webkit-scrollbar { display: none; }
+  .insurer-pills li { flex: none; display: flex; align-items: center; min-height: 44px; white-space: nowrap; }
+  .ticket-foot { padding: .5rem 1.5rem; }
+  .arrow-link { width: 100%; min-height: 56px; padding-inline: 0; justify-content: space-between; }
   .final-cta { padding: 4.5rem 0 5.5rem; }
   .footer-inner { grid-template-columns: 1fr 1fr; gap: 2rem; }
   .footer-inner > .logo { grid-column: 1 / -1; }
@@ -603,4 +686,5 @@ details p { margin: 1rem 0 0; color: var(--muted); }
   .hero-lens, .lens-ring, .lens-hint { display: none; }
   .chart-row { filter: none; }
   .scroll-cue::after { animation: none; }
+  a.rating-seal:hover .seal-arc, a.rating-seal:focus-visible .seal-arc { animation: none; }
 }

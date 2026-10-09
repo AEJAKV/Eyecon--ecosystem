@@ -3,14 +3,14 @@ import { useEffect, useRef, useState } from 'react';
 import Image, { getImageProps } from 'next/image';
 import { useApp } from './provider';
 import { Header, Footer, Button, Icon, Gift, Referral, Loading, Notice, Stars } from './ui';
-import { DEMO, services, collections, doctors, clinic } from '@/lib/config';
+import { DEMO, services, collections, doctors, reviews, instructions, clinic } from '@/lib/config';
 
 /* Hero photograph. Art direction: a 16:9 crop above 860px and a 9:16 crop on phones.
    Only the matching source is downloaded, so it is prioritised with fetchPriority rather than preload. */
 function HeroPhoto({ alt = '', className = '' }) {
   const common = { alt, sizes: '100vw', fetchPriority: 'high' };
-  const { props: { srcSet: desktop } } = getImageProps({ ...common, src: '/images/hero-desktop.webp', width: 1672, height: 941 });
-  const { props: { srcSet: mobile, ...rest } } = getImageProps({ ...common, src: '/images/hero-mobile.webp', width: 941, height: 1672 });
+  const { props: { srcSet: desktop } } = getImageProps({ ...common, src: '/images/hero/hero-desktop-revised.webp', width: 1672, height: 941 });
+  const { props: { srcSet: mobile, ...rest } } = getImageProps({ ...common, src: '/images/hero/hero-mobile-revised.webp', width: 941, height: 1672 });
   return (
     <picture className={`hero-photo ${className}`}>
       <source media="(min-width: 861px)" srcSet={desktop} />
@@ -20,8 +20,9 @@ function HeroPhoto({ alt = '', className = '' }) {
   );
 }
 
-// Centre of the glasses in each photograph, as a fraction of its width and height.
-const FOCUS = { desktop: [0.73, 0.22], mobile: [0.63, 0.205] };
+// Centres of the two pairs of glasses in each photograph (his, then hers), as fractions of its width and height.
+// The lens rests on the first pair it can sit over without rising into the header.
+const FOCUS = { desktop: [[0.535, 0.245], [0.77, 0.265]], mobile: [[0.44, 0.2], [0.74, 0.215]] };
 const PHOTO_SCALE = 1.04; // matches .hero-photo img in site.css
 
 /* The photograph is soft-focused; a lens follows the pointer anywhere on the hero and brings it into focus,
@@ -37,28 +38,35 @@ function Hero({ children }) {
     function rest() {
       const box = el.getBoundingClientRect();
       if (!box.width || !img.naturalWidth) return;
-      // Where the glasses land on screen, given object-fit: cover and the image’s object-position.
-      const [fx, fy] = FOCUS[img.currentSrc.includes('hero-desktop') ? 'desktop' : 'mobile'];
       const [px, py] = getComputedStyle(img).objectPosition.split(' ').map(parseFloat);
       const scale = Math.max(box.width / img.naturalWidth, box.height / img.naturalHeight);
       const w = img.naturalWidth * scale, h = img.naturalHeight * scale;
-      let x = box.width / 2 + ((box.width - w) * px / 100 + fx * w - box.width / 2) * PHOTO_SCALE;
-      let y = box.height / 2 + ((box.height - h) * py / 100 + fy * h - box.height / 2) * PHOTO_SCALE;
-      // Rest in the upper half and below the header where there is room, then lift until the circle is clear of the copy.
       const r = parseFloat(getComputedStyle(el).getPropertyValue('--r')) || 150;
       const header = document.querySelector('.site-header .header-inner')?.getBoundingClientRect().height || 0;
       const touches = (cx, cy, rect, gap) => Math.hypot(cx - Math.max(rect.left - box.left, Math.min(cx, rect.right - box.left)), cy - Math.max(rect.top - box.top, Math.min(cy, rect.bottom - box.top))) < r + gap;
       const copy = [...text.children].map(child => child.getBoundingClientRect());
-      x = Math.max(r * 0.8, Math.min(x, box.width - r * 0.8));
-      y = Math.min(Math.max(y, header + r + 8), box.height / 2);
-      while (y > r * 0.8 && copy.some(rect => touches(x, y, rect, 12))) y -= 2;
-      // Make way for the hint if a small move down, or else sideways, is enough to clear it.
-      const hint = el.querySelector('.lens-hint').getBoundingClientRect(), below = hint.bottom - box.top + r + 8, aside = hint.left - box.left - r - 8;
       const free = (cx, cy) => !copy.some(rect => touches(cx, cy, rect, 12));
-      if (touches(x, y, hint, 0)) {
-        if (below - y < r * 0.45 && below <= box.height / 2 && free(x, below)) y = below;
-        else if (x - aside < r * 0.3 && free(aside, y)) x = aside;
+      const hint = el.querySelector('.lens-hint').getBoundingClientRect();
+      // Where the lens would rest over one pair of glasses.
+      function settle([fx, fy]) {
+        // Where the glasses land on screen, given object-fit: cover and the image’s object-position.
+        let x = box.width / 2 + ((box.width - w) * px / 100 + fx * w - box.width / 2) * PHOTO_SCALE;
+        let y = box.height / 2 + ((box.height - h) * py / 100 + fy * h - box.height / 2) * PHOTO_SCALE;
+        // Rest in the upper half and below the header where there is room, then lift until the circle is clear of the copy.
+        x = Math.max(r * 0.8, Math.min(x, box.width - r * 0.8));
+        y = Math.min(Math.max(y, header + r + 8), box.height / 2);
+        while (y > r * 0.8 && !free(x, y)) y -= 2;
+        // Make way for the hint if a small move down, or else sideways, is enough to clear it.
+        const below = hint.bottom - box.top + r + 8, aside = hint.left - box.left - r - 8;
+        if (touches(x, y, hint, 0)) {
+          if (below - y < r * 0.45 && below <= box.height / 2 && free(x, below)) y = below;
+          else if (x - aside < r * 0.3 && free(aside, y)) x = aside;
+        }
+        return { x, y };
       }
+      const spots = FOCUS[img.currentSrc.includes('hero-desktop') ? 'desktop' : 'mobile'].map(settle);
+      // Prefer the first pair that leaves the lens clear of the header; failing that, whichever sits lowest.
+      const { x, y } = spots.find(s => s.y - r >= header) || spots.reduce((a, b) => (b.y > a.y ? b : a));
       home.current = { x: x / box.width * 100, y: y / box.height * 100 };
       if (!pinned.current && !el.classList.contains('tracking')) place(home.current.x, home.current.y);
     }
@@ -82,7 +90,7 @@ function Hero({ children }) {
   }
   return (
     <section className="hero" ref={ref} onPointerDown={move} onPointerMove={move} onPointerLeave={leave} onPointerCancel={leave} style={{ '--x': home.current.x + '%', '--y': home.current.y + '%' }}>
-      <HeroPhoto className="soft" alt="A woman wearing tortoiseshell optical frames" />
+      <HeroPhoto className="soft" alt="A man and a woman wearing bold optical frames, with a city skyline at dusk behind them" />
       <div className="hero-lens" aria-hidden="true"><div className="hero-lens-zoom"><HeroPhoto /></div></div>
       <span className="lens-ring" aria-hidden="true" />
       <p className="lens-hint" aria-hidden="true">Move to bring into focus</p>
@@ -285,6 +293,136 @@ function Doctors({ serviceHref }) {
       <div className={`doctor-sheet ${open ? 'open' : ''}`} role="dialog" aria-modal="true" aria-label={personName} tabIndex={-1} inert={!open} ref={sheet} onTouchStart={dragStart} onTouchMove={dragMove} onTouchEnd={dragEnd} onTouchCancel={dragEnd}>
         <span className="doctor-sheet-handle" aria-hidden="true" />
         <DoctorIntro doctor={person} href={href(person)} onClose={close} />
+      </div>
+    </section>
+  );
+}
+
+/* The Google rating as a round seal that links to the clinic’s reviews. Without a rating it only names the source. */
+function RatingSeal() {
+  const link = clinic.reviews ? { href: clinic.reviews, target: '_blank', rel: 'noopener noreferrer' } : null;
+  if (!clinic.rating) return (
+    <div className="rating-seal empty">
+      <span className="seal-title">Google reviews</span>
+      {link && <a className="text-link" {...link}>Read on Google<span className="sr-only"> (opens in a new tab)</span></a>}
+    </div>
+  );
+  const label = `Rated ${clinic.rating.toFixed(1)} out of 5 on Google${clinic.reviewCount ? ` from ${clinic.reviewCount} reviews` : ''}`;
+  const Seal = link ? 'a' : 'div';
+  return (
+    <Seal className="rating-seal" {...link} aria-label={link ? label + '. Read the reviews on Google (opens in a new tab)' : label} role={link ? undefined : 'img'}>
+      <span className="seal-arc" aria-hidden="true" />
+      <strong>{clinic.rating.toFixed(1)}</strong>
+      <Stars value={clinic.rating} size={14} />
+      <span>on Google</span>
+      {clinic.reviewCount && <span>{clinic.reviewCount} reviews</span>}
+    </Seal>
+  );
+}
+
+/* “In their words”: the rating seal beside one patient review at a time. Reviews come from lib/config.js and are never
+   invented; with none, a single line says so. No autoplay. Arrow buttons, or the left and right keys, change the review.
+   On phones (below 860px) the reviews are a swipeable scroll-snap track with dots in place of the arrows. */
+function Voices() {
+  const [index, setIndex] = useState(0), [leaving, setLeaving] = useState(null);
+  const count = reviews.length, review = reviews[index];
+  const track = useRef(null), frame = useRef(0);
+  useEffect(() => () => cancelAnimationFrame(frame.current), []);
+  // Phones: the dot follows the review nearest the start of the track, read at most once per frame.
+  function follow() {
+    if (frame.current) return;
+    frame.current = requestAnimationFrame(() => {
+      frame.current = 0;
+      const el = track.current;
+      if (el?.clientWidth) setIndex(Math.max(0, Math.min(count - 1, Math.round(el.scrollLeft / el.clientWidth))));
+    });
+  }
+  function go(to) { const next = (to + count) % count; if (next !== index) { setLeaving(index); setIndex(next); } }
+  // The outgoing quote stays just long enough to fade out.
+  useEffect(() => { if (leaving === null) return; const timer = setTimeout(() => setLeaving(null), 380); return () => clearTimeout(timer); }, [leaving, index]);
+  function keys(e) {
+    if (count < 2 || (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight')) return;
+    e.preventDefault();
+    go(index + (e.key === 'ArrowRight' ? 1 : -1));
+  }
+  const quote = (r, out = false) => (
+    <figure className={`voice ${out ? 'leaving' : ''}`} key={(out ? 'leaving-' : '') + reviews.indexOf(r)} aria-hidden={out || undefined}>
+      <blockquote><p>“{r.text}”</p></blockquote>
+      <figcaption>{r.name}<span aria-hidden="true"> · </span><span>{r.source} review</span></figcaption>
+    </figure>
+  );
+  return (
+    <section className="voices" id="reviews" aria-labelledby="voices-title">
+      <div className="container voices-layout">
+        <RatingSeal />
+        <div className="voices-main" onKeyDown={keys}>
+          <h2 id="voices-title" className="voices-label">In their words</h2>
+          {count === 0
+            ? <>
+                <p className="voice-empty">Kind words from our patients will appear here soon.</p>
+                {clinic.reviews && <a className="text-link" href={clinic.reviews} target="_blank" rel="noopener noreferrer">Read our Google reviews<span className="sr-only"> (opens in a new tab)</span></a>}
+              </>
+            : <>
+                <div className="voice-stage" aria-live="polite" tabIndex={count > 1 ? 0 : undefined} role={count > 1 ? 'group' : undefined} aria-label={count > 1 ? 'Patient reviews. Use the left and right arrow keys to move.' : undefined}>
+                  {quote(review)}
+                  {leaving !== null && leaving !== index && reviews[leaving] && quote(reviews[leaving], true)}
+                </div>
+                <div className="voice-track" ref={track} onScroll={follow} role="group" aria-label="Patient reviews" tabIndex={count > 1 ? 0 : undefined}>
+                  {reviews.map((r, i) => <figure className="voice" key={i}>
+                    <blockquote><p>“{r.text}”</p></blockquote>
+                    <figcaption>{r.name}<span aria-hidden="true"> · </span><span>{r.source} review</span></figcaption>
+                  </figure>)}
+                </div>
+                {count > 1 && <div className="voice-dots" aria-hidden="true">{reviews.map((r, i) => <span key={i} className={i === index ? 'active' : undefined} />)}</div>}
+                {count > 1 && <div className="voice-controls">
+                  <button type="button" className="voice-arrow" aria-label="Previous review" onClick={() => go(index - 1)}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M19 12H5m6-6-6 6 6 6" /></svg></button>
+                  <button type="button" className="voice-arrow" aria-label="Next review" onClick={() => go(index + 1)}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6" /></svg></button>
+                  <span className="voice-count">{index + 1} of {count}</span>
+                </div>}
+              </>}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// One small line icon per item of the “what to bring” list, in the order of the instructions in lib/config.js.
+const BRING_ICONS = [
+  <><circle cx="6" cy="14" r="4" /><circle cx="18" cy="14" r="4" /><path d="M10 14h4M2 14l2-7m18 7-2-7" /></>, // glasses
+  <><rect x="2.5" y="5" width="19" height="14" rx="2" /><circle cx="8.5" cy="11" r="2.2" /><path d="M5 16c.6-1.6 2-2.4 3.5-2.4s2.9.8 3.5 2.4M14.5 10h4.5M14.5 14h3" /></>, // ID card
+  <><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3.2 2" /></> // clock
+];
+
+/* “Your visit, prepared”: a ticket-style card with insurance on one half and what to bring on the other,
+   divided by a perforation with a notch where it meets each edge. */
+function Prepared({ booking }) {
+  return (
+    <section className="prepared" aria-labelledby="prepared-title">
+      <div className="container">
+        <div className="prepared-intro">
+          <h2 id="prepared-title">Your visit, prepared</h2>
+          <p>Everything you need for a smooth first appointment.</p>
+        </div>
+        <div className="ticket">
+          <div className="ticket-half">
+            <h3 id="insurance">Insurance</h3>
+            <p>Add your insurer when you book, or bring your card. The team confirms your coverage before your exam.</p>
+            {clinic.insurers.length
+              ? <ul className="insurer-pills">{clinic.insurers.map(i => <li key={i}>{i}</li>)}</ul>
+              : <p className="pending-text">Accepted insurers will be listed before launch.</p>}
+          </div>
+          <div className="ticket-half">
+            <h3>What to bring</h3>
+            <ul className="bring-list">
+              {instructions.map((text, i) => <li key={text}>
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{BRING_ICONS[i % BRING_ICONS.length]}</svg>
+                <span>{text}</span>
+              </li>)}
+            </ul>
+          </div>
+          <span className="ticket-perforation" aria-hidden="true" />
+          <div className="ticket-foot"><a className="arrow-link" href={booking}>Book your appointment<i aria-hidden="true" /></a></div>
+        </div>
       </div>
     </section>
   );
@@ -536,26 +674,9 @@ export default function Landing({ slug }) {
 
       <Doctors serviceHref={serviceHref} />
 
-      <section className="section container trust" id="reviews" aria-label="Reviews and insurance">
-        <div className="rating-card">
-          <h2>What patients say</h2>
-          {clinic.rating
-            ? <><p className="rating-figure">{clinic.rating.toFixed(1)}</p><Stars value={clinic.rating} size={22} /><p className="muted">{clinic.reviewCount ? `${clinic.reviewCount} reviews on Google` : 'Rated on Google'}</p></>
-            : <><p className="rating-pending">Google rating</p><Stars value={0} size={22} /><p className="muted">The clinic’s verified Google rating and recent reviews will appear here once review access is connected.</p></>}
-          {clinic.reviews && <a className="text-link" href={clinic.reviews} target="_blank" rel="noopener noreferrer">Read all reviews on Google</a>}
-        </div>
-        <div className="insurance">
-          <h2 id="insurance">Insurance</h2>
-          <p>Add your insurer when you book, or bring your card to the visit. The team will confirm your coverage.</p>
-          {clinic.insurers.length
-            ? <ul className="insurer-list">{clinic.insurers.map(i => <li key={i}>{i}</li>)}</ul>
-            : <p className="pending-text">The list of insurers the clinic works with will be added before launch.</p>}
-          <details>
-            <summary>What should I bring?</summary>
-            <p>Your current glasses or contact lenses, photo ID and insurance card. Any clinic-specific steps arrive with your confirmation.</p>
-          </details>
-        </div>
-      </section>
+      <Voices />
+
+      <Prepared booking={booking} />
 
       <section className="final-cta">
         <div className="container">
