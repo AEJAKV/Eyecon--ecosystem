@@ -266,7 +266,7 @@ function Doctors({ serviceHref }) {
           const active = open === d.slug, name = `${d.title} ${d.first} ${d.last}`;
           return (
             <article className={`doctor-card ${active ? 'open' : ''}`} key={d.slug}>
-              <Image src={d.photo} alt={name} fill sizes="(max-width: 860px) 86vw, 600px" />
+              <Image src={d.photo} alt={d.alt || name} fill sizes="(max-width: 860px) 86vw, 600px" />
               <div className="doctor-card-text" aria-hidden={active || undefined}>
                 <h3><em>{d.title} {d.first}</em> <span>{d.last}</span></h3>
                 <p>{d.line}</p>
