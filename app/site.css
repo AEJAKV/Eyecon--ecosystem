@@ -78,6 +78,11 @@ h3 { font-weight: 500; }
 .gift-value { font-family: var(--serif); font-size: 2.3rem; line-height: 1; color: var(--gold-text); padding-right: 1.1rem; border-right: 1px solid #d8c9a6; }
 .gift strong { display: block; font-weight: 500; }
 .gift small { display: block; font-size: .8rem; line-height: 1.5; color: #6a5a39; margin-top: 2px; }
+/* The card number line: each part stays whole and the line wraps between parts */
+.gift small > span { white-space: nowrap; }
+.gift-serial { font-family: ui-monospace, 'SF Mono', 'Cascadia Mono', Menlo, Consolas, monospace; font-size: .95em; letter-spacing: .08em; }
+.gift-terms { color: var(--gold-text); text-decoration: underline; text-underline-offset: 3px; }
+.gift-terms:hover { color: var(--ink); }
 .gift.compact { padding: .8rem 1rem .8rem .8rem; }
 .gift.compact .gift-value { font-size: 1.8rem; padding-right: .9rem; }
 
@@ -136,6 +141,8 @@ h3 { font-weight: 500; }
 .hero .gift { max-width: 32rem; margin: 0 0 1.2rem; padding: .6rem 1.7rem .6rem 1.4rem; border: 1px solid rgba(180, 154, 103, .75); border-radius: 999px; background: rgba(20, 24, 29, .55); backdrop-filter: blur(16px) saturate(1.2); -webkit-backdrop-filter: blur(16px) saturate(1.2); color: #fff; text-align: left; text-shadow: none; }
 .hero .gift-value { color: #e3d4b1; border-right-color: rgba(180, 154, 103, .55); }
 .hero .gift small { color: rgba(255, 255, 255, .8); }
+.hero .gift-terms { color: #e3d4b1; }
+.hero .gift-terms:hover { color: #fff; }
 
 /* Page-load sequence: the one orchestrated moment on the page */
 .hero-text > * { animation: rise .9s var(--ease) both; }

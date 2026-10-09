@@ -1,0 +1,4 @@
+import { Header,Footer } from '@/components/ui';
+import { GIFT_CARD_DAYS } from '@/lib/config';
+export const metadata={title:'Gift card terms'};
+export default function Page(){return <><Header/><main className="container prose" id="main-content"><p className="eyebrow">REFERRAL GIFT CARD</p><h1>Gift card terms</h1><p className="notice">Draft terms for clinic review. Eyecon must confirm the final terms before live patient use.</p><ul><li>Promotional gift card issued free of charge to new patients referred by an Eyecon affiliate.</li><li>One card per new patient. Valid for {GIFT_CARD_DAYS} days from the booking date.</li><li>Redeemable at Eyecon Optometry toward products or services. No cash value, not refundable and not transferable.</li><li>The card number must be presented at the visit. Lost cards can be reissued by the clinic.</li><li>Eyecon may change or end this promotion at any time. [Clinic to confirm final terms.]</li></ul></main><Footer/></>;}

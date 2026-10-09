@@ -138,7 +138,7 @@ export default function BookingFlow() {
       <aside className="booking-aside">
         <h1>A little time, a clearer view.</h1>
         <p>Choose your appointment and a time that suits you. It takes about a minute.</p>
-        {affiliate && <><Referral affiliate={affiliate} />{step < 3 && <Gift compact />}</>}
+        {affiliate && <><Referral affiliate={affiliate} />{step < 3 && <Gift compact affiliate={affiliate} />}</>}
         <div className="booking-help">
           <Icon name="phone" />
           <h3>Prefer to talk to us?</h3>
@@ -246,7 +246,7 @@ export default function BookingFlow() {
             {added && <p className="calendar-added" role="status"><Icon name="check" size={18} />Opened in {calendarNames[added]}. Save it there to finish.</p>}
           </div>
 
-          {affiliate && <Gift />}
+          {affiliate && <Gift affiliate={affiliate} card={confirmation.booking.giftCard} />}
           <h3 className="plain">Before your visit</h3>
           <ul className="check-list">{instructions.map(t => <li key={t}><Icon name="check" size={18} />{t}</li>)}</ul>
           <Notice>{DEMO ? 'Demo booking saved in this browser. No email or SMS was sent.' : confirmation.notifications?.email === 'sent' ? 'Your confirmation email is on its way. Check your inbox.' : 'Your booking is saved. Keep your reference and add it to your calendar above.'}</Notice>

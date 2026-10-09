@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { DEMO } from '@/lib/config';
 import { validateBooking } from '@/lib/validation';
-import { adminClient, encryptPolicy, mapBooking, sameOrigin, fail } from '@/lib/server';
+import { adminClient, encryptPolicy, mapBooking, sameOrigin, fail, issueGift } from '@/lib/server';
 import { claimAndSend } from '@/lib/notifications';
 export async function POST(request) {
   try{
@@ -16,7 +16,7 @@ export async function POST(request) {
     if(error)throw new Error(error.message.includes('rate limit')?'Too many booking attempts. Please contact the clinic.':error.message.includes('affiliate')?'This referral is no longer available.':'That appointment time is no longer available. Please choose another.');
     // The preferred optometrist is optional, so a failure to store it (for example before migration 001 has run) never loses the booking.
     if(b.preferredDoctor){const {error:pe}=await db.from('bookings').update({preferred_doctor:b.preferredDoctor}).eq('id',data[0].id);if(pe)console.error('Preferred optometrist not saved:',pe.code);else data[0].preferred_doctor=b.preferredDoctor;}
-    const saved=mapBooking(data[0]),notifications=await claimAndSend(db,saved,'confirmation');
-    return Response.json({booking:{id:saved.id,start:saved.start,duration:saved.duration,service:saved.service,affiliateId:saved.affiliateId,name:saved.name},notifications},{status:201,headers:{'Cache-Control':'no-store'}});
+    const saved=mapBooking(await issueGift(db,data[0])),notifications=await claimAndSend(db,saved,'confirmation');
+    return Response.json({booking:{id:saved.id,start:saved.start,duration:saved.duration,service:saved.service,affiliateId:saved.affiliateId,name:saved.name,giftCard:saved.giftCard},notifications},{status:201,headers:{'Cache-Control':'no-store'}});
   }catch(e){return fail(e);}
 }

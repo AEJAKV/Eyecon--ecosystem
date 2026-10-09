@@ -714,7 +714,7 @@ export default function Landing({ slug }) {
             {affiliate && <Referral affiliate={affiliate} />}
             <h1>Clear sight, exquisitely framed.</h1>
             <p className="hero-description">A thorough eye exam and a private look at the world’s finest eyewear, in one unhurried visit.</p>
-            {affiliate && <Gift />}
+            {affiliate && <Gift affiliate={affiliate} />}
             <div className="hero-actions">
               <Button href={booking}>Book your appointment</Button>
               <a className="button outline" href="#appointments">See appointment types</a>
