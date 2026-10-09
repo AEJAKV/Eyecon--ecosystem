@@ -273,69 +273,100 @@ h3 { font-weight: 500; }
   .doctor-card:hover .doctor-pill { background: #fff; }
 }
 
-/* ---------- In their words: rating seal and one review at a time ---------- */
-.voices { padding: 7rem 0; background: var(--paper); }
+/* ---------- In their words: rating seal, featured review, review wall ---------- */
+.voices { padding: 7rem 0; background: var(--paper); overflow: hidden; }
 .voices-layout { display: grid; grid-template-columns: 28% minmax(0, 1fr); align-items: center; gap: clamp(2rem, 5vw, 5rem); }
 .rating-seal { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .3rem; width: 200px; height: 200px; margin-inline: auto; border: 1px solid rgba(180, 154, 103, .6); border-radius: 50%; color: var(--ink); text-align: center; text-decoration: none; }
 .rating-seal strong { font-family: var(--serif); font-variation-settings: 'opsz' 28; font-size: 3.6rem; font-weight: 400; line-height: 1; }
 .rating-seal .stars { margin: .2rem 0 .25rem; color: var(--gold); }
-.rating-seal > span:not(.stars):not(.seal-arc):not(.seal-title) { font-size: .78rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.rating-seal > span:not(.stars):not(.seal-arc):not(.seal-title) { font-size: .74rem; line-height: 1.5; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
 .rating-seal:focus-visible { outline-offset: 6px; }
 /* On hover a short champagne arc travels slowly round the ring */
 .seal-arc { position: absolute; inset: -2px; border-radius: 50%; background: conic-gradient(var(--gold) 0 16%, transparent 16%); -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2.5px)); mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2.5px)); opacity: 0; transition: opacity .5s var(--ease); }
-a.rating-seal:hover .seal-arc, a.rating-seal:focus-visible .seal-arc { opacity: 1; animation: seal-turn 8s linear infinite; }
+.rating-seal:hover .seal-arc, .rating-seal:focus-visible .seal-arc { opacity: 1; animation: seal-turn 8s linear infinite; }
 @keyframes seal-turn { to { transform: rotate(360deg); } }
 .rating-seal.empty { gap: .7rem; }
 .seal-title { max-width: 8rem; font-family: var(--serif); font-variation-settings: 'opsz' 28; font-size: 1.5rem; line-height: 1.15; }
 .rating-seal.empty .text-link { font-size: .88rem; }
 
 .voices-label { margin: 0 0 1.5rem; font-family: var(--sans); font-size: .82rem; font-weight: 500; line-height: 1.4; letter-spacing: .16em; text-transform: uppercase; color: var(--gold-text); }
+/* Marks invented design-preview content wherever it is shown */
+.sample-tag { margin: 0; font-size: .78rem; letter-spacing: .04em; color: var(--muted); }
+.voices-label + .sample-tag { margin: -1rem 0 1.5rem; }
 .voice-stage { position: relative; }
 .voice-stage:focus-visible { outline: 3px solid var(--gold-text); outline-offset: 10px; }
 .voice { margin: 0; animation: detail-in .35s var(--ease) both; }
 .voice.leaving { position: absolute; inset: 0; pointer-events: none; animation: detail-out .35s var(--ease) both; }
 .voice blockquote { margin: 0; }
-.voice blockquote p, .voice-empty { max-width: 26ch; margin: 0; font-family: var(--serif); font-variation-settings: 'opsz' 28; font-size: clamp(1.8rem, 2.6vw, 2.6rem); line-height: 1.2; letter-spacing: -.01em; text-wrap: balance; }
-.voice figcaption { margin-top: 1.5rem; font-size: .95rem; font-weight: 500; }
-.voice figcaption span { font-weight: 400; color: var(--muted); }
+.voice blockquote p, .voice-empty { max-width: 28ch; margin: 0; font-family: var(--serif); font-variation-settings: 'opsz' 28; font-size: clamp(1.8rem, 2.6vw, 2.6rem); line-height: 1.2; letter-spacing: -.01em; text-wrap: balance; }
+.voice figcaption { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem .8rem; margin-top: 1.5rem; font-size: .95rem; }
+.voice figcaption strong, .review-card footer strong { font-weight: 500; }
+.service-pill { padding: .15rem .6rem; border: 1px solid #c4c3bd; border-radius: 999px; font-size: .78rem; white-space: nowrap; }
+.review-source { color: var(--muted); font-size: .88rem; }
 .voice-empty { margin-bottom: 1.5rem; }
-.voice-controls { display: flex; align-items: center; gap: .6rem; margin-top: 2rem; }
-.voice-arrow { display: inline-flex; align-items: center; justify-content: center; width: 46px; height: 46px; border: 1px solid #b9b8b2; border-radius: 50%; background: none; color: var(--ink); transition: background .3s var(--ease), color .3s, border-color .3s; }
+.voice-controls { display: flex; align-items: center; gap: .5rem; margin-top: 1.75rem; }
+.voice-arrow { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border: 1px solid #b9b8b2; border-radius: 50%; background: none; color: var(--ink); transition: background .3s var(--ease), color .3s, border-color .3s; }
 .voice-arrow:hover { background: var(--ink); border-color: var(--ink); color: var(--paper); }
-.voice-count { margin-left: .8rem; font-size: .85rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); font-variant-numeric: tabular-nums; }
+.voice-count { margin-left: .8rem; font-size: .82rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); font-variant-numeric: tabular-nums; }
 
-/* Phone-only pieces of “In their words” (shown below 860px): a swipeable track of reviews with dots */
-.voice-track, .voice-dots { display: none; }
+/* Review wall: two rows of cards drifting slowly in opposite directions, fading out at both edges */
+.review-wall { margin-top: 5rem; display: flex; flex-direction: column; gap: 1rem; }
+.review-row { --fade: linear-gradient(to right, transparent, #000 9%, #000 91%, transparent); overflow: hidden; -webkit-mask-image: var(--fade); mask-image: var(--fade); }
+.review-row:focus-visible { outline: 3px solid var(--gold-text); outline-offset: -3px; }
+.review-belt { display: flex; width: max-content; animation: drift 60s linear infinite; }
+.review-row.reverse .review-belt { animation-direction: reverse; }
+.review-row:hover .review-belt, .review-row:focus .review-belt, .review-row:focus-within .review-belt { animation-play-state: paused; }
+@keyframes drift { to { transform: translateX(-50%); } }
+.review-set { display: flex; gap: 1rem; margin: 0; padding: 0 1rem 0 0; list-style: none; }
+.review-card { position: relative; flex: 0 0 320px; display: flex; flex-direction: column; gap: .9rem; padding: 1.5rem; background: var(--white); border: 1px solid var(--line); border-radius: 6px; }
+.review-stars { position: relative; display: flex; color: var(--gold); }
+.review-card p { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; line-clamp: 4; overflow: hidden; margin: 0; font-size: 1rem; line-height: 1.55; }
+.review-card footer { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem .6rem; margin-top: auto; padding-top: .9rem; border-top: 1px solid var(--line); font-size: .92rem; }
+.review-card .review-source { margin-left: auto; }
+.review-dots { display: none; }
+.mentions { display: flex; flex-wrap: wrap; align-items: center; gap: .9rem 1.5rem; margin-top: 3rem; }
+.mentions p { margin: 0; font-size: .78rem; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.mention-pills, .insurer-pills { display: flex; flex-wrap: wrap; gap: .5rem; margin: 0; padding: 0; list-style: none; }
+.mention-pills li, .insurer-pills li { padding: .4rem .95rem; border: 1px solid #c4c3bd; border-radius: 999px; font-size: .9rem; white-space: nowrap; }
 
-/* ---------- Your visit, prepared: a ticket with a perforation down the middle ---------- */
+/* ---------- Your visit, prepared: a visit card with a tear-off stub ---------- */
 .prepared { padding-bottom: 7rem; background: var(--paper); }
 .prepared > .container { padding-top: 6rem; border-top: 1px solid var(--line); }
 .prepared-intro { margin-bottom: 3rem; text-align: center; }
 .prepared-intro h2 { margin: 0 0 .8rem; font-size: clamp(2rem, 3vw, 2.6rem); }
 .prepared-intro p { margin: 0; color: var(--muted); }
-.ticket { --notch: 22px; position: relative; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); max-width: 1000px; margin-inline: auto; background: var(--white); border: 1px solid var(--line); border-radius: 6px; }
-.ticket-half { min-width: 0; padding: 2.75rem clamp(1.5rem, 4vw, 3.25rem) 2.5rem; }
-.ticket-half h3 { margin: 0 0 1rem; font-family: var(--serif); font-variation-settings: 'opsz' 28; font-size: 1.6rem; font-weight: 400; line-height: 1.15; }
-.ticket-half > p { margin: 0 0 1.5rem; color: var(--muted); }
-.ticket-half > .pending-text { margin: 0; }
-/* The perforation, and a semicircle notch where it meets the top and bottom edges (filled with the page colour) */
-.ticket-perforation { position: absolute; top: 0; bottom: 0; left: 50%; border-left: 1px dashed #c4c3bd; }
-.ticket::before, .ticket::after { content: ''; position: absolute; left: 50%; width: var(--notch); height: var(--notch); margin-left: calc(var(--notch) / -2); border: 1px solid var(--line); border-radius: 50%; background: var(--paper); }
-.ticket::before { top: calc(var(--notch) / -2 - 1px); clip-path: inset(50% -1px -1px -1px); }
-.ticket::after { bottom: calc(var(--notch) / -2 - 1px); clip-path: inset(-1px -1px 50% -1px); }
-.insurer-pills { display: flex; flex-wrap: wrap; gap: .5rem; margin: 0; padding: 0; list-style: none; }
-.insurer-pills li { padding: .45rem 1rem; border: 1px solid #c4c3bd; border-radius: 999px; font-size: .92rem; }
-.bring-list { margin: 0; padding: 0; list-style: none; }
-.bring-list li { display: flex; align-items: center; gap: 1rem; padding: .9rem 0; border-top: 1px solid var(--line); }
-.bring-list li:last-child { border-bottom: 1px solid var(--line); }
-.bring-list svg { color: var(--gold); }
-.ticket-foot { grid-column: 1 / -1; display: flex; justify-content: center; padding: 1.4rem 1.5rem 1.6rem; border-top: 1px solid var(--line); }
-/* The link sits on the perforation, so it carries the card colour behind it */
-.arrow-link { position: relative; z-index: 1; display: inline-flex; align-items: center; gap: .9rem; min-height: 44px; padding-inline: 1.25rem; background: var(--white); color: var(--ink); font-weight: 500; letter-spacing: .03em; text-decoration: none; }
-.arrow-link i { position: relative; width: 2.25rem; height: 1px; background: var(--gold); transition: width .35s var(--ease); }
-.arrow-link i::after { content: ''; position: absolute; right: 0; top: -3px; width: 7px; height: 7px; border-top: 1px solid var(--gold); border-right: 1px solid var(--gold); transform: rotate(45deg); }
-.arrow-link:hover i { width: 3.25rem; }
-.arrow-link:hover { color: var(--gold-text); }
+.ticket { --notch: 22px; display: grid; grid-template-columns: minmax(0, 1fr) 248px; max-width: 1200px; margin-inline: auto; background: var(--white); border: 1px solid var(--line); border-radius: 6px; }
+.ticket-main { min-width: 0; }
+.ticket-strip { margin: 0; padding: .85rem 2rem; border-bottom: 1px solid var(--line); font-size: .74rem; letter-spacing: .16em; text-transform: uppercase; color: var(--gold-text); }
+.ticket-columns { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.ticket-columns.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.ticket-col { min-width: 0; padding: 2rem 1.75rem 2.25rem; }
+.ticket-col + .ticket-col { border-left: 1px solid var(--line); }
+.ticket-col h3 { margin: 0 0 .9rem; font-family: var(--serif); font-variation-settings: 'opsz' 28; font-size: 1.45rem; font-weight: 400; line-height: 1.15; }
+.ticket-col > p { margin: 0 0 1.25rem; color: var(--muted); font-size: .97rem; }
+.ticket-col > .pending-text { margin: 0; }
+.ticket-col > .sample-tag { margin: .8rem 0 0; font-size: .74rem; }
+.bring-list, .know-list { margin: 0; padding: 0; list-style: none; }
+.bring-list li, .know-list div { display: grid; grid-template-columns: 22px minmax(0, 1fr); align-items: center; gap: .1rem .9rem; padding: .8rem 0; border-top: 1px solid var(--line); font-size: .97rem; }
+.bring-list li:last-child, .know-list div:last-child { border-bottom: 1px solid var(--line); }
+.bring-list svg, .know-list svg { color: var(--gold); }
+.know-list svg { grid-row: span 2; }
+.know-list dt { font-size: .72rem; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.know-list dd { margin: 0; overflow-wrap: anywhere; }
+/* The stub: past a perforation, with a semicircle notch (in the page colour) where it meets the top and bottom edges */
+.ticket-stub { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 2rem 1.5rem 1.75rem; border-left: 1px dashed #c4c3bd; border-radius: 0 5px 5px 0; background: #f7f1e3; text-align: center; }
+.ticket-stub::before, .ticket-stub::after { content: ''; position: absolute; left: calc(var(--notch) / -2 - 1px); width: var(--notch); height: var(--notch); border: 1px solid var(--line); border-radius: 50%; background: var(--paper); }
+.ticket-stub::before { top: calc(var(--notch) / -2 - 1px); clip-path: inset(50% -1px -1px -1px); }
+.ticket-stub::after { bottom: calc(var(--notch) / -2 - 1px); clip-path: inset(-1px -1px 50% -1px); }
+.stub-figure { margin: auto 0 .4rem; font-family: var(--serif); font-variation-settings: 'opsz' 28; font-size: 3.6rem; line-height: 1; color: var(--gold-text); }
+.stub-figure.words { font-size: 2rem; line-height: 1.1; color: var(--ink); }
+.stub-line { margin: 0; font-weight: 500; line-height: 1.4; }
+.stub-note { margin: .35rem 0 0; color: #6a5a39; font-size: .88rem; }
+.ticket-stub .button { width: 100%; margin-top: auto; padding-inline: .75rem; font-size: .88rem; }
+.stub-line + .button, .stub-note + .button { margin-top: 1.5rem; }
+.ticket-stub > :first-child { margin-top: auto; }
+.ticket-stub .button { margin-bottom: 0; }
+.ticket-stub { gap: 0; }
 details { border-block: 1px solid var(--line); padding: 1.1rem 0; margin-top: 2rem; }
 summary { cursor: pointer; font-weight: 500; list-style: none; display: flex; justify-content: space-between; align-items: center; }
 summary::-webkit-details-marker { display: none; }
@@ -609,43 +640,52 @@ details p { margin: 1rem 0 0; color: var(--muted); }
   /* While the sheet is open the page behind does not scroll, and the floating Book bar steps aside */
   .sheet-open { overflow: hidden; }
   .sheet-open .mobile-book.visible { transform: translateY(110%); }
-  /* In their words on phones: the seal on top, then the reviews as a swipeable track with dots */
+  /* In their words on phones: seal, then the featured review, then one swipe row of cards with dots */
   .voices { padding: 4.5rem 0; }
   .voices-layout { grid-template-columns: minmax(0, 1fr); gap: 2.25rem; text-align: center; }
   .rating-seal { width: 160px; height: 160px; margin-inline: auto; }
   .rating-seal strong { font-size: 2.9rem; }
-  .rating-seal > span:not(.stars):not(.seal-arc):not(.seal-title) { font-size: .7rem; }
+  .rating-seal > span:not(.stars):not(.seal-arc):not(.seal-title) { font-size: .66rem; }
   .seal-title { font-size: 1.3rem; }
   .voices-main .text-link { display: inline-flex; align-items: center; min-height: 44px; }
   .voices-label { margin-bottom: 1.1rem; }
-  .voice-stage, .voice-controls { display: none; }
-  .voice-track { display: flex; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x mandatory; scrollbar-width: none; }
-  .voice-track::-webkit-scrollbar { display: none; }
-  .voice-track:focus-visible { outline: 3px solid var(--gold-text); outline-offset: 6px; }
-  .voice-track .voice { flex: 0 0 100%; scroll-snap-align: center; animation: none; }
+  .voices-label + .sample-tag { margin: -.7rem 0 1.1rem; }
   .voice blockquote p, .voice-empty { max-width: 22ch; margin-inline: auto; font-size: 1.6rem; line-height: 1.25; }
   .voice-empty { margin-bottom: 1rem; }
-  .voice figcaption { margin-top: 1.1rem; }
-  .voice-dots { display: flex; justify-content: center; align-items: center; gap: .4rem; margin-top: 1.5rem; }
-  .voice-dots span { width: 6px; height: 6px; border-radius: 3px; background: #c4c3bd; transition: width .3s var(--ease), background .3s; }
-  .voice-dots .active { width: 22px; background: var(--ink); }
+  .voice figcaption { justify-content: center; margin-top: 1.1rem; }
+  .voice-controls { justify-content: center; margin-top: 1.25rem; }
+  .review-wall { margin-top: 3rem; gap: 0; }
+  .review-row { -webkit-mask-image: none; mask-image: none; padding-inline: 1.25rem; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x mandatory; scroll-padding-inline: 1.25rem; scrollbar-width: none; }
+  .review-row::-webkit-scrollbar, .mention-pills::-webkit-scrollbar, .insurer-pills::-webkit-scrollbar { display: none; }
+  .review-row.reverse, .review-set.copy, .review-card.filler { display: none; }
+  .review-belt { animation: none; }
+  .review-set { gap: .9rem; padding-right: 0; }
+  .review-card { flex-basis: 80vw; scroll-snap-align: start; text-align: left; }
+  .review-dots { display: flex; justify-content: center; align-items: center; gap: .4rem; margin-top: 1.25rem; }
+  .review-dots span { width: 6px; height: 6px; border-radius: 3px; background: #c4c3bd; transition: width .3s var(--ease), background .3s; }
+  .review-dots .active { width: 22px; background: var(--ink); }
+  /* Pills in one row that scrolls sideways, out to the screen or card edge */
+  .mentions { display: block; margin-top: 2.5rem; }
+  .mentions p { margin-bottom: .8rem; }
+  .mention-pills, .insurer-pills { flex-wrap: nowrap; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; }
+  .mention-pills { margin-inline: calc((100vw - 100%) / -2); padding-inline: calc((100vw - 100%) / 2); }
+  .mention-pills li, .insurer-pills li { flex: none; display: flex; align-items: center; min-height: 44px; }
+  .insurer-pills { margin-inline: -1.5rem; padding-inline: 1.5rem; }
+
+  /* Your visit, prepared on phones: everything stacks, and the stub tears off along the bottom */
   .prepared { padding-bottom: 4.5rem; }
   .prepared > .container { padding-top: 4rem; }
   .prepared-intro { margin-bottom: 2rem; }
-  /* Stacked: the perforation runs across, with the notches on the left and right edges */
   .ticket { grid-template-columns: minmax(0, 1fr); }
-  .ticket-half { padding: 2rem 1.5rem; }
-  .ticket-perforation, .ticket::before, .ticket::after { display: none; }
-  .ticket-half + .ticket-half { position: relative; border-top: 1px dashed #c4c3bd; }
-  .ticket-half + .ticket-half::before, .ticket-half + .ticket-half::after { content: ''; position: absolute; top: calc(var(--notch) / -2); width: var(--notch); height: var(--notch); border: 1px solid var(--line); border-radius: 50%; background: var(--paper); }
-  .ticket-half + .ticket-half::before { left: calc(var(--notch) / -2 - 1px); clip-path: inset(-1px -1px -1px 50%); }
-  .ticket-half + .ticket-half::after { right: calc(var(--notch) / -2 - 1px); clip-path: inset(-1px 50% -1px -1px); }
-  /* Insurers in one row that scrolls sideways, out to the edges of the card */
-  .insurer-pills { flex-wrap: nowrap; margin-inline: -1.5rem; padding-inline: 1.5rem; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; }
-  .insurer-pills::-webkit-scrollbar { display: none; }
-  .insurer-pills li { flex: none; display: flex; align-items: center; min-height: 44px; white-space: nowrap; }
-  .ticket-foot { padding: .5rem 1.5rem; }
-  .arrow-link { width: 100%; min-height: 56px; padding-inline: 0; justify-content: space-between; }
+  .ticket-strip { padding-inline: 1.5rem; }
+  .ticket-columns, .ticket-columns.two { grid-template-columns: minmax(0, 1fr); }
+  .ticket-col { padding: 1.75rem 1.5rem; }
+  .ticket-col + .ticket-col { border-left: 0; border-top: 1px solid var(--line); }
+  .ticket-stub { padding: 2rem 1.5rem 1.5rem; border-left: 0; border-top: 1px dashed #c4c3bd; border-radius: 0 0 5px 5px; }
+  .ticket-stub::before, .ticket-stub::after { top: calc(var(--notch) / -2); bottom: auto; }
+  .ticket-stub::before { left: calc(var(--notch) / -2 - 1px); clip-path: inset(-1px -1px -1px 50%); }
+  .ticket-stub::after { left: auto; right: calc(var(--notch) / -2 - 1px); clip-path: inset(-1px 50% -1px -1px); }
+  .ticket-stub .button { min-height: 52px; font-size: .95rem; }
   .final-cta { padding: 4.5rem 0 5.5rem; }
   .footer-inner { grid-template-columns: 1fr 1fr; gap: 2rem; }
   .footer-inner > .logo { grid-column: 1 / -1; }
@@ -686,5 +726,9 @@ details p { margin: 1rem 0 0; color: var(--muted); }
   .hero-lens, .lens-ring, .lens-hint { display: none; }
   .chart-row { filter: none; }
   .scroll-cue::after { animation: none; }
-  a.rating-seal:hover .seal-arc, a.rating-seal:focus-visible .seal-arc { animation: none; }
+  .rating-seal:hover .seal-arc, .rating-seal:focus-visible .seal-arc { animation: none; }
+  /* The review wall stops drifting and can be scrolled by hand instead */
+  .review-belt { animation: none !important; }
+  .review-row { overflow-x: auto; -webkit-mask-image: none; mask-image: none; }
+  .review-set.copy { display: none; }
 }

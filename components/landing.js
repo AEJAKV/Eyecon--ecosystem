@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import Image, { getImageProps } from 'next/image';
 import { useApp } from './provider';
 import { Header, Footer, Button, Icon, Gift, Referral, Loading, Notice, Stars } from './ui';
-import { DEMO, services, collections, doctors, reviews, instructions, clinic } from '@/lib/config';
+import { DEMO, services, collections, doctors, instructions, clinic, siteContent } from '@/lib/config';
 
 /* Hero photograph. Art direction: a 16:9 crop above 860px and a 9:16 crop on phones.
    Only the matching source is downloaded, so it is prioritised with fetchPriority rather than preload. */
@@ -298,45 +298,67 @@ function Doctors({ serviceHref }) {
   );
 }
 
+// Real content where it exists; sample content, labelled as such, in demo mode only (see siteContent in lib/config.js).
+const content = siteContent();
+
 /* The Google rating as a round seal that links to the clinic’s reviews. Without a rating it only names the source. */
 function RatingSeal() {
+  const { value, count, sample } = content.rating;
   const link = clinic.reviews ? { href: clinic.reviews, target: '_blank', rel: 'noopener noreferrer' } : null;
-  if (!clinic.rating) return (
+  if (!value) return (
     <div className="rating-seal empty">
       <span className="seal-title">Google reviews</span>
       {link && <a className="text-link" {...link}>Read on Google<span className="sr-only"> (opens in a new tab)</span></a>}
     </div>
   );
-  const label = `Rated ${clinic.rating.toFixed(1)} out of 5 on Google${clinic.reviewCount ? ` from ${clinic.reviewCount} reviews` : ''}`;
+  const label = `${sample ? 'Sample rating for the design preview: ' : 'Rated '}${value.toFixed(1)} out of 5 on Google${count ? ` from ${count} reviews` : ''}`;
   const Seal = link ? 'a' : 'div';
   return (
     <Seal className="rating-seal" {...link} aria-label={link ? label + '. Read the reviews on Google (opens in a new tab)' : label} role={link ? undefined : 'img'}>
       <span className="seal-arc" aria-hidden="true" />
-      <strong>{clinic.rating.toFixed(1)}</strong>
-      <Stars value={clinic.rating} size={14} />
-      <span>on Google</span>
-      {clinic.reviewCount && <span>{clinic.reviewCount} reviews</span>}
+      <strong>{value.toFixed(1)}</strong>
+      <Stars value={value} size={14} />
+      <span>{count ? <>{count} reviews<br />on Google</> : 'on Google'}</span>
     </Seal>
   );
 }
 
-/* “In their words”: the rating seal beside one patient review at a time. Reviews come from lib/config.js and are never
-   invented; with none, a single line says so. No autoplay. Arrow buttons, or the left and right keys, change the review.
-   On phones (below 860px) the reviews are a swipeable scroll-snap track with dots in place of the arrows. */
+function ReviewCard({ review, filler }) {
+  return (
+    <li className={`review-card ${filler ? 'filler' : ''}`}>
+      {review.stars > 0 && <span className="review-stars"><Stars value={review.stars} size={14} /><span className="sr-only">{review.stars} out of 5 stars</span></span>}
+      <p>{review.text}</p>
+      <footer>
+        <strong>{review.name}</strong>
+        {review.service && <span className="service-pill">{review.service}</span>}
+        <span className="review-source">{review.source}</span>
+      </footer>
+    </li>
+  );
+}
+
+/* One row of the review wall. On desktop the belt drifts slowly (pausing on hover or keyboard focus), with a second copy
+   of the cards so the loop has no seam. With reduced motion, and on phones, nothing moves and the row scrolls sideways. */
+function ReviewRow({ items, extra, reverse = false, label, rowRef, onScroll }) {
+  const cards = hidden => [...items.map((r, i) => <ReviewCard key={(hidden ? 'c' : 'r') + i} review={r} />), ...extra.map((r, i) => <ReviewCard key={(hidden ? 'cf' : 'f') + i} review={r} filler />)];
+  return (
+    <div className={`review-row ${reverse ? 'reverse' : ''}`} tabIndex={0} role="group" aria-label={label} ref={rowRef} onScroll={onScroll}>
+      <div className="review-belt">
+        <ul className="review-set">{cards(false)}</ul>
+        <ul className="review-set copy" aria-hidden="true">{cards(true)}</ul>
+      </div>
+    </div>
+  );
+}
+
+/* “In their words”: the rating seal beside a featured review, then a wall of review cards and what patients mention.
+   Reviews are never invented for the live site: they come from lib/config.js, and the labelled samples appear in demo
+   mode only. No autoplay on the featured review; its arrows, or the left and right keys, change it with a crossfade. */
 function Voices() {
-  const [index, setIndex] = useState(0), [leaving, setLeaving] = useState(null);
-  const count = reviews.length, review = reviews[index];
-  const track = useRef(null), frame = useRef(0);
+  const reviews = content.reviews.items, count = reviews.length;
+  const [index, setIndex] = useState(0), [leaving, setLeaving] = useState(null), [dot, setDot] = useState(0);
+  const row = useRef(null), frame = useRef(0);
   useEffect(() => () => cancelAnimationFrame(frame.current), []);
-  // Phones: the dot follows the review nearest the start of the track, read at most once per frame.
-  function follow() {
-    if (frame.current) return;
-    frame.current = requestAnimationFrame(() => {
-      frame.current = 0;
-      const el = track.current;
-      if (el?.clientWidth) setIndex(Math.max(0, Math.min(count - 1, Math.round(el.scrollLeft / el.clientWidth))));
-    });
-  }
   function go(to) { const next = (to + count) % count; if (next !== index) { setLeaving(index); setIndex(next); } }
   // The outgoing quote stays just long enough to fade out.
   useEffect(() => { if (leaving === null) return; const timer = setTimeout(() => setLeaving(null), 380); return () => clearTimeout(timer); }, [leaving, index]);
@@ -345,43 +367,58 @@ function Voices() {
     e.preventDefault();
     go(index + (e.key === 'ArrowRight' ? 1 : -1));
   }
+  // Phones: the dot follows the card nearest the start of the swipe row, read at most once per frame.
+  function follow() {
+    if (frame.current) return;
+    frame.current = requestAnimationFrame(() => {
+      frame.current = 0;
+      const cards = row.current?.querySelectorAll('.review-set:not(.copy) .review-card:not(.filler)');
+      if (cards?.length > 1) setDot(Math.max(0, Math.min(count - 1, Math.round(row.current.scrollLeft / (cards[1].offsetLeft - cards[0].offsetLeft)))));
+    });
+  }
   const quote = (r, out = false) => (
     <figure className={`voice ${out ? 'leaving' : ''}`} key={(out ? 'leaving-' : '') + reviews.indexOf(r)} aria-hidden={out || undefined}>
       <blockquote><p>“{r.text}”</p></blockquote>
-      <figcaption>{r.name}<span aria-hidden="true"> · </span><span>{r.source} review</span></figcaption>
+      <figcaption><strong>{r.name}</strong>{r.service && <span className="service-pill">{r.service}</span>}<span className="review-source">{r.source} review</span></figcaption>
     </figure>
   );
+  // The wall needs a few reviews to be worth showing. Short lists are repeated so a row always fills a wide screen.
+  const wall = count >= 4, extra = wall && count < 8 ? Array.from({ length: 8 - count }, (_, i) => reviews[i % count]) : [];
+  const half = Math.ceil(count / 2), second = [...reviews.slice(half), ...reviews.slice(0, half)];
   return (
     <section className="voices" id="reviews" aria-labelledby="voices-title">
       <div className="container voices-layout">
         <RatingSeal />
         <div className="voices-main" onKeyDown={keys}>
           <h2 id="voices-title" className="voices-label">In their words</h2>
+          {(content.reviews.sample || content.rating.sample) && <p className="sample-tag">Sample reviews · design preview</p>}
           {count === 0
             ? <>
                 <p className="voice-empty">Kind words from our patients will appear here soon.</p>
                 {clinic.reviews && <a className="text-link" href={clinic.reviews} target="_blank" rel="noopener noreferrer">Read our Google reviews<span className="sr-only"> (opens in a new tab)</span></a>}
               </>
             : <>
-                <div className="voice-stage" aria-live="polite" tabIndex={count > 1 ? 0 : undefined} role={count > 1 ? 'group' : undefined} aria-label={count > 1 ? 'Patient reviews. Use the left and right arrow keys to move.' : undefined}>
-                  {quote(review)}
+                <div className="voice-stage" aria-live="polite" tabIndex={count > 1 ? 0 : undefined} role={count > 1 ? 'group' : undefined} aria-label={count > 1 ? 'Featured patient review. Use the left and right arrow keys to move.' : undefined}>
+                  {quote(reviews[index])}
                   {leaving !== null && leaving !== index && reviews[leaving] && quote(reviews[leaving], true)}
                 </div>
-                <div className="voice-track" ref={track} onScroll={follow} role="group" aria-label="Patient reviews" tabIndex={count > 1 ? 0 : undefined}>
-                  {reviews.map((r, i) => <figure className="voice" key={i}>
-                    <blockquote><p>“{r.text}”</p></blockquote>
-                    <figcaption>{r.name}<span aria-hidden="true"> · </span><span>{r.source} review</span></figcaption>
-                  </figure>)}
-                </div>
-                {count > 1 && <div className="voice-dots" aria-hidden="true">{reviews.map((r, i) => <span key={i} className={i === index ? 'active' : undefined} />)}</div>}
                 {count > 1 && <div className="voice-controls">
-                  <button type="button" className="voice-arrow" aria-label="Previous review" onClick={() => go(index - 1)}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M19 12H5m6-6-6 6 6 6" /></svg></button>
-                  <button type="button" className="voice-arrow" aria-label="Next review" onClick={() => go(index + 1)}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6" /></svg></button>
+                  <button type="button" className="voice-arrow" aria-label="Previous review" onClick={() => go(index - 1)}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M19 12H5m6-6-6 6 6 6" /></svg></button>
+                  <button type="button" className="voice-arrow" aria-label="Next review" onClick={() => go(index + 1)}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6" /></svg></button>
                   <span className="voice-count">{index + 1} of {count}</span>
                 </div>}
               </>}
         </div>
       </div>
+      {wall && <div className="review-wall">
+        <ReviewRow items={reviews} extra={extra} label="Patient reviews" rowRef={row} onScroll={follow} />
+        <ReviewRow items={second} extra={extra} reverse label="More patient reviews" />
+        <div className="review-dots" aria-hidden="true">{reviews.map((r, i) => <span key={i} className={i === dot ? 'active' : undefined} />)}</div>
+      </div>}
+      {content.mentions.items.length > 0 && <div className="container mentions">
+        <p>Patients mention</p>
+        <ul className="mention-pills">{content.mentions.items.map(m => <li key={m}>{m}</li>)}</ul>
+      </div>}
     </section>
   );
 }
@@ -392,10 +429,20 @@ const BRING_ICONS = [
   <><rect x="2.5" y="5" width="19" height="14" rx="2" /><circle cx="8.5" cy="11" r="2.2" /><path d="M5 16c.6-1.6 2-2.4 3.5-2.4s2.9.8 3.5 2.4M14.5 10h4.5M14.5 14h3" /></>, // ID card
   <><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3.2 2" /></> // clock
 ];
+// Icons for the “good to know” rows, matched by label, with a plain information mark for anything else.
+const KNOW_ICONS = {
+  payment: <><rect x="2.5" y="5.5" width="19" height="13" rx="2" /><path d="M2.5 10h19M6.5 15h4" /></>,
+  parking: <><rect x="3.5" y="3.5" width="17" height="17" rx="2" /><path d="M9.5 17V7.5h3.3a2.8 2.8 0 0 1 0 5.6H9.5" /></>,
+  accessibility: <><circle cx="12" cy="4.5" r="1.6" /><path d="M5.5 8.5c4.3 1.3 8.7 1.3 13 0M12 9.5v5m0 0-3 6m3-6 3 6" /></>,
+  info: <><circle cx="12" cy="12" r="9" /><path d="M12 11v5.5M12 7.6v.1" /></>
+};
+const LineIcon = ({ children }) => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{children}</svg>;
 
-/* “Your visit, prepared”: a ticket-style card with insurance on one half and what to bring on the other,
-   divided by a perforation with a notch where it meets each edge. */
-function Prepared({ booking }) {
+/* “Your visit, prepared”: a visit card laid out like a ticket. Insurance, what to bring and good-to-know sit side by
+   side under a header strip; a tear-off stub on the right, past a perforation with a notch at each end, carries the
+   reason to book now and the booking button. */
+function Prepared({ booking, affiliate }) {
+  const insurers = content.insurers, know = content.goodToKnow.items;
   return (
     <section className="prepared" aria-labelledby="prepared-title">
       <div className="container">
@@ -404,24 +451,35 @@ function Prepared({ booking }) {
           <p>Everything you need for a smooth first appointment.</p>
         </div>
         <div className="ticket">
-          <div className="ticket-half">
-            <h3 id="insurance">Insurance</h3>
-            <p>Add your insurer when you book, or bring your card. The team confirms your coverage before your exam.</p>
-            {clinic.insurers.length
-              ? <ul className="insurer-pills">{clinic.insurers.map(i => <li key={i}>{i}</li>)}</ul>
-              : <p className="pending-text">Accepted insurers will be listed before launch.</p>}
+          <div className="ticket-main">
+            <p className="ticket-strip">Visit card · Eyecon Optometry</p>
+            <div className={`ticket-columns ${know.length ? '' : 'two'}`}>
+              <div className="ticket-col">
+                <h3 id="insurance">Insurance</h3>
+                <p>Add your insurer when you book, or bring your card. The team confirms your coverage before your exam.</p>
+                {insurers.items.length
+                  ? <>
+                      <ul className="insurer-pills">{insurers.items.map(i => <li key={i}>{i}</li>)}</ul>
+                      {insurers.sample && <p className="sample-tag">Sample list</p>}
+                    </>
+                  : <p className="pending-text">Accepted insurers will be listed before launch.</p>}
+              </div>
+              <div className="ticket-col">
+                <h3>What to bring</h3>
+                <ul className="bring-list">{instructions.map((text, i) => <li key={text}><LineIcon>{BRING_ICONS[i % BRING_ICONS.length]}</LineIcon><span>{text}</span></li>)}</ul>
+              </div>
+              {know.length > 0 && <div className="ticket-col">
+                <h3>Good to know</h3>
+                <dl className="know-list">{know.map(k => <div key={k.label}><LineIcon>{KNOW_ICONS[k.label.toLowerCase()] || KNOW_ICONS.info}</LineIcon><dt>{k.label}</dt><dd>{k.text}</dd></div>)}</dl>
+              </div>}
+            </div>
           </div>
-          <div className="ticket-half">
-            <h3>What to bring</h3>
-            <ul className="bring-list">
-              {instructions.map((text, i) => <li key={text}>
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{BRING_ICONS[i % BRING_ICONS.length]}</svg>
-                <span>{text}</span>
-              </li>)}
-            </ul>
+          <div className="ticket-stub">
+            {affiliate
+              ? <><p className="stub-figure">$50</p><p className="stub-line">Gift card on your first visit</p><p className="stub-note">Courtesy of {affiliate.name}</p></>
+              : <><p className="stub-figure words">About 1 minute</p><p className="stub-line">to book online</p></>}
+            <Button href={booking}>Book your appointment</Button>
           </div>
-          <span className="ticket-perforation" aria-hidden="true" />
-          <div className="ticket-foot"><a className="arrow-link" href={booking}>Book your appointment<i aria-hidden="true" /></a></div>
         </div>
       </div>
     </section>
@@ -676,7 +734,7 @@ export default function Landing({ slug }) {
 
       <Voices />
 
-      <Prepared booking={booking} />
+      <Prepared booking={booking} affiliate={affiliate} />
 
       <section className="final-cta">
         <div className="container">
