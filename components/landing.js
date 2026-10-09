@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import Image, { getImageProps } from 'next/image';
 import { useApp } from './provider';
 import { Header, Footer, Button, Icon, Gift, Referral, Loading, Notice, Stars } from './ui';
-import { DEMO, services, collections, clinic } from '@/lib/config';
+import { DEMO, services, collections, doctors, clinic } from '@/lib/config';
 
 /* Hero photograph. Art direction: a 16:9 crop above 860px and a 9:16 crop on phones.
    Only the matching source is downloaded, so it is prioritised with fetchPriority rather than preload. */
@@ -174,6 +174,119 @@ function AppointmentCards({ serviceHref }) {
       </div>
       <div className="appointment-dots" aria-hidden="true">{services.map((s, i) => <span key={s.id} className={i === active ? 'active' : undefined} />)}</div>
     </div>
+  );
+}
+
+/* What the intro shows about one optometrist. Used by the in-card panel on desktop and the bottom sheet on phones. */
+function DoctorIntro({ doctor, href, onClose }) {
+  const name = `${doctor.title} ${doctor.first} ${doctor.last}`;
+  return <>
+    <button type="button" className="doctor-close" aria-label={'Close ' + name} onClick={onClose}><Icon name="close" size={20} /></button>
+    <p className="doctor-panel-name">{name}</p>
+    <p className="doctor-panel-intro">{doctor.intro}</p>
+    <dl className="doctor-facts">
+      <div><dt>Focus</dt><dd>{doctor.focus}</dd></div>
+      <div><dt>Languages</dt><dd>{doctor.languages}</dd></div>
+      <div><dt>Wears</dt><dd>{doctor.wears}</dd></div>
+    </dl>
+    <Button href={href}><Icon name="calendar" size={18} />Book with {doctor.first}</Button>
+  </>;
+}
+
+/* The optometrists as portrait cards. “Meet [First]” opens that doctor’s intro: on desktop a panel slides up over the
+   lower part of the card, leaving the face visible; on phones (below 860px) the cards become a swipeable track and the
+   intro is a bottom sheet over a dimmed page. Only one intro is open at a time. It closes with its X, Escape, a click
+   or tap elsewhere, or a swipe down on the sheet; focus moves in on opening and back to the Meet button on closing. */
+const SWIPE_TO_CLOSE = 90;
+
+function Doctors({ serviceHref }) {
+  const [open, setOpen] = useState(null), [dot, setDot] = useState(0);
+  const panels = useRef({}), pills = useRef({}), sheet = useRef(null), track = useRef(null), frame = useRef(0), drag = useRef(null);
+  // The sheet keeps showing the last doctor while it slides away.
+  const shown = useRef(doctors[0]);
+  if (open) shown.current = doctors.find(d => d.slug === open) || shown.current;
+  const href = d => serviceHref('eye-exam') + '&doctor=' + encodeURIComponent(d.slug);
+
+  function close() {
+    const slug = open;
+    if (!slug) return;
+    setOpen(null);
+    // Hand focus back to the Meet button, unless the click that closed the intro has already put it somewhere useful.
+    requestAnimationFrame(() => { const at = document.activeElement; if (!at || at === document.body || panels.current[slug]?.contains(at) || sheet.current?.contains(at)) pills.current[slug]?.focus({ preventScroll: true }); });
+  }
+  useEffect(() => {
+    if (!open) return;
+    const phone = window.matchMedia('(max-width: 860px)').matches, root = document.documentElement;
+    (phone ? sheet.current : panels.current[open])?.focus({ preventScroll: true });
+    if (phone) root.classList.add('sheet-open'); // locks page scrolling and hides the floating Book bar
+    const key = e => { if (e.key === 'Escape') close(); };
+    const outside = e => { if (!panels.current[open]?.contains(e.target) && !sheet.current?.contains(e.target) && !e.target.closest?.('.doctor-pill')) close(); };
+    document.addEventListener('keydown', key);
+    document.addEventListener('pointerdown', outside);
+    return () => { document.removeEventListener('keydown', key); document.removeEventListener('pointerdown', outside); root.classList.remove('sheet-open'); };
+  }, [open]);
+  useEffect(() => () => cancelAnimationFrame(frame.current), []);
+
+  // Phones: the dot under the track follows the card nearest the start, read at most once per frame.
+  function follow() {
+    if (frame.current) return;
+    frame.current = requestAnimationFrame(() => {
+      frame.current = 0;
+      const el = track.current;
+      if (!el || el.children.length < 2) return;
+      setDot(Math.max(0, Math.min(doctors.length - 1, Math.round(el.scrollLeft / (el.children[1].offsetLeft - el.children[0].offsetLeft)))));
+    });
+  }
+  // Phones: dragging the sheet down from its top closes it.
+  function dragStart(e) { drag.current = sheet.current.scrollTop <= 0 ? { from: e.touches[0].clientY, by: 0 } : null; }
+  function dragMove(e) {
+    if (!drag.current) return;
+    drag.current.by = Math.max(0, e.touches[0].clientY - drag.current.from);
+    sheet.current.style.transition = 'none';
+    sheet.current.style.transform = drag.current.by ? `translateY(${drag.current.by}px)` : '';
+  }
+  function dragEnd() {
+    if (!drag.current) return;
+    const far = drag.current.by > SWIPE_TO_CLOSE;
+    drag.current = null;
+    if (far) close();
+    requestAnimationFrame(() => { if (sheet.current) { sheet.current.style.transition = ''; sheet.current.style.transform = ''; } });
+  }
+
+  const person = shown.current, personName = `${person.title} ${person.first} ${person.last}`;
+  return (
+    <section className="doctors" aria-labelledby="doctors-title">
+      <div className="doctors-intro">
+        <h2 id="doctors-title">The people behind your exam</h2>
+        <p>Every visit is unhurried, personal and led by a licensed optometrist.</p>
+      </div>
+      {/* Two per row for two or four doctors, three per row for three, five or six. On phones, one swipeable row. */}
+      <div className="doctor-grid" ref={track} data-count={doctors.length} style={{ '--per-row': doctors.length === 1 ? 1 : doctors.length === 2 || doctors.length === 4 ? 2 : 3 }} onScroll={follow}>
+        {doctors.map(d => {
+          const active = open === d.slug, name = `${d.title} ${d.first} ${d.last}`;
+          return (
+            <article className={`doctor-card ${active ? 'open' : ''}`} key={d.slug}>
+              <Image src={d.photo} alt={name} fill sizes="(max-width: 860px) 86vw, 600px" />
+              <div className="doctor-card-text" aria-hidden={active || undefined}>
+                <h3><em>{d.title} {d.first}</em> <span>{d.last}</span></h3>
+                <p>{d.line}</p>
+                <button type="button" className="doctor-pill" ref={el => { pills.current[d.slug] = el; }} aria-expanded={active} tabIndex={active ? -1 : undefined} onClick={() => setOpen(d.slug)}>Meet {d.first}</button>
+              </div>
+              <div className="doctor-panel" role="dialog" aria-modal="false" aria-label={name} tabIndex={-1} inert={!active} ref={el => { panels.current[d.slug] = el; }}>
+                <DoctorIntro doctor={d} href={href(d)} onClose={close} />
+              </div>
+            </article>
+          );
+        })}
+      </div>
+      {doctors.length > 1 && <div className="doctor-dots" aria-hidden="true">{doctors.map((d, i) => <span key={d.slug} className={i === dot ? 'active' : undefined} />)}</div>}
+
+      <div className={`doctor-sheet-backdrop ${open ? 'open' : ''}`} aria-hidden="true" />
+      <div className={`doctor-sheet ${open ? 'open' : ''}`} role="dialog" aria-modal="true" aria-label={personName} tabIndex={-1} inert={!open} ref={sheet} onTouchStart={dragStart} onTouchMove={dragMove} onTouchEnd={dragEnd} onTouchCancel={dragEnd}>
+        <span className="doctor-sheet-handle" aria-hidden="true" />
+        <DoctorIntro doctor={person} href={href(person)} onClose={close} />
+      </div>
+    </section>
   );
 }
 
@@ -421,22 +534,7 @@ export default function Landing({ slug }) {
 
       <Appointments serviceHref={serviceHref} />
 
-      <section className="care-section" aria-labelledby="care-title">
-        <div className="container care-layout">
-          <div>
-            <h2 id="care-title">Meet our optometrists</h2>
-            <p>Your appointment is a conversation as well as an examination. There is time for your questions, your comfort and your style.</p>
-            <Button href={booking} secondary>Arrange your visit</Button>
-          </div>
-          <div className="doctor-grid">
-            {['doctor1', 'doctor2'].map((d, i) => <article className="doctor" key={d}>
-              <div className="doctor-photo"><Image src={'/images/' + d + '.webp'} width={300} height={360} alt={'Concept portrait for doctor profile ' + (i + 1)} sizes="(max-width: 860px) 45vw, 22vw" /></div>
-              <h3>Doctor name</h3>
-              <p>Credentials and a short introduction will be supplied by the clinic.</p>
-            </article>)}
-          </div>
-        </div>
-      </section>
+      <Doctors serviceHref={serviceHref} />
 
       <section className="section container trust" id="reviews" aria-label="Reviews and insurance">
         <div className="rating-card">

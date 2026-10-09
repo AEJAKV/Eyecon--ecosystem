@@ -14,6 +14,8 @@ export async function POST(request) {
     const requestHash=createHash('sha256').update((request.headers.get('x-forwarded-for')?.split(',')[0]||'unknown')+process.env.SUPABASE_SERVICE_ROLE_KEY).digest('hex');
     const {data,error}=await db.rpc('create_booking',{p_name:b.name,p_email:b.email,p_phone:b.phone,p_start:b.start,p_service:b.service,p_affiliate:b.affiliateId,p_source:b.source,p_first_visit:b.firstVisit,p_insurance:b.insurance,p_policy:encryptPolicy(b.policy),p_brands:b.brands,p_sms:b.smsConsent,p_request_hash:requestHash});
     if(error)throw new Error(error.message.includes('rate limit')?'Too many booking attempts. Please contact the clinic.':error.message.includes('affiliate')?'This referral is no longer available.':'That appointment time is no longer available. Please choose another.');
+    // The preferred optometrist is optional, so a failure to store it (for example before migration 001 has run) never loses the booking.
+    if(b.preferredDoctor){const {error:pe}=await db.from('bookings').update({preferred_doctor:b.preferredDoctor}).eq('id',data[0].id);if(pe)console.error('Preferred optometrist not saved:',pe.code);else data[0].preferred_doctor=b.preferredDoctor;}
     const saved=mapBooking(data[0]),notifications=await claimAndSend(db,saved,'confirmation');
     return Response.json({booking:{id:saved.id,start:saved.start,duration:saved.duration,service:saved.service,affiliateId:saved.affiliateId,name:saved.name},notifications},{status:201,headers:{'Cache-Control':'no-store'}});
   }catch(e){return fail(e);}

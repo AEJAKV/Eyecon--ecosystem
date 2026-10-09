@@ -4,7 +4,7 @@ import { useSearchParams } from 'next/navigation';
 import Script from 'next/script';
 import Link from 'next/link';
 import { useApp } from './provider';
-import { DEMO, clinic, services, brands, formatDate, instructions } from '@/lib/config';
+import { DEMO, clinic, services, brands, doctors, doctorName, formatDate, instructions } from '@/lib/config';
 import { validateBooking, slotTaken } from '@/lib/validation';
 import { calendarFile, googleCalendar, outlookCalendar, downloadFile } from '@/lib/calendar';
 import { Header, Footer, Button, Field, Gift, Icon, Notice, Loading, Referral } from './ui';
@@ -61,6 +61,8 @@ export default function BookingFlow() {
   // A brand passed in the link (from the collections carousel) arrives already chosen; unknown names are ignored.
   const linkedBrand = brands.find(b => b.toLowerCase() === (params.get('brand') || '').trim().toLowerCase());
   const [details, setDetails] = useState({ name: '', email: '', phone: '', firstVisit: '', insurance: '', policy: '', brands: linkedBrand ? [linkedBrand] : [], smsConsent: false, website: '' });
+  // An optometrist passed in the link (from their card on the home page) is kept as a preference; unknown slugs are ignored.
+  const [preferredDoctor, setPreferredDoctor] = useState(() => doctors.find(d => d.slug === params.get('doctor'))?.slug || '');
   const titleRef = useRef(null), firstRender = useRef(true);
 
   useEffect(() => { setCalendar(preferredCalendar()); }, []);
@@ -111,7 +113,7 @@ export default function BookingFlow() {
   async function submit(e) {
     e.preventDefault(); setError(''); setBusy(true);
     try {
-      const payload = validateBooking({ ...details, brands: details.brands.join(', '), firstVisit: details.firstVisit === 'yes' ? true : details.firstVisit === 'no' ? false : null, service, start, affiliateId: affiliate?.id });
+      const payload = validateBooking({ ...details, brands: details.brands.join(', '), firstVisit: details.firstVisit === 'yes' ? true : details.firstVisit === 'no' ? false : null, service, start, affiliateId: affiliate?.id, preferredDoctor: preferredDoctor || null });
       if (!DEMO && !captcha) throw new Error('Complete the verification before booking.');
       const result = await book({ ...payload, captcha, website: details.website });
       setConfirmation(result); setStep(3);
@@ -129,6 +131,7 @@ export default function BookingFlow() {
   if (loadError) return <><Header /><main className="container empty-page" id="main-content"><h1>Arrange your visit</h1><Notice error>{loadError}</Notice>{slug ? <Button href="/booking">Book directly</Button> : <Button onClick={() => window.location.reload()}>Try again</Button>}</main><Footer /></>;
 
   const calendarNames = { google: 'Google Calendar', apple: 'Apple Calendar', outlook: 'Outlook' };
+  const preferred = preferredDoctor && <p className="preferred-doctor"><span>Preferred optometrist: <strong>{doctorName(preferredDoctor)}</strong></span><button type="button" className="text-link" onClick={() => setPreferredDoctor('')}>Remove</button></p>;
   return <>
     <Header bookingHref={affiliate ? '/book/' + affiliate.slug : '/'} bookingLabel="Back to Eyecon" />
     <main className="booking-shell" id="main-content">
@@ -166,6 +169,7 @@ export default function BookingFlow() {
 
         {step === 1 && <div className="step" key="s1">
           <p className="muted">{chosenService?.name}</p>
+          {preferred}
           {!slots.length ? <Notice>No online times are available right now. Please call the clinic or check back later.</Notice> : <>
             <div className="week-tabs" role="group" aria-label="When">
               {rangeList.map((r, i) => <button type="button" key={r.label} className={range === i ? 'active' : ''} aria-pressed={range === i} onClick={() => { setRange(i); setDay(''); setStart(''); }}>{r.label}</button>)}
@@ -193,6 +197,7 @@ export default function BookingFlow() {
 
         {step === 2 && <form onSubmit={submit} className="stack step" key="s2">
           <div className="selection-summary"><Icon name="calendar" /><div><strong>{chosenService?.name}</strong><small>{formatDate(start, { dateStyle: 'full', timeStyle: 'short' })}</small></div><button type="button" className="text-link" onClick={() => back(1)}>Change</button></div>
+          {preferred}
           <Field label="Full name" id="patient-name" autoComplete="name" required maxLength={120} value={details.name} onChange={e => change('name', e.target.value)} />
           <div className="form-grid">
             <Field label="Mobile number" id="patient-phone" type="tel" autoComplete="tel" required maxLength={32} placeholder="+1 416 555 0123" value={details.phone} onChange={e => change('phone', e.target.value)} />
