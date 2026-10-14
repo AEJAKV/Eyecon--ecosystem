@@ -11,8 +11,8 @@ import SkinTechnologies from './skin-technologies';
    Only the matching source is downloaded, so it is prioritised with fetchPriority rather than preload. */
 function HeroPhoto({ alt = '', className = '' }) {
   const common = { alt, sizes: '100vw', fetchPriority: 'high' };
-  const { props: { srcSet: desktop } } = getImageProps({ ...common, src: '/images/hero/hero-desktop-revised.webp', width: 1672, height: 941 });
-  const { props: { srcSet: mobile, ...rest } } = getImageProps({ ...common, src: '/images/hero/hero-mobile-revised.webp', width: 941, height: 1672 });
+  const { props: { srcSet: desktop } } = getImageProps({ ...common, src: '/images/hero/hero-desktop-cartier.webp', width: 1672, height: 941 });
+  const { props: { srcSet: mobile, ...rest } } = getImageProps({ ...common, src: '/images/hero/hero-mobile-cartier.webp', width: 941, height: 1672 });
   return (
     <picture className={`hero-photo ${className}`}>
       <source media="(min-width: 861px)" srcSet={desktop} />
@@ -24,7 +24,7 @@ function HeroPhoto({ alt = '', className = '' }) {
 
 // Centres of the two pairs of glasses in each photograph (his, then hers), as fractions of its width and height.
 // The lens rests on the first pair it can sit over without rising into the header.
-const FOCUS = { desktop: [[0.535, 0.245], [0.77, 0.265]], mobile: [[0.44, 0.2], [0.74, 0.215]] };
+const FOCUS = { desktop: [[0.513, 0.278], [0.712, 0.31]], mobile: [[0.468, 0.297], [0.81, 0.317]] };
 const PHOTO_SCALE = 1.04; // matches .hero-photo img in site.css
 
 /* The photograph is soft-focused; a lens follows the pointer anywhere on the hero and brings it into focus,
@@ -92,7 +92,7 @@ function Hero({ children }) {
   }
   return (
     <section className="hero" ref={ref} onPointerDown={move} onPointerMove={move} onPointerLeave={leave} onPointerCancel={leave} style={{ '--x': home.current.x + '%', '--y': home.current.y + '%' }}>
-      <HeroPhoto className="soft" alt="A man and a woman wearing bold optical frames, with a city skyline at dusk behind them" />
+      <HeroPhoto className="soft" alt="A couple on a sofa in a dusk penthouse, the man in gold Cartier frames and the woman in tortoiseshell, a Cartier box on the table behind them and the city skyline lit beyond" />
       <div className="hero-lens" aria-hidden="true"><div className="hero-lens-zoom"><HeroPhoto /></div></div>
       <span className="lens-ring" aria-hidden="true" />
       <p className="lens-hint" aria-hidden="true">Move to bring into focus</p>
