@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
-import { DEMO } from '@/lib/config';
+import { DEMO, documentsLink } from '@/lib/config';
 import { validateBooking } from '@/lib/validation';
-import { adminClient, encryptPolicy, mapBooking, sameOrigin, fail, issueGift } from '@/lib/server';
+import { adminClient, encryptPolicy, mapBooking, sameOrigin, fail, issueGift, issueDocumentToken } from '@/lib/server';
 import { claimAndSend } from '@/lib/notifications';
 export async function POST(request) {
   try{
@@ -14,7 +14,9 @@ export async function POST(request) {
     const requestHash=createHash('sha256').update((request.headers.get('x-forwarded-for')?.split(',')[0]||'unknown')+process.env.SUPABASE_SERVICE_ROLE_KEY).digest('hex');
     const {data,error}=await db.rpc('create_booking',{p_name:b.name,p_email:b.email,p_phone:b.phone,p_doctor:b.doctor,p_start:b.start,p_service:b.service,p_affiliate:b.affiliateId,p_source:b.source,p_first_visit:b.firstVisit,p_insurance:b.insurance,p_policy:encryptPolicy(b.policy),p_brands:b.brands,p_sms:b.smsConsent,p_request_hash:requestHash});
     if(error)throw new Error(error.message.includes('rate limit')?'Too many booking attempts. Please contact the clinic.':error.message.includes('affiliate')?'This referral is no longer available.':'That appointment time is no longer available. Please choose another.');
-    const saved=mapBooking(await issueGift(db,data[0])),notifications=await claimAndSend(db,saved,'confirmation');
-    return Response.json({booking:{id:saved.id,doctor:saved.doctor,start:saved.start,duration:saved.duration,service:saved.service,affiliateId:saved.affiliateId,name:saved.name,giftCard:saved.giftCard},notifications},{status:201,headers:{'Cache-Control':'no-store'}});
+    // The "Complete your file" token goes only to this patient: back to their browser and into their confirmation email.
+    const saved=mapBooking(await issueGift(db,data[0])),documentsToken=await issueDocumentToken(db,data[0]);
+    const notifications=await claimAndSend(db,{...saved,documentsLink:documentsLink(documentsToken)},'confirmation');
+    return Response.json({booking:{id:saved.id,doctor:saved.doctor,start:saved.start,duration:saved.duration,service:saved.service,affiliateId:saved.affiliateId,name:saved.name,giftCard:saved.giftCard,documentsToken},notifications},{status:201,headers:{'Cache-Control':'no-store'}});
   }catch(e){return fail(e);}
 }

@@ -532,8 +532,24 @@ details p { margin: 1rem 0 0; color: var(--muted); }
 .confirmation-card { display: grid; grid-template-columns: 1fr auto; gap: .5rem 2rem; padding: 1.75rem; background: var(--white); border: 1px solid var(--line); margin: 1.5rem 0; }
 .confirmation-card h3 { margin: 0; font-family: var(--serif); font-weight: 400; font-size: 1.6rem; }
 .confirmation-card p { margin: 0; }
-.confirmation-card .ref { grid-row: span 3; align-self: start; text-align: right; font-size: .82rem; color: var(--muted); }
+.confirmation-card .ref { grid-row: span 4; align-self: start; text-align: right; font-size: .82rem; color: var(--muted); }
 .confirmation-card .ref strong { display: block; font-family: var(--serif); font-size: 1.3rem; font-weight: 400; color: var(--ink); letter-spacing: .06em; }
+/* "Complete your file", below the booking card and on /documents */
+.documents-card { padding: 1.75rem; background: var(--white); border: 1px solid var(--line); border-left: 2px solid var(--gold); margin-bottom: 1.75rem; }
+.documents-card h3 { margin: 0 0 .4rem; font-family: var(--serif); font-weight: 400; font-size: 1.6rem; }
+.documents-card h3:focus { outline: none; }
+.documents-card .form-actions { margin-top: .5rem; }
+.documents-card label small, .documents-card legend small { color: var(--muted); font-weight: 400; margin-left: .35rem; }
+.documents-extra { border: 0; padding: 0; margin: 0; }
+.file-row { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem 1rem; padding: .65rem .9rem; background: var(--soft); margin-bottom: .5rem; font-size: .92rem; }
+.file-row > span { flex: 1 1 12rem; min-width: 0; overflow-wrap: anywhere; }
+.file-row small { display: block; color: var(--muted); }
+.file-row svg { color: var(--gold-text); }
+.file-row select { min-height: 40px; }
+.demo-label { display: inline-block; padding: .4rem .7rem; background: var(--soft); border: 1px dashed #b9b8b2; font-size: .85rem; color: var(--muted); }
+.success-mark.small { width: 44px; height: 44px; margin-bottom: .9rem; }
+.documents-page { max-width: 760px; padding-block: 4rem 6rem; }
+.documents-page h1 { font-size: 3rem; margin-bottom: 1.5rem; }
 .calendar-card { padding: 1.75rem; background: var(--ink); color: var(--paper); margin-bottom: 1.75rem; }
 .calendar-card h3 { font-family: var(--serif); font-weight: 400; font-size: 1.7rem; margin: 0 0 .4rem; }
 .calendar-card > p { color: #b8bcc2; font-size: .95rem; margin-bottom: 1.25rem; }

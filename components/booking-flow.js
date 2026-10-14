@@ -4,6 +4,7 @@ import { useSearchParams } from 'next/navigation';
 import Script from 'next/script';
 import Link from 'next/link';
 import { useApp } from './provider';
+import DocumentsForm from './documents-form';
 import Image from 'next/image';
 import { DEMO, clinic, services, brands, doctors, doctorName, findDoctor, formatDate, instructions } from '@/lib/config';
 import { validateBooking, slotTaken } from '@/lib/validation';
@@ -292,6 +293,8 @@ export default function BookingFlow() {
             <p>{formatDate(confirmation.booking.start, { dateStyle: 'full', timeStyle: 'short' })}</p>
             <p className="muted">{clinic.address || 'The clinic will confirm the location with you.'}</p>
           </div>
+
+          <DocumentsForm token={confirmation.booking.documentsToken} canSkip />
 
           <div className="calendar-card">
             <h3>Add it to your calendar</h3>

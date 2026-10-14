@@ -6,6 +6,7 @@ A complete Next.js project for the affiliate referral and appointment-booking ex
 
 - Premium public landing page and personalised affiliate landing pages.
 - Four-step booking: service, optometrist and time, patient details and confirmation. Every appointment belongs to one optometrist. Patients either choose an optometrist first (their photo, name and focus, then that optometrist's days and times) or a time first (each time shows which optometrists are free; when more than one is, the patient picks). Two optometrists can see patients at the same time; one optometrist cannot be double-booked.
+- “Complete your file” after booking: residency status, one valid government ID and optional tagged documents (diploma, certificate, high school diploma, English language test result, other). PDF, JPG or PNG, up to 10 MB each and 8 files, checked by file signature on the server. Patients can skip and finish later from the single-use, expiring link in their confirmation email (`{documents_link}`). Files go to a private storage bucket; staff open them through links that expire after 5 minutes; affiliates never see them. In demo mode only file names and sizes are kept, in the browser.
 - Referral identity throughout booking; the $50 gift appears only with an active affiliate referral.
 - Google, Apple `.ics` and Outlook calendar options. The event, the confirmation card and the confirmation email (template field `{doctor}`) name the optometrist.
 - Affiliate dashboard, referrals, referral link/QR, earnings, profile editing and photo upload.
@@ -32,6 +33,7 @@ Demo data is stored in the current browser and is neither secure nor shared betw
 | `/booking?affiliate=alex-morgan` | Booking flow with affiliate referral |
 | `/booking` | Direct booking flow |
 | `/booking?service=eye-exam&doctor=doctor-1` | Booking flow opened on “Choose a doctor” with that optometrist selected (the “Book with” button on the home page’s optometrist cards) |
+| `/documents#t=…` | “Complete your file” from the confirmation email’s single-use link |
 | `/login` | Demo exploration or live sign-in/password reset |
 | `/affiliate` | Affiliate overview |
 | `/affiliate/referrals` | Referral status and CSV export |
@@ -141,7 +143,7 @@ These are deployment steps, not required for exploring the demo.
 
 1. Create a new Supabase project. Choose a region and service agreements appropriate for the clinic's privacy/data-residency decisions.
 2. Open **SQL Editor**. Paste the complete `supabase/schema.sql` and run it **once on an empty project**. It creates tables, access rules, booking/payout functions and the affiliate-photo bucket. Running it again will produce "already exists" errors; use reviewed migrations for later changes.
-   Then run each file in `supabase/migrations/` once, in number order. `004_doctor_availability.sql` makes slots and bookings per optometrist; it assigns any existing slots to `doctor-1`, so staff should review them afterwards.
+   Then run each file in `supabase/migrations/` once, in number order. `004_doctor_availability.sql` makes slots and bookings per optometrist; it assigns any existing slots to `doctor-1`, so staff should review them afterwards. `005_documents.sql` adds “Complete your file”: the residency status, the document records, hashed upload tokens and the **private** `booking-documents` storage bucket. Do not add storage policies to that bucket.
 3. In **Authentication**, create the initial staff user with a confirmed email and a strong password. Copy that user's UUID.
 4. In SQL Editor run the following, replacing the UUID with the actual user ID:
 
@@ -182,7 +184,7 @@ Set its full output as `INSURANCE_ENCRYPTION_KEY` in your private environment. K
 5. Try simultaneous bookings with the same optometrist for an overlapping interval and confirm only one succeeds; then book two different optometrists at the same time and confirm both succeed. Test both roles with separate accounts and verify anonymous requests cannot access patient data.
 6. Check notification failures, audit records, provider bills, backup/recovery and data retention with the team's deployment owner. Approve real copy, portrait rights, gift terms, privacy wording and clinical scheduling before accepting patients.
 
-Each optometrist has their own calendar of explicit staff-created slots. Durations are assigned to slots, not automatically determined by service. It does not sync MyVisionExpress, offer self-service rescheduling/cancellation, manage multiple locations or implement a rules-based commission engine. The staff API currently loads at most 2,000 bookings and 100 recent delivery jobs; add server pagination for larger use. Staff have a shared staff role, not per-action permissions or MFA enforcement. Account deletion, data retention, consent withdrawal and retry workflows require the clinic's operational processes or later implementation. For a partial affiliate invitation failure, review the auth user and inactive/missing affiliate/profile in Supabase before retrying; the server does not delete auth accounts automatically.
+Each optometrist has their own calendar of explicit staff-created slots. Durations are assigned to slots, not automatically determined by service. It does not sync MyVisionExpress, offer self-service rescheduling/cancellation, manage multiple locations or implement a rules-based commission engine. The staff API currently loads at most 2,000 bookings and 100 recent delivery jobs; add server pagination for larger use. Document uploads pass through the website’s `/api/documents` route, so each upload is one request of up to 80 MB. **Vercel limits a function’s request body to about 4.5 MB**, so on Vercel larger uploads are refused before they reach the site; host it where the request limit allows 80 MB, or move uploads to signed direct-to-storage URLs before collecting real documents. Uploaded documents are not deleted automatically; set and apply a retention period. Staff have a shared staff role, not per-action permissions or MFA enforcement. Account deletion, data retention, consent withdrawal and retry workflows require the clinic's operational processes or later implementation. For a partial affiliate invitation failure, review the auth user and inactive/missing affiliate/profile in Supabase before retrying; the server does not delete auth accounts automatically.
 
 ## Editing the design
 
