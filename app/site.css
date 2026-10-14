@@ -894,3 +894,41 @@ button.review-text { padding: 0; border: 0; background: none; color: inherit; fo
 .shop-heading h1 { margin: 0; font-family: var(--serif); font-weight: 400; font-size: clamp(3.25rem, 8vw, 6.5rem); line-height: 1; letter-spacing: -.02em; }
 .shop-heading h1::after { content: ''; display: block; width: 3rem; height: 1px; margin: clamp(1.5rem, 3vw, 2.25rem) auto; background: var(--gold); }
 .shop-subline { max-width: 34rem; margin: 0 auto; font-family: var(--sans); font-size: 1.05rem; line-height: 1.6; color: var(--muted); text-wrap: balance; }
+
+/* Featured this week: a scroll-snap row of frame cards. Four cards with the fifth peeking on desktop. */
+.featured-frames { padding: clamp(3rem, 6vw, 5rem) 0 clamp(4rem, 8vw, 6.5rem); overflow: hidden; }
+.featured-head { display: flex; align-items: center; gap: 1rem; margin-bottom: 2rem; }
+.featured-title { margin: 0; font-family: var(--sans); font-size: .85rem; font-weight: 500; line-height: 1.4; letter-spacing: .14em; text-transform: uppercase; color: var(--ink); }
+.featured-sample { padding: .15rem .55rem; border: 1px solid var(--line); border-radius: var(--radius); font-size: .68rem; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.featured-arrows { display: flex; gap: .6rem; margin-left: auto; }
+.frame-row { --gap: 1.25rem; --card: calc((100% - var(--gap) * 4) / 4.35); display: flex; gap: var(--gap); margin: 0; padding: 0 0 .5rem; list-style: none; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x mandatory; scroll-behavior: smooth; scrollbar-width: none; }
+.frame-row::-webkit-scrollbar { display: none; }
+.frame-row:focus-visible { outline: 3px solid var(--gold-text); outline-offset: 6px; }
+.frame-card { flex: 0 0 var(--card); display: flex; flex-direction: column; gap: .3rem; scroll-snap-align: start; }
+.frame-media { position: relative; aspect-ratio: 1; margin-bottom: .9rem; overflow: hidden; background: var(--soft); }
+.frame-media img { object-fit: contain; padding: 8%; }
+.frame-placeholder { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .75rem; background: linear-gradient(165deg, var(--soft), var(--tint)); color: var(--gold-text); }
+.frame-placeholder::before { content: ''; position: absolute; inset: .75rem; border: 1px solid rgba(180, 154, 103, .45); }
+.frame-placeholder small { font-size: .68rem; letter-spacing: .16em; text-transform: uppercase; }
+.frame-new { position: absolute; top: .9rem; left: .9rem; padding: .2rem .55rem; border-radius: var(--radius); background: var(--paper); color: var(--ink); font-size: .66rem; font-weight: 500; letter-spacing: .16em; text-transform: uppercase; }
+.frame-save { position: absolute; top: .4rem; right: .4rem; display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; padding: 0; border: 0; border-radius: 50%; background: none; color: var(--ink); cursor: pointer; transition: color .25s var(--ease); }
+.frame-save:hover, .frame-save[aria-pressed=true] { color: var(--gold-text); }
+.frame-save[aria-pressed=true] svg { fill: currentColor; }
+.frame-name { margin: 0; font-family: var(--sans); font-size: .78rem; font-weight: 500; line-height: 1.4; letter-spacing: .14em; text-transform: uppercase; }
+.frame-material { margin: 0; font-family: var(--serif); font-variation-settings: 'opsz' 28; font-size: 1.3rem; line-height: 1.2; }
+.frame-price { margin: 0; color: var(--muted); font-size: .95rem; font-variant-numeric: tabular-nums; }
+/* Reserve to try: fades in on hover or keyboard focus; always shown where there is no hover. */
+.frame-reserve { align-self: flex-start; margin-top: .55rem; font-size: .9rem; letter-spacing: .02em; opacity: 0; transform: translateY(4px); transition: opacity .35s var(--ease), transform .35s var(--ease), background-size .35s var(--ease), color .2s; }
+.frame-card:hover .frame-reserve, .frame-card:focus-within .frame-reserve { opacity: 1; transform: none; }
+@media (hover: none) { .frame-reserve { opacity: 1; transform: none; } }
+/* Phones: about one and a half cards, no arrows, and the row runs to the screen edge from a 16px start. */
+@media (max-width: 640px) {
+  .featured-head { margin-bottom: 1.5rem; }
+  .featured-arrows { display: none; }
+  .frame-row { --gap: .9rem; --card: 66vw; margin-inline: calc(50% - 50vw); padding-inline: 16px; scroll-padding-inline: 16px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .frame-row { scroll-behavior: auto; }
+  .frame-reserve, .frame-save { transition: none; }
+  .frame-reserve { transform: none; }
+}

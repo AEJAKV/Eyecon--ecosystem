@@ -14,6 +14,7 @@ import { nullEmr,emrAdapter,applyEmr } from '../lib/emr.js';
 import { calculateCommission,validateCompletion,validatePricing } from '../lib/commission.js';
 import { affiliatePerformance,performanceTable,topAffiliates,filterAppointments,staffAppointmentRows,STAFF_APPOINTMENT_FIELDS } from '../lib/performance.js';
 import { AFFILIATE_FIELDS,AFFILIATE_COLUMNS,restrictAffiliateRow,affiliateStats,affiliateCsvRows,AFFILIATE_CSV_FIELDS,withAffiliate } from '../lib/affiliate.js';
+import { frameBrand,framePrice,reserveHref,readSavedFrames,writeSavedFrames,toggleSaved,SAVED_FRAMES_KEY } from '../lib/shop.js';
 const patient={name:'Sample Patient',email:'sample@example.com',phone:'+14165550123',service:'eye-exam',doctor:'doctor-1',firstVisit:true,smsConsent:false,start:new Date(Date.now()+86400000).toISOString()};
 // A patient booking a particular slot: that slot's optometrist and start time.
 const at=slot=>({...patient,doctor:slot.doctor,start:slot.start});
@@ -129,6 +130,38 @@ test('sample frames belong to known brands, have unique slugs and no price until
   const slugs=new Set(collections.map(c=>c.slug));
   for(const f of frames){assert.ok(slugs.has(f.brand),f.slug);assert.deepEqual(Object.keys(f).sort(),['brand','isNew','material','model','price','slug']);assert.equal(f.price,'');assert.equal(typeof f.isNew,'boolean');}
   assert.match(readFileSync(new URL('../lib/config.js',import.meta.url),'utf8'),/SAMPLE FRAMES: replace these with frames Eyecon actually stocks/);
+});
+test('Reserve to try books a styling visit for the frame’s brand, keeping the affiliate',()=>{
+  const santos=frames.find(f=>f.slug==='cartier-santos'),bone=frames.find(f=>f.slug==='chrome-hearts-bone-prone-ii');
+  assert.equal(reserveHref(santos),'/booking?service=styling&brand=Cartier');
+  assert.equal(reserveHref(bone,'alex-morgan'),'/booking?service=styling&brand=Chrome%20Hearts&affiliate=alex-morgan');
+  for(const f of frames)assert.ok(brands.includes(frameBrand(f).name),'the booking flow knows '+f.brand);
+  assert.ok(readFileSync(new URL('../components/shop.js',import.meta.url),'utf8').includes('href={reserveHref(frame, affiliate)}'));
+});
+test('a frame price shows only once filled in',()=>{
+  assert.equal(framePrice(''),'');assert.equal(framePrice('  '),'');assert.equal(framePrice(undefined),'');
+  assert.equal(framePrice('1250'),'$1,250.00');assert.equal(framePrice('From $900'),'From $900');
+  assert.match(readFileSync(new URL('../components/shop.js',import.meta.url),'utf8'),/\{price && <p className="frame-price">/);
+});
+test('saved frames never throw, whatever the browser storage does',()=>{
+  const store=(value)=>{const s={v:value,getItem:()=>s.v,setItem:(k,v)=>{s.v=v;}};return s;};
+  const throwing={getItem(){throw new Error('blocked');},setItem(){throw new Error('quota');}};
+  assert.deepEqual(readSavedFrames(store(null)),[]);assert.deepEqual(readSavedFrames(store('{bad')),[]);assert.deepEqual(readSavedFrames(store('{"a":1}')),[]);
+  assert.deepEqual(readSavedFrames(store('["dita-mach-one",3]')),['dita-mach-one']);
+  assert.deepEqual(readSavedFrames(throwing),[]);assert.deepEqual(readSavedFrames(null),[]);assert.equal(writeSavedFrames(throwing,['x']),false);
+  const s=store(null);assert.equal(writeSavedFrames(s,['dita-mach-one']),true);assert.equal(s.getItem(SAVED_FRAMES_KEY),'["dita-mach-one"]');
+  assert.deepEqual(toggleSaved(['a'],'b'),['a','b']);assert.deepEqual(toggleSaved(['a','b'],'a'),['b']);
+  const shop=readFileSync(new URL('../components/shop.js',import.meta.url),'utf8');
+  assert.ok(shop.includes('try { return window.localStorage; } catch { return null; }'));assert.ok(shop.includes('aria-pressed={saved}'));
+});
+test('Featured this week: sample label in demo only, arrows and keys, phone and reduced-motion rules',()=>{
+  const read=f=>readFileSync(new URL(f,import.meta.url),'utf8');
+  const shop=read('../components/shop.js'),css=read('../app/site.css');
+  for(const part of ['>Featured this week<','{DEMO && <span className="featured-sample">Sample selection</span>}',"'/images/shop/frames/' + frame.slug + '.webp'",'Photograph to follow','{frame.isNew && <span className="frame-new">New</span>}','disabled={ends.start}','disabled={ends.end}',"e.key === 'ArrowRight'","reducedMotion() ? 'auto' : 'smooth'"])assert.ok(shop.includes(part),part);
+  assert.ok(read('../components/landing.js').includes("import Photo from './photo';"),'one shared Photo component');
+  assert.match(css,/@media \(hover: none\) \{ \.frame-reserve \{ opacity: 1;/);
+  assert.match(css,/@media \(max-width: 640px\) \{[^}]*\}\s*\.featured-arrows \{ display: none; \}\s*\.frame-row \{ --gap: \.9rem; --card: 66vw; margin-inline: calc\(50% - 50vw\); padding-inline: 16px;/);
+  assert.match(css,/@media \(prefers-reduced-motion: reduce\) \{\s*\.frame-row \{ scroll-behavior: auto; \}\s*\.frame-reserve, \.frame-save \{ transition: none; \}/);
 });
 test('withAffiliate carries a well-formed affiliate onto every shop booking link',()=>{
   assert.equal(withAffiliate('/booking','alex-morgan'),'/booking?affiliate=alex-morgan');
