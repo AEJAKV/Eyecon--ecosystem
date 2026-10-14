@@ -551,7 +551,7 @@ function Appointments({ serviceHref, shopHref }) {
       <div className="container">
         <a className="shop-card" href={shopHref}>
           <Icon name="bag" size={28} />
-          <span><strong>Shop frames</strong><small>Browse our collections, from Cartier to LINDBERG.</small></span>
+          <span><strong>Shop frames</strong><small>Browse our collections of luxury eyewear.</small></span>
           <i className="chart-arrow" aria-hidden="true" />
         </a>
       </div>

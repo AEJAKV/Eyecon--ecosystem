@@ -123,7 +123,7 @@ test('the Shop page has its own title, heading and components file',()=>{
   assert.ok(!read('../components/landing.js').includes('shop-heading'),'shop components stay out of landing.js');
 });
 test('collections are in boutique order, each with a tagline, a two-sentence blurb and a layout',()=>{
-  assert.deepEqual(collections.map(c=>c.slug+':'+c.layout),['cartier:banner','chrome-hearts:banner','gucci:tile','lindberg:tile','dita:tile','tom-ford:banner','maybach:banner','maui-jim:tile']);
+  assert.deepEqual(collections.map(c=>c.slug+':'+c.layout),['cartier:banner','chrome-hearts:banner','gucci:tile','lindberg:tile','dita:tile','tom-ford:banner','maybach:banner','maui-jim:tile','bottega-veneta:banner','celine:banner','dior:banner','versace:tile','tiffany-and-co:tile','ray-ban:tile','oakley:tile','prada:tile']);
   assert.deepEqual(brands,collections.map(c=>c.name));
   for(const c of collections){assert.ok(c.line&&c.tagline,c.slug);assert.equal(c.blurb.match(/[.!?](\s|$)/g)?.length,2,c.slug+' blurb');}
 });
@@ -167,7 +167,7 @@ test('Featured this week: sample label in demo only, arrows and keys, phone and 
 });
 test('the houses follow collections: banners alone, tiles in rows of three, closing tiles fill and end the page',()=>{
   const shape=groups=>groups.map(g=>g.type+':'+g.items.map(i=>i.closing?'+'+i.closing:i.slug).join(','));
-  assert.deepEqual(shape(brandGroups()),['banner:cartier','banner:chrome-hearts','tiles:gucci,lindberg,dita','banner:tom-ford','banner:maybach','tiles:maui-jim,+styling,+visit']);
+  assert.deepEqual(shape(brandGroups()),['banner:cartier','banner:chrome-hearts','tiles:gucci,lindberg,dita','banner:tom-ford','banner:maybach','tiles:maui-jim,+styling,+visit','banner:bottega-veneta','banner:celine','banner:dior','tiles:versace,tiffany-and-co,ray-ban','tiles:oakley,prada,+styling','tiles:+visit']);
   const b=slug=>({slug,layout:'banner'}),t=slug=>({slug,layout:'tile'});
   assert.deepEqual(shape(brandGroups([b('a')])),['banner:a','tiles:+styling,+visit'],'always closes the page');
   assert.deepEqual(shape(brandGroups([t('a'),t('b'),t('c'),t('d'),b('e')])),['tiles:a,b,c','tiles:d,+styling,+visit','banner:e','tiles:+styling,+visit'],'four tiles make a full row and a filled one');
@@ -190,7 +190,10 @@ test('house photographs: art-directed banners, tile photos, brand photo fallback
   for(const part of ["'/images/shop/banners/' + brand.slug","art + '-desktop.webp'","art + '-mobile.webp'","'/images/shop/tiles/' + brand.slug + '.webp'","'/images/brands/' + brand.slug + '.webp'"])assert.ok(shop.includes(part),part);
   assert.equal((shop.match(/alt=\{brand\.name \+ ' eyewear'\}/g)||[]).length,3,'banner, tile and fallback alt');
   assert.ok(photo.includes('<source media="(max-width: 640px)" srcSet={narrow} />')&&photo.includes('onError={fail}'));
-  for(const c of collections)assert.ok(readFileSync(new URL('../public/images/brands/'+c.slug+'.webp',import.meta.url)).length>0,c.slug+' fallback exists');
+  const awaiting=['bottega-veneta','celine','dior','versace','tiffany-and-co','ray-ban','oakley','prada'];
+  for(const c of collections.filter(c=>!awaiting.includes(c.slug)))assert.ok(readFileSync(new URL('../public/images/brands/'+c.slug+'.webp',import.meta.url)).length>0,c.slug+' fallback exists');
+  for(const slug of awaiting)assert.ok(collections.some(c=>c.slug===slug),slug);
+  for(const f of ['../components/shop.js','../components/landing.js'])assert.ok(read(f).includes('<small>Photograph to follow</small></span></Photo>'),f+' shows the placeholder while a photograph is missing');
   assert.ok(css.includes('aspect-ratio: 16 / 9; max-height: 80vh;'));
   assert.match(css,/@media \(max-width: 640px\) \{\s*\.houses[^}]*\}[\s\S]*?\.shop-banner-media \{ aspect-ratio: 4 \/ 5; max-height: none; \}[\s\S]*?\.shop-banner-text \{ position: static;[\s\S]*?\.house-tile \{ flex: 0 0 74vw;/);
   assert.match(css,/@media \(prefers-reduced-motion: reduce\) \{\s*\.house-media img \{ transition: none; \}/);
@@ -208,7 +211,7 @@ test('brand pages: every brand built ahead, unknown slugs not found, own title, 
   const css=read('../app/site.css');
   assert.ok(css.includes('.frame-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));'));
   assert.ok(css.includes('@media (max-width: 1024px) { .frame-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }'));
-  assert.deepEqual(collections.filter(c=>!frames.some(f=>f.brand===c.slug)).map(c=>c.slug),['gucci','maui-jim'],'these brands show the arriving-soon line');
+  assert.deepEqual(collections.filter(c=>!frames.some(f=>f.brand===c.slug)).map(c=>c.slug),['gucci','maui-jim','bottega-veneta','celine','dior','versace','tiffany-and-co','ray-ban','oakley','prada'],'these brands show the arriving-soon line');
 });
 test('a booking link’s ?brand= preselects that brand for every house',()=>{
   for(const c of collections){
@@ -216,7 +219,7 @@ test('a booking link’s ?brand= preselects that brand for every house',()=>{
     assert.equal(brandFromParam(link.searchParams.get('brand')),c.name,c.name);
     assert.equal(brandFromParam(c.name.toUpperCase()),c.name);assert.equal(brandFromParam(' '+c.name.toLowerCase()+' '),c.name);
   }
-  for(const bad of [null,undefined,'','Ray-Ban','cartierx'])assert.equal(brandFromParam(bad),'',String(bad));
+  for(const bad of [null,undefined,'','Persol','cartierx'])assert.equal(brandFromParam(bad),'',String(bad));
   assert.ok(readFileSync(new URL('../components/booking-flow.js',import.meta.url),'utf8').includes("const linkedBrand = brandFromParam(params.get('brand'));"));
 });
 test('Shop Frames phone polish: 44px targets, focus rings with room, focus brings the card into its snap place',()=>{
