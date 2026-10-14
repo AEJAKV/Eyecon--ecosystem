@@ -155,7 +155,7 @@ export default function BookingFlow() {
         <div className="booking-help">
           <Icon name="phone" />
           <h3>Prefer to talk to us?</h3>
-          {clinic.phone ? <a href={'tel:' + clinic.phone}>{clinic.phone}</a> : <p>The clinic phone number will be added before launch.</p>}
+          {clinic.phone ? <a href={clinic.phoneHref}>{clinic.phone}</a> : <p>The clinic phone number will be added before launch.</p>}
         </div>
         <BookingReviews />
       </aside>
@@ -178,7 +178,7 @@ export default function BookingFlow() {
             </label>)}
           </div>
           {service === 'skin-tightening' && <SkinTechnologies value={serviceOption} onChange={setServiceOption} />}
-          <p className="urgent-note">Urgent eye concern? {clinic.phone ? <a href={'tel:' + clinic.phone}>Call the clinic</a> : 'Please call the clinic for guidance.'}</p>
+          <p className="urgent-note">Urgent eye concern? {clinic.phone ? <a href={clinic.phoneHref}>Call the clinic</a> : 'Please call the clinic for guidance.'}</p>
           <div className="form-actions"><Button onClick={next} disabled={!chosenService}>Continue</Button></div>
         </div>}
 

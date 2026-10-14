@@ -559,7 +559,7 @@ function Appointments({ serviceHref, shopHref }) {
         <div className="container">
           <p>Urgent eye concern? Talk to the team now.</p>
           {clinic.phone
-            ? <a className="button" href={'tel:' + clinic.phone}><Icon name="phone" size={18} />Call {clinic.phone}</a>
+            ? <a className="button" href={clinic.phoneHref}><Icon name="phone" size={18} />Call {clinic.phone}</a>
             : <span className="urgent-pending"><Icon name="phone" size={18} />Phone to be confirmed</span>}
         </div>
       </div>
