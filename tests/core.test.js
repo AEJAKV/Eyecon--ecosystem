@@ -199,7 +199,9 @@ test('house photographs: art-directed banners, tile photos, brand photo fallback
   for(const f of ['../components/shop.js','../components/landing.js'])assert.ok(read(f).includes('<small>Photograph to follow</small></span></Photo>'),f+' shows the placeholder while a photograph is missing');
   assert.ok(css.includes('aspect-ratio: 16 / 9; max-height: 80vh;'));
   assert.ok(css.includes('.houses { display: flex; flex-direction: column; gap: 0;'),'banners touch each other and the tile row below');
-  assert.ok(css.includes('.houses .house-row + .house-row, .houses .house-row + .shop-banner { margin-top:'),'only a tile row gets room after it');
+  assert.ok(css.includes('.houses .house-row { padding-block: clamp(40px, 4vw, 64px); }\n.houses .house-row + .house-row { padding-top: 0; }'),'room above and below each tile row, one gap between two rows');
+  assert.match(css,/@media \(max-width: 640px\) \{[^}]*\.houses \.house-row \{ padding-block: 32px; \}/,'32px on phones');
+  assert.ok(!/\.shop-banner \+ \.shop-banner|\.shop-banner \{[^}]*margin: (?!0;)/.test(css),'banners still touch');
   assert.ok(css.includes('.house-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(16px, 1.5vw, 24px);'),'desktop gutter about 1.5vw, never more than 24px');
   assert.ok(css.includes('.house-tiles { display: flex; gap: 12px; padding-inline: 16px;'),'phone swipe row gutter 12px');
   assert.ok(css.includes('.house-row { width: min(1250px, calc(100% - 3rem)); margin-inline: auto; }'),'tile rows centred at the page content width');

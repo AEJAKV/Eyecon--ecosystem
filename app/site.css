@@ -935,9 +935,10 @@ button.review-text { padding: 0; border: 0; background: none; color: inherit; fo
 }
 
 /* The houses: full-bleed banners that touch each other and the tile row below them, and rows of three tiles with a
-   tight gutter. Only a tile row's captions get room before whatever follows. */
+   tight gutter. Each tile row has room above and below it; two rows in a row share one gap. */
 .houses { display: flex; flex-direction: column; gap: 0; padding-bottom: clamp(5rem, 10vw, 9rem); }
-.houses .house-row + .house-row, .houses .house-row + .shop-banner { margin-top: clamp(3rem, 6vw, 5rem); }
+.houses .house-row { padding-block: clamp(40px, 4vw, 64px); }
+.houses .house-row + .house-row { padding-top: 0; }
 .house-name { margin: 0 0 .6rem; font: 500 .8rem/1.4 var(--sans); letter-spacing: .24em; text-transform: uppercase; }
 .house-tagline { margin: 0; font-family: var(--serif); font-variation-settings: 'opsz' 28; font-weight: 400; line-height: 1.1; letter-spacing: -.01em; }
 /* Banner: 16:9 up to 80% of the screen height; the words sit low and centred over a soft dark gradient, as on the hero. */
@@ -972,7 +973,7 @@ button.review-text { padding: 0; border: 0; background: none; color: inherit; fo
 .closing-panel.dark .button:hover { border-color: var(--gold); }
 /* Phones: banners become a 4:5 photograph with the words below it; tile rows swipe, about 1¼ tiles at a time. */
 @media (max-width: 640px) {
-  .houses .house-row + .house-row, .houses .house-row + .shop-banner { margin-top: 3rem; }
+  .houses .house-row { padding-block: 32px; }
   .shop-banner { color: var(--ink); }
   .shop-banner-media { aspect-ratio: 4 / 5; max-height: none; }
   .shop-banner-media::after { display: none; }
