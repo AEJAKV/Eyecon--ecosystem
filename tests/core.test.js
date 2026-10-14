@@ -344,3 +344,11 @@ test('/shop opens with a photo header, the overlay site header, and the plain he
   assert.ok(css.includes('.shop-hero-photo { position: absolute; inset: 0 0 0 auto; z-index: -1; width: 68%; height: 100%; }'),'photo on the right two-thirds, clear of the words');
   assert.match(css,/@media \(max-width: 640px\) \{[^}]*\}[\s\S]*?\.shop-hero-photo \{ order: 1;[^}]*aspect-ratio: 4 \/ 5;/,'phones: words above the 4:5 photo');
 });
+
+test('the hero “Meet our optometrists” button scrolls to the doctors section',()=>{
+  const landing=readFileSync(new URL('../components/landing.js',import.meta.url),'utf8');
+  assert.ok(landing.includes('<a className="button outline" href="#doctors">Meet our optometrists</a>'));
+  assert.ok(landing.includes('<section className="doctors" id="doctors" aria-labelledby="doctors-title">'));
+  assert.equal((landing.match(/id="doctors"/g)||[]).length,1,'one #doctors target');
+  assert.ok(!landing.includes('See appointment types'));
+});

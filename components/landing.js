@@ -258,7 +258,7 @@ function Doctors({ serviceHref }) {
 
   const person = shown.current, personName = `${person.title} ${person.first} ${person.last}`;
   return (
-    <section className="doctors" aria-labelledby="doctors-title">
+    <section className="doctors" id="doctors" aria-labelledby="doctors-title">
       <div className="doctors-intro">
         <h2 id="doctors-title">The people behind your exam</h2>
         <p>Every visit is unhurried, personal and led by a licensed optometrist.</p>
@@ -692,7 +692,7 @@ export default function Landing({ slug }) {
             {affiliate && <Gift affiliate={affiliate} />}
             <div className="hero-actions">
               <Button href={booking}>Book your appointment</Button>
-              <a className="button outline" href="#appointments">See appointment types</a>
+              <a className="button outline" href="#doctors">Meet our optometrists</a>
             </div>
             {clinic.rating
               ? <a className="hero-rating" href={clinic.reviews || '#reviews'} target={clinic.reviews ? '_blank' : undefined} rel="noopener noreferrer"><Stars value={clinic.rating} /><span><strong>{clinic.rating.toFixed(1)}</strong> on Google{clinic.reviewCount ? ` from ${clinic.reviewCount} reviews` : ''}</span></a>
