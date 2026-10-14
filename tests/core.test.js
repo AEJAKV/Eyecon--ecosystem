@@ -108,8 +108,9 @@ test('Shop frames points at the /shop page by default, from the header and under
   const ui=read('../components/ui.js'),landing=read('../components/landing.js'),css=read('../app/site.css');
   const header=ui.slice(ui.indexOf('export function Header'),ui.indexOf('export function PreviewBar'));
   assert.ok(header.indexOf('shop-link')<header.indexOf("'tel:'"),'Shop Frames sits before the phone link');
-  for(const part of ['>Shop Frames<','>Frames<','href={shopHref}'])assert.ok(header.includes(part),part);
+  for(const part of ['<Icon name="bag" size={18}/><span className="shop-long">','>Shop Frames<','>Frames<','href={shopHref}'])assert.ok(header.includes(part),part);
   assert.match(css,/@media \(max-width: 639px\) \{\s*\.shop-link \.shop-long \{ display: none; \}\s*\.shop-link \.shop-short \{ display: inline; \}/);
+  assert.ok(css.includes('  .header-actions .shop-link { gap: .3rem; }'),'bag icon sits closer to Frames on small phones so the header fits at 360px');
   assert.ok(landing.includes('className="collections-more"')&&landing.includes('Shop all frames'));
   assert.ok(css.includes('/* Shop */'));
 });

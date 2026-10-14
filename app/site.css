@@ -851,6 +851,7 @@ details p { margin: 1rem 0 0; color: var(--muted); }
   .site-header .logo { --word: 1.1rem; }
   .header-actions .label-long { display: none; }
   .header-actions .label-short { display: inline; }
+  .header-actions .shop-link { gap: .3rem; }
 }
 /* The narrowest phones: Shop Frames stays in the appointments section and under the carousel rather than the header. */
 @media (max-width: 359px) {
@@ -873,7 +874,7 @@ button.review-text { padding: 0; border: 0; background: none; color: inherit; fo
    states colour it like the phone link. */
 .shop-link .shop-long { display: inline; }
 .shop-link .shop-short { display: none; }
-/* Below 860px the phone link becomes a round icon button; Shop Frames stays text, with the same 44px tap height. */
+/* Below 860px the phone link becomes a round icon button; Shop Frames stays the bag icon and text, with the same 44px tap height. */
 @media (max-width: 860px) {
   .header-actions .shop-link { width: auto; height: 44px; border: 0; border-radius: 0; }
 }

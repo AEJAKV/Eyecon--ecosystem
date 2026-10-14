@@ -15,7 +15,7 @@ export function Header({bookingHref='/booking',bookingLabel='Book appointment',b
   const [scrolled,setScrolled]=useState(false);
   useEffect(()=>{const on=()=>setScrolled(window.scrollY>(overlay?40:24));on();window.addEventListener('scroll',on,{passive:true});return()=>window.removeEventListener('scroll',on);},[overlay]);
   return <header className={`site-header ${overlay?'overlay':''} ${scrolled?'scrolled':''}`}><div className="header-inner"><Logo/><div className="header-actions">
-    <Link className="call-link shop-link" href={shopHref} aria-label="Shop Frames"><span className="shop-long">Shop Frames</span><span className="shop-short" aria-hidden="true">Frames</span></Link>
+    <Link className="call-link shop-link" href={shopHref} aria-label="Shop Frames"><Icon name="bag" size={18}/><span className="shop-long">Shop Frames</span><span className="shop-short" aria-hidden="true">Frames</span></Link>
     {clinic.phone
       ?<a className="call-link" href={'tel:'+clinic.phone} aria-label={'Call Eyecon at '+clinic.phone}><Icon name="phone" size={18}/><span>{clinic.phone}</span></a>
       :<span className="call-link pending" title="The clinic phone number will be added before launch"><Icon name="phone" size={18}/><span>Clinic phone</span></span>}
