@@ -187,15 +187,15 @@ test('house links: brand pages and Book now keep the affiliate; directions only 
   const shop=readFileSync(new URL('../components/shop.js',import.meta.url),'utf8');
   for(const part of ['Try pieces from every house with a personal styling consultation.','<Button href={stylingHref(affiliate)}>Book now</Button>','Address to be confirmed','{directions && <a','>Get directions<','href={brandHref(brand.slug, affiliate)}>Shop the collection','>Discover<'])assert.ok(shop.includes(part),part);
 });
-test('house photographs: art-directed banners, tile photos, brand photo fallback and alt text',()=>{
+test('house photographs: art-directed banners, brand photos on tiles and phones, fallback and alt text',()=>{
   const read=f=>readFileSync(new URL(f,import.meta.url),'utf8');
-  const shop=read('../components/shop.js'),photo=read('../components/photo.js'),css=read('../app/site.css');
-  for(const part of ["'/images/shop/banners/' + brand.slug","art + '-desktop.webp'","art + '-mobile.webp'","'/images/shop/tiles/' + brand.slug + '.webp'","'/images/brands/' + brand.slug + '.webp'"])assert.ok(shop.includes(part),part);
-  assert.equal((shop.match(/alt=\{brand\.name \+ ' eyewear'\}/g)||[]).length,3,'banner, tile and fallback alt');
+  const shop=read('../components/shop.js'),photo=read('../components/photo.js'),css=read('../app/site.css').replace(/\r\n/g,'\n');
+  for(const part of ["'/images/shop/banners/' + brand.slug","art + '-desktop.webp'","mobile={'/images/brands/' + brand.slug + '.webp'}","'/images/brands/' + brand.slug + '.webp'",'<BrandPhoto brand={brand} sizes="(max-width: 640px) 78vw, 33vw" />'])assert.ok(shop.includes(part),part);
+  assert.ok(!shop.includes('shop/tiles')&&!shop.includes('-mobile.webp'),'tiles and phone banners use the brand photo');
+  assert.equal((shop.match(/alt=\{brand\.name \+ ' eyewear'\}/g)||[]).length,2,'banner and brand photo alt');
   assert.ok(photo.includes('<source media="(max-width: 640px)" srcSet={narrow} />')&&photo.includes('onError={fail}'));
-  const awaiting=['bottega-veneta','celine','dior','versace','tiffany-and-co','ray-ban','oakley','prada'];
-  for(const c of collections.filter(c=>!awaiting.includes(c.slug)))assert.ok(readFileSync(new URL('../public/images/brands/'+c.slug+'.webp',import.meta.url)).length>0,c.slug+' fallback exists');
-  for(const slug of awaiting)assert.ok(collections.some(c=>c.slug===slug),slug);
+  for(const c of collections)assert.ok(readFileSync(new URL('../public/images/brands/'+c.slug+'.webp',import.meta.url)).length>0,c.slug+' brand photo exists');
+  for(const c of collections.filter(c=>c.layout==='banner'))assert.ok(readFileSync(new URL('../public/images/shop/banners/'+c.slug+'-desktop.webp',import.meta.url)).length>0,c.slug+' desktop banner exists');
   for(const f of ['../components/shop.js','../components/landing.js'])assert.ok(read(f).includes('<small>Photograph to follow</small></span></Photo>'),f+' shows the placeholder while a photograph is missing');
   assert.ok(css.includes('aspect-ratio: 16 / 9; max-height: 80vh;'));
   assert.ok(css.includes('.houses { display: flex; flex-direction: column; gap: 0;'),'banners touch each other and the tile row below');

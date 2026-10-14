@@ -115,13 +115,14 @@ function BrandPhoto({ brand, sizes }) {
 }
 
 // A full-width band: 16:9 with the words low over the photograph on larger screens; 4:5 with the words below on phones.
+// Phones show the brand's 4:5 photograph, the same one the carousel and tiles use.
 // On /shop it is an article with a Shop the collection button; on the brand's own page it heads the page (an h1, no button).
 function Banner({ brand, affiliate, page = false }) {
   const art = '/images/shop/banners/' + brand.slug, Wrap = page ? 'header' : 'article', Heading = page ? 'h1' : 'h3';
   return (
     <Wrap className="shop-banner" aria-labelledby={'house-' + brand.slug}>
       <div className="shop-banner-media">
-        <ArtPhoto desktop={art + '-desktop.webp'} mobile={art + '-mobile.webp'} alt={brand.name + ' eyewear'}><BrandPhoto brand={brand} sizes="100vw" /></ArtPhoto>
+        <ArtPhoto desktop={art + '-desktop.webp'} mobile={'/images/brands/' + brand.slug + '.webp'} alt={brand.name + ' eyewear'}><BrandPhoto brand={brand} sizes="100vw" /></ArtPhoto>
       </div>
       <div className="shop-banner-text">
         <Heading id={'house-' + brand.slug} className="house-name">{brand.name}</Heading>
@@ -136,7 +137,7 @@ function Tile({ brand, affiliate }) {
   return (
     <li className="house-tile">
       <div className="house-media">
-        <Photo src={'/images/shop/tiles/' + brand.slug + '.webp'} alt={brand.name + ' eyewear'} sizes="(max-width: 640px) 78vw, 33vw"><BrandPhoto brand={brand} sizes="(max-width: 640px) 78vw, 33vw" /></Photo>
+        <BrandPhoto brand={brand} sizes="(max-width: 640px) 78vw, 33vw" />
       </div>
       <h3 className="house-name">{brand.name}</h3>
       <p className="house-tagline">{brand.tagline}</p>
