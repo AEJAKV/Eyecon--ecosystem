@@ -10,6 +10,7 @@ import { giftSerial,issueGiftCard,giftCode,giftNumber,bookingReference } from '.
 import { demoLookup } from '../lib/demo.js';
 import { featuredFirst,excerpt,EXCERPT_LENGTH } from '../lib/reviews.js';
 import { lookupView,validateLookup,LOOKUP_NOT_FOUND } from '../lib/lookup.js';
+import { clinic } from '../lib/config.js';
 import { nullEmr,emrAdapter,applyEmr } from '../lib/emr.js';
 import { calculateCommission,validateCompletion,validatePricing } from '../lib/commission.js';
 import { affiliatePerformance,performanceTable,topAffiliates,filterAppointments,staffAppointmentRows,STAFF_APPOINTMENT_FIELDS } from '../lib/performance.js';
@@ -296,4 +297,13 @@ test('review cards clamp to four lines and open on click; the sample reviews tag
   assert.ok(landing.includes("{open ? 'Show less' : 'Read full review'}"));
   assert.equal(landing.includes('Sample reviews'),false);assert.equal(cards.includes('Sample reviews'),false);
   assert.ok(cards.includes('Sample rating'),'a sample rating is still labelled');
+});
+
+test('clinic phoneHref is a digits-only tel: link and every call link uses it',()=>{
+  assert.match(clinic.phoneHref,/^tel:\+\d+$/);
+  assert.equal(clinic.phoneHref,'tel:+'+clinic.phone.replace(/\D/g,''));
+  const read=f=>readFileSync(new URL(f,import.meta.url),'utf8');
+  for(const f of ['../components/ui.js','../components/booking-flow.js','../components/booking-lookup.js','../components/landing.js']){
+    assert.ok(!/'tel:'\s*\+\s*clinic\.phone/.test(read(f)),f+' builds tel: from the display phone');
+  }
 });
