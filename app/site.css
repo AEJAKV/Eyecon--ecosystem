@@ -934,12 +934,14 @@ button.review-text { padding: 0; border: 0; background: none; color: inherit; fo
   .frame-reserve { transform: none; }
 }
 
-/* The houses: full-width banners and rows of three tiles, with generous room between them. */
-.houses { display: flex; flex-direction: column; gap: clamp(5rem, 10vw, 9rem); padding-bottom: clamp(5rem, 10vw, 9rem); }
+/* The houses: full-bleed banners that touch each other and the tile row below them, and rows of three tiles with a
+   tight gutter. Only a tile row's captions get room before whatever follows. */
+.houses { display: flex; flex-direction: column; gap: 0; padding-bottom: clamp(5rem, 10vw, 9rem); }
+.houses .house-row + .house-row, .houses .house-row + .shop-banner { margin-top: clamp(3rem, 6vw, 5rem); }
 .house-name { margin: 0 0 .6rem; font: 500 .8rem/1.4 var(--sans); letter-spacing: .24em; text-transform: uppercase; }
 .house-tagline { margin: 0; font-family: var(--serif); font-variation-settings: 'opsz' 28; font-weight: 400; line-height: 1.1; letter-spacing: -.01em; }
 /* Banner: 16:9 up to 80% of the screen height; the words sit low and centred over a soft dark gradient, as on the hero. */
-.shop-banner { position: relative; color: #fff; }
+.shop-banner { position: relative; width: 100%; margin: 0; color: #fff; }
 .shop-banner-media { position: relative; width: 100%; aspect-ratio: 16 / 9; max-height: 80vh; overflow: hidden; background: var(--soft); }
 .shop-banner-media img { object-fit: cover; object-position: 50% 28%; }
 .shop-banner-media::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(to top, rgba(20, 24, 29, .62), rgba(20, 24, 29, .3) 32%, rgba(20, 24, 29, 0) 62%); }
@@ -951,7 +953,7 @@ button.review-text { padding: 0; border: 0; background: none; color: inherit; fo
 .shop-banner .button.outline:hover { color: var(--ink); border-color: var(--gold); }
 /* Tile rows: three equal columns of square photographs; the photograph drifts very slightly closer on hover. */
 .house-row { width: min(1250px, calc(100% - 3rem)); margin-inline: auto; }
-.house-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(1.25rem, 2.5vw, 2rem); margin: 0; padding: 0; list-style: none; }
+.house-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(16px, 1.5vw, 24px); margin: 0; padding: 0; list-style: none; }
 .house-tile { position: relative; display: flex; flex-direction: column; align-items: flex-start; }
 .house-media { position: relative; width: 100%; aspect-ratio: 1; margin-bottom: 1.4rem; overflow: hidden; background: var(--soft); }
 .house-media img { object-fit: cover; transition: transform 1.2s var(--ease); }
@@ -970,14 +972,14 @@ button.review-text { padding: 0; border: 0; background: none; color: inherit; fo
 .closing-panel.dark .button:hover { border-color: var(--gold); }
 /* Phones: banners become a 4:5 photograph with the words below it; tile rows swipe, about 1¼ tiles at a time. */
 @media (max-width: 640px) {
-  .houses { gap: 4.5rem; }
+  .houses .house-row + .house-row, .houses .house-row + .shop-banner { margin-top: 3rem; }
   .shop-banner { color: var(--ink); }
   .shop-banner-media { aspect-ratio: 4 / 5; max-height: none; }
   .shop-banner-media::after { display: none; }
-  .shop-banner-text { position: static; padding: 1.75rem 1.25rem 0; text-shadow: none; }
+  .shop-banner-text { position: static; padding: 1.75rem 1.25rem 2.5rem; text-shadow: none; }
   .shop-banner .button.outline { color: var(--ink); border-color: var(--ink); }
   .house-row { width: 100%; }
-  .house-tiles { display: flex; gap: .9rem; padding-inline: 16px; scroll-padding-inline: 16px; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x mandatory; scrollbar-width: none; }
+  .house-tiles { display: flex; gap: 12px; padding-inline: 16px; scroll-padding-inline: 16px; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x mandatory; scrollbar-width: none; }
   .house-tiles::-webkit-scrollbar { display: none; }
   .house-tile { flex: 0 0 74vw; scroll-snap-align: start; }
   .house-count { display: block; margin: 1.1rem 16px 0; font-size: .8rem; letter-spacing: .12em; color: var(--muted); font-variant-numeric: tabular-nums; }

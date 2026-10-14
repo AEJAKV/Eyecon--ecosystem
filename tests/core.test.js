@@ -123,7 +123,7 @@ test('the Shop page has its own title, heading and components file',()=>{
   assert.ok(!read('../components/landing.js').includes('shop-heading'),'shop components stay out of landing.js');
 });
 test('collections are in boutique order, each with a tagline, a two-sentence blurb and a layout',()=>{
-  assert.deepEqual(collections.map(c=>c.slug+':'+c.layout),['cartier:banner','chrome-hearts:banner','gucci:tile','lindberg:tile','dita:tile','tom-ford:banner','maybach:banner','maui-jim:tile','bottega-veneta:banner','celine:banner','dior:banner','versace:tile','tiffany-and-co:tile','ray-ban:tile','oakley:tile','prada:tile']);
+  assert.deepEqual(collections.map(c=>c.slug+':'+c.layout),['cartier:banner','chrome-hearts:banner','gucci:tile','lindberg:tile','dita:tile','tom-ford:banner','maybach:banner','maui-jim:tile','ray-ban:tile','oakley:tile','dior:banner','tiffany-and-co:banner','prada:tile','versace:tile','celine:tile','bottega-veneta:tile']);
   assert.deepEqual(brands,collections.map(c=>c.name));
   for(const c of collections){assert.ok(c.line&&c.tagline,c.slug);assert.equal(c.blurb.match(/[.!?](\s|$)/g)?.length,2,c.slug+' blurb');}
 });
@@ -167,7 +167,10 @@ test('Featured this week: sample label in demo only, arrows and keys, phone and 
 });
 test('the houses follow collections: banners alone, tiles in rows of three, closing tiles fill and end the page',()=>{
   const shape=groups=>groups.map(g=>g.type+':'+g.items.map(i=>i.closing?'+'+i.closing:i.slug).join(','));
-  assert.deepEqual(shape(brandGroups()),['banner:cartier','banner:chrome-hearts','tiles:gucci,lindberg,dita','banner:tom-ford','banner:maybach','tiles:maui-jim,+styling,+visit','banner:bottega-veneta','banner:celine','banner:dior','tiles:versace,tiffany-and-co,ray-ban','tiles:oakley,prada,+styling','tiles:+visit']);
+  assert.deepEqual(shape(brandGroups()),['banner:cartier','banner:chrome-hearts','tiles:gucci,lindberg,dita','banner:tom-ford','banner:maybach','tiles:maui-jim,ray-ban,oakley','banner:dior','banner:tiffany-and-co','tiles:prada,versace,celine','tiles:bottega-veneta,+styling,+visit']);
+  const groups=brandGroups();
+  assert.deepEqual(groups.map(g=>g.type==='banner'?'B':'T'+g.items.length).join(' '),'B B T3 B B T3 B B T3 T3','pairs of banners between full rows of three');
+  assert.ok(groups.slice(0,-1).every(g=>g.type==='banner'||g.items.every(i=>!i.closing)),'no short or filled row mid-page');
   const b=slug=>({slug,layout:'banner'}),t=slug=>({slug,layout:'tile'});
   assert.deepEqual(shape(brandGroups([b('a')])),['banner:a','tiles:+styling,+visit'],'always closes the page');
   assert.deepEqual(shape(brandGroups([t('a'),t('b'),t('c'),t('d'),b('e')])),['tiles:a,b,c','tiles:d,+styling,+visit','banner:e','tiles:+styling,+visit'],'four tiles make a full row and a filled one');
@@ -195,6 +198,11 @@ test('house photographs: art-directed banners, tile photos, brand photo fallback
   for(const slug of awaiting)assert.ok(collections.some(c=>c.slug===slug),slug);
   for(const f of ['../components/shop.js','../components/landing.js'])assert.ok(read(f).includes('<small>Photograph to follow</small></span></Photo>'),f+' shows the placeholder while a photograph is missing');
   assert.ok(css.includes('aspect-ratio: 16 / 9; max-height: 80vh;'));
+  assert.ok(css.includes('.houses { display: flex; flex-direction: column; gap: 0;'),'banners touch each other and the tile row below');
+  assert.ok(css.includes('.houses .house-row + .house-row, .houses .house-row + .shop-banner { margin-top:'),'only a tile row gets room after it');
+  assert.ok(css.includes('.house-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(16px, 1.5vw, 24px);'),'desktop gutter about 1.5vw, never more than 24px');
+  assert.ok(css.includes('.house-tiles { display: flex; gap: 12px; padding-inline: 16px;'),'phone swipe row gutter 12px');
+  assert.ok(css.includes('.house-row { width: min(1250px, calc(100% - 3rem)); margin-inline: auto; }'),'tile rows centred at the page content width');
   assert.match(css,/@media \(max-width: 640px\) \{\s*\.houses[^}]*\}[\s\S]*?\.shop-banner-media \{ aspect-ratio: 4 \/ 5; max-height: none; \}[\s\S]*?\.shop-banner-text \{ position: static;[\s\S]*?\.house-tile \{ flex: 0 0 74vw;/);
   assert.match(css,/@media \(prefers-reduced-motion: reduce\) \{\s*\.house-media img \{ transition: none; \}/);
   assert.ok(css.includes('.frame-card { position: relative;')&&css.includes('.house-tile { position: relative;'),'cards contain their screen-reader labels, so a scroll row never widens the page');
@@ -211,7 +219,7 @@ test('brand pages: every brand built ahead, unknown slugs not found, own title, 
   const css=read('../app/site.css');
   assert.ok(css.includes('.frame-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));'));
   assert.ok(css.includes('@media (max-width: 1024px) { .frame-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }'));
-  assert.deepEqual(collections.filter(c=>!frames.some(f=>f.brand===c.slug)).map(c=>c.slug),['gucci','maui-jim','bottega-veneta','celine','dior','versace','tiffany-and-co','ray-ban','oakley','prada'],'these brands show the arriving-soon line');
+  assert.deepEqual(collections.filter(c=>!frames.some(f=>f.brand===c.slug)).map(c=>c.slug),['gucci','maui-jim','ray-ban','oakley','dior','tiffany-and-co','prada','versace','celine','bottega-veneta'],'these brands show the arriving-soon line');
 });
 test('a booking link’s ?brand= preselects that brand for every house',()=>{
   for(const c of collections){
