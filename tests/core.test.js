@@ -322,3 +322,12 @@ test('clinic phoneHref is a digits-only tel: link and every call link uses it',(
 });
 
 test('footer shows the clinic description under the logo',()=>{const ui=readFileSync(new URL('../components/ui.js',import.meta.url),'utf8');assert.ok(ui.includes('<div className="footer-brand"><Logo/><p className="footer-about">Eyecon is the leading provider of optometry services and vision care products in Edmonton. Come visit us today!</p></div>'));});
+
+test('the homepage carousel shows Bottega Veneta fourth; /shop keeps collections order',()=>{
+  const landing=readFileSync(new URL('../components/landing.js',import.meta.url),'utf8');
+  assert.ok(landing.includes("return bottega ? [...rest.slice(0, 3), bottega, ...rest.slice(3)] : collections;"));
+  for(const part of ['{carousel.map((b, i) => <div key={b.slug}','{carousel.map((b, i) => <li key={b.slug}>','{active + 1} of {carousel.length}'])assert.ok(landing.includes(part),part);
+  const rest=collections.filter(b=>b.slug!=='bottega-veneta');
+  assert.deepEqual([...rest.slice(0,3),collections.find(b=>b.slug==='bottega-veneta'),...rest.slice(3)].slice(0,4).map(b=>b.slug),['cartier','chrome-hearts','gucci','bottega-veneta']);
+  assert.ok(!/carousel\.(map|length)/.test(readFileSync(new URL('../components/shop.js',import.meta.url),'utf8')),'/shop does not use the carousel order');
+});

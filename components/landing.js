@@ -567,12 +567,20 @@ function Appointments({ serviceHref, shopHref }) {
   );
 }
 
+// The carousel follows the boutique order with Bottega Veneta brought forward to fourth.
+// /shop keeps collections order so its tile rows of three stay intact.
+const carousel = (() => {
+  const rest = collections.filter((b) => b.slug !== 'bottega-veneta');
+  const bottega = collections.find((b) => b.slug === 'bottega-veneta');
+  return bottega ? [...rest.slice(0, 3), bottega, ...rest.slice(3)] : collections;
+})();
+
 /* Brand carousel. The track is a native scroll-snap list, so swiping and trackpads work without script;
    arrows, the keyboard and clicking a card move it one brand at a time. No autoplay. */
 function Collections({ href, shopHref }) {
   const [active, setActive] = useState(0);
   const track = useRef(null), moving = useRef(0);
-  const last = collections.length - 1, brand = collections[active];
+  const last = carousel.length - 1, brand = carousel[active];
   const step = () => track.current.children[1].offsetLeft - track.current.children[0].offsetLeft;
   function go(index) {
     const next = Math.max(0, Math.min(last, index));
@@ -598,9 +606,9 @@ function Collections({ href, shopHref }) {
       <div className="collections-inner">
         <div className="collections-story">
           <h2 id="collections-title" className="collections-title">Our collections</h2>
-          <p className="carousel-count" aria-live="polite" aria-atomic="true"><span className="sr-only">{brand.name}, </span>{active + 1} of {collections.length}</p>
+          <p className="carousel-count" aria-live="polite" aria-atomic="true"><span className="sr-only">{brand.name}, </span>{active + 1} of {carousel.length}</p>
           <div className="brand-stories">
-            {collections.map((b, i) => <div key={b.slug} className={`brand-story ${i === active ? 'active' : ''}`} aria-hidden={i !== active}>
+            {carousel.map((b, i) => <div key={b.slug} className={`brand-story ${i === active ? 'active' : ''}`} aria-hidden={i !== active}>
               <h3>{b.name}</h3>
               <p>{b.line}</p>
             </div>)}
@@ -609,11 +617,11 @@ function Collections({ href, shopHref }) {
           <div className="carousel-controls">
             <button type="button" className="carousel-arrow" aria-label="Previous brand" disabled={active === 0} onClick={() => go(active - 1)}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M19 12H5m6-6-6 6 6 6" /></svg></button>
             <button type="button" className="carousel-arrow" aria-label="Next brand" disabled={active === last} onClick={() => go(active + 1)}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6" /></svg></button>
-            <span className="carousel-progress" aria-hidden="true"><span style={{ transform: `scaleX(${(active + 1) / collections.length})` }} /></span>
+            <span className="carousel-progress" aria-hidden="true"><span style={{ transform: `scaleX(${(active + 1) / carousel.length})` }} /></span>
           </div>
         </div>
         <ul className="brand-track" ref={track} tabIndex={0} aria-label="Brands. Use the left and right arrow keys to move." onScroll={follow} onScrollEnd={settle}>
-          {collections.map((b, i) => <li key={b.slug}>
+          {carousel.map((b, i) => <li key={b.slug}>
             <button type="button" className="brand-card" aria-current={i === active ? 'true' : undefined} onClick={() => go(i)}>
               <span className="brand-media"><BrandImage brand={b} /></span>
             </button>
