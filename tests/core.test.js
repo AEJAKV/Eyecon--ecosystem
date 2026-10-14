@@ -191,7 +191,7 @@ test('house photographs: art-directed banners, brand photos on tiles and phones,
   const read=f=>readFileSync(new URL(f,import.meta.url),'utf8');
   const shop=read('../components/shop.js'),photo=read('../components/photo.js'),css=read('../app/site.css').replace(/\r\n/g,'\n');
   for(const part of ["'/images/shop/banners/' + brand.slug","art + '-desktop.webp'","mobile={'/images/brands/' + brand.slug + '.webp'}","'/images/brands/' + brand.slug + '.webp'",'<BrandPhoto brand={brand} sizes="(max-width: 640px) 78vw, 33vw" />'])assert.ok(shop.includes(part),part);
-  assert.ok(!shop.includes('shop/tiles')&&!shop.includes('-mobile.webp'),'tiles and phone banners use the brand photo');
+  assert.ok(!shop.includes('shop/tiles')&&!shop.includes("art + '-mobile.webp'"),'tiles and phone banners use the brand photo');
   assert.equal((shop.match(/alt=\{brand\.name \+ ' eyewear'\}/g)||[]).length,2,'banner and brand photo alt');
   assert.ok(photo.includes('<source media="(max-width: 640px)" srcSet={narrow} />')&&photo.includes('onError={fail}'));
   for(const c of collections)assert.ok(readFileSync(new URL('../public/images/brands/'+c.slug+'.webp',import.meta.url)).length>0,c.slug+' brand photo exists');
@@ -330,4 +330,17 @@ test('the homepage carousel shows Bottega Veneta fourth; /shop keeps collections
   const rest=collections.filter(b=>b.slug!=='bottega-veneta');
   assert.deepEqual([...rest.slice(0,3),collections.find(b=>b.slug==='bottega-veneta'),...rest.slice(3)].slice(0,4).map(b=>b.slug),['cartier','chrome-hearts','gucci','bottega-veneta']);
   assert.ok(!/carousel\.(map|length)/.test(readFileSync(new URL('../components/shop.js',import.meta.url),'utf8')),'/shop does not use the carousel order');
+});
+
+test('/shop opens with a photo header, the overlay site header, and the plain heading if the photo is missing',()=>{
+  const read=f=>readFileSync(new URL(f,import.meta.url),'utf8');
+  const shop=read('../components/shop.js'),css=read('../app/site.css').replace(/\r\n/g,'\n');
+  for(const part of ["src: '/images/shop/hero-desktop.webp', width: 1664, height: 936","src: '/images/shop/hero-mobile.webp', width: 1080, height: 1350",
+    '<source media="(max-width: 640px)" srcSet={narrow} />',"alt: 'Five models wearing luxury eyewear'","loading: 'eager', fetchPriority: 'high'",
+    '<img ref={ref} {...rest} onError={onMissing} />','if (!photo) return <section className="shop-heading" aria-labelledby="shop-title">{words}</section>;',
+    'overlay={photo} />','<ShopHeading photo={photo} onMissing={() => setPhoto(false)} />'])assert.ok(shop.includes(part),part);
+  assert.ok(css.includes('height: 70vh; min-height: 480px; max-height: 820px;'),'about 70vh, 480 to 820px');
+  assert.ok(css.includes('.shop-hero .container > * { max-width: min(24rem, 30%); }'),'words keep to the left third');
+  assert.ok(css.includes('.shop-hero-photo { position: absolute; inset: 0 0 0 auto; z-index: -1; width: 68%; height: 100%; }'),'photo on the right two-thirds, clear of the words');
+  assert.match(css,/@media \(max-width: 640px\) \{[^}]*\}[\s\S]*?\.shop-hero-photo \{ order: 1;[^}]*aspect-ratio: 4 \/ 5;/,'phones: words above the 4:5 photo');
 });

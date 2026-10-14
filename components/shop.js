@@ -1,6 +1,7 @@
 'use client';
 import { Suspense, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import { getImageProps } from 'next/image';
 import { useSearchParams } from 'next/navigation';
 import { Header, Footer, Icon, Button } from './ui';
 import Photo, { ArtPhoto } from './photo';
@@ -24,14 +25,32 @@ function revealCard(e) {
   card.scrollIntoView({ block: 'nearest', inline: 'start', behavior: reducedMotion() ? 'auto' : 'smooth' });
 }
 
-function ShopHeading() {
+/* The page heading over a full-width photograph: a 16:9 crop above 640px and a 4:5 crop on phones. Only the matching
+   source is downloaded, so it loads eagerly with fetchPriority rather than preload. If the photograph is missing the
+   plain heading shows instead, and onMissing lets the page drop the overlay header. */
+function ShopHeading({ photo, onMissing }) {
+  const ref = useRef(null);
+  // An image that failed before the page became interactive never fires onError, so check once on mount.
+  useEffect(() => { const img = ref.current; if (img?.complete && !img.naturalWidth) onMissing(); }, []);
+  const words = (
+    <div className="container">
+      <p className="eyebrow">The boutique</p>
+      <h1 id="shop-title">Frames</h1>
+      <p className="shop-subline">Featured pieces and the houses we carry. Reserve any frame to try at your visit.</p>
+    </div>
+  );
+  if (!photo) return <section className="shop-heading" aria-labelledby="shop-title">{words}</section>;
+  const common = { alt: 'Five models wearing luxury eyewear', sizes: '100vw', loading: 'eager', fetchPriority: 'high' };
+  const { props: { srcSet: wide } } = getImageProps({ ...common, src: '/images/shop/hero-desktop.webp', width: 1664, height: 936 });
+  const { props: { srcSet: narrow, ...rest } } = getImageProps({ ...common, src: '/images/shop/hero-mobile.webp', width: 1080, height: 1350 });
   return (
-    <section className="shop-heading" aria-labelledby="shop-title">
-      <div className="container">
-        <p className="eyebrow">The boutique</p>
-        <h1 id="shop-title">Frames</h1>
-        <p className="shop-subline">Featured pieces and the houses we carry. Reserve any frame to try at your visit.</p>
-      </div>
+    <section className="shop-heading shop-hero" aria-labelledby="shop-title">
+      <picture className="shop-hero-photo">
+        <source media="(max-width: 640px)" srcSet={narrow} />
+        <source srcSet={wide} />
+        <img ref={ref} {...rest} onError={onMissing} />
+      </picture>
+      {words}
     </section>
   );
 }
@@ -202,10 +221,11 @@ function Houses({ affiliate }) {
 }
 
 export default function Shop({ affiliate }) {
+  const [photo, setPhoto] = useState(true);
   return <>
-    <Header bookingHref={withAffiliate('/booking', affiliate)} shopHref={withAffiliate(shopUrl, affiliate)} />
+    <Header bookingHref={withAffiliate('/booking', affiliate)} shopHref={withAffiliate(shopUrl, affiliate)} overlay={photo} />
     <main id="main-content" className="shop">
-      <ShopHeading />
+      <ShopHeading photo={photo} onMissing={() => setPhoto(false)} />
       <FeaturedFrames affiliate={affiliate} />
       <Houses affiliate={affiliate} />
     </main>
