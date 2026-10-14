@@ -28,7 +28,7 @@ export default function BookingLookup() {
 
   if (!ready) return <Loading />;
   const upcoming = booking && booking.status === 'Booked' && new Date(booking.start) > new Date();
-  const call = clinic.phone ? <a href={'tel:' + clinic.phone}>{clinic.phone}</a> : 'the clinic';
+  const call = clinic.phone ? <a href={clinic.phoneHref}>{clinic.phone}</a> : 'the clinic';
   return <>
     <Header />
     <main className="container lookup-page" id="main-content">
