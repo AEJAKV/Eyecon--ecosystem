@@ -3,13 +3,16 @@ import { clean, validateStatus, validateSlug, validateBooking, safePhoto, valida
 import { claimAndSend } from '@/lib/notifications';
 import { clinic, documentsLink, services } from '@/lib/config';
 import { validateCompletion, validatePricing } from '@/lib/commission';
+import { AFFILIATE_COLUMNS, restrictAffiliateRow } from '@/lib/affiliate';
 export const dynamic='force-dynamic';
 export async function GET(request){
   try{const u=await identity(request);const db=u.db;
+    // Affiliates get only their own referrals, as the restricted rows in lib/affiliate.js (id, name, status, start,
+    // commission, payout, paid_at): never contact details, service, insurance, documents or procedure amounts.
     if(u.role==='affiliate'){
-      const [a,b]=await Promise.all([db.from('affiliates').select('*').eq('id',u.affiliateId).single(),db.from('bookings').select('id,name,status,start,commission,payout,paid_at').eq('affiliate_id',u.affiliateId).order('start',{ascending:false})]);
+      const [a,b]=await Promise.all([db.from('affiliates').select('*').eq('id',u.affiliateId).single(),db.from('bookings').select(AFFILIATE_COLUMNS).eq('affiliate_id',u.affiliateId).order('start',{ascending:false})]);
       if(a.error||b.error)throw new Error('Unable to load your referrals.');
-      return Response.json({user:{role:u.role,affiliateId:u.affiliateId},affiliates:[mapAffiliate(a.data)],bookings:b.data.map(r=>({...r,commission:Number(r.commission),paidAt:r.paid_at})),templates:[],slots:[]},{headers:{'Cache-Control':'no-store'}});
+      return Response.json({user:{role:u.role,affiliateId:u.affiliateId},affiliates:[mapAffiliate(a.data)],bookings:b.data.map(restrictAffiliateRow),templates:[],slots:[]},{headers:{'Cache-Control':'no-store'}});
     }
     requireStaff(u);
     const [a,b,t,s,j]=await Promise.all([db.from('affiliates').select('*').order('created_at'),db.from('bookings').select('*').order('start',{ascending:false}).limit(2000),db.from('message_templates').select('*').order('id'),db.rpc('available_slots'),db.from('notification_jobs').select('booking_id,kind,status,result,created_at').order('created_at',{ascending:false}).limit(100)]);

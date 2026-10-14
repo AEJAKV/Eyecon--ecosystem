@@ -11,7 +11,7 @@ A complete Next.js project for the affiliate referral and appointment-booking ex
 - EMR placeholder (`lib/emr.js`): an adapter with `getAppointment(reference)` and `syncBooking(booking)` that returns null until the clinic confirms its EMR vendor. The lookup already lets EMR data override status, doctor and time.
 - Referral identity throughout booking; the $50 gift appears only with an active affiliate referral.
 - Google, Apple `.ics` and Outlook calendar options. The event, the confirmation card and the confirmation email (template field `{doctor}`) name the optometrist.
-- Affiliate dashboard, referrals, referral link/QR, earnings, profile editing and photo upload.
+- Affiliate dashboard (completed referrals this month and all time, upcoming bookings as a count that “counts once completed”, commission earned and paid), referrals, referral link/QR, earnings, profile editing and photo upload. A referral counts, and earns commission, only once its appointment is completed (Attended).
 - Staff booking list/calendar showing each booking's optometrist, patient details, attendance status, manual bookings (free times grouped by optometrist), availability per optometrist, affiliate management, leads, procedure pricing, calculated commission, payout recording and message templates.
 - Supabase database schema, authentication and server-side role checks for live mode.
 - Turnstile booking verification, optional Resend email, Twilio SMS with opt-in, and an authenticated reminder endpoint.
@@ -39,9 +39,9 @@ Demo data is stored in the current browser and is neither secure nor shared betw
 | `/my-booking` | Find my booking: reference and email lookup |
 | `/login` | Demo exploration or live sign-in/password reset |
 | `/affiliate` | Affiliate overview |
-| `/affiliate/referrals` | Referral status and CSV export |
+| `/affiliate/referrals` | Patient name, appointment date, status and “Your commission” (blank until completed); CSV export of the same fields |
 | `/affiliate/link` | Personal link and downloadable QR code |
-| `/affiliate/earnings` | Approved and paid commission |
+| `/affiliate/earnings` | Commission per completed appointment and its payout status |
 | `/affiliate/profile` | Display name, introduction and portrait |
 | `/admin` | Staff bookings, availability and calendar |
 | `/admin/affiliates` | Add, activate/deactivate and photograph affiliates |
@@ -51,7 +51,7 @@ Demo data is stored in the current browser and is neither secure nor shared betw
 | `/admin/messages` | Edit templates and inspect live delivery activity |
 | `/privacy` | Draft privacy notice requiring clinic review |
 
-An unknown or inactive affiliate page presents a direct-booking alternative. Affiliate workspaces expose referral names, appointment dates/status and commission; contact details, service type and insurance are omitted from live affiliate API responses.
+An unknown or inactive affiliate page presents a direct-booking alternative. Affiliate workspaces show only each referral’s patient name, appointment date, status, the affiliate’s own commission and its payout (`lib/affiliate.js`). Contact details, service type, insurance, documents, residency status and every procedure amount (gross, discount, operation cost, net) and per-booking rate are never sent to affiliates; the live API selects only the allowed columns and the demo applies the same filter.
 
 ## 1. Create/open the project in VS Code
 
