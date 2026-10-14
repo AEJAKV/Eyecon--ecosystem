@@ -999,3 +999,28 @@ button.review-text { padding: 0; border: 0; background: none; color: inherit; fo
   .frame-grid .frame-material { font-size: 1.1rem; }
   .frame-grid .frame-placeholder small { font-size: .6rem; letter-spacing: .12em; }
 }
+
+/* Phone polish: 44px tap targets and focus rings that are never clipped. */
+/* Underlined text links: the padding makes the 44px target and the underline is drawn on the content box, so it
+   stays tight under the words. */
+.frame-reserve, .house-link, .brand-back .text-link, .collections-more .text-link { display: inline-block; min-height: 44px; padding-block: 10px; background-origin: content-box; background-clip: content-box; }
+.frame-reserve { margin-top: 0; }
+.brand-back { padding-block: .5rem .75rem; }
+.collections-more { margin-top: 1.75rem; }
+.site-header .shop-link { min-height: 44px; }
+.logo { min-height: 44px; justify-content: center; }
+.footer-col { gap: 0; }
+.footer-col p { padding-block: .3rem; }
+.footer-col a { display: inline-flex; align-items: center; min-height: 44px; }
+.preview-bar a { display: inline-flex; align-items: center; min-height: 44px; margin-block: -12px; }
+/* The swipe rows clip their content, so they get room around the cards for the focus ring without moving them. */
+.frame-row { padding: 8px; margin: -8px; scroll-padding-inline: 8px; }
+.frame-save:focus-visible { outline-offset: -3px; }
+@media (max-width: 640px) {
+  .frame-row { margin: -8px calc(50% - 50vw); padding: 8px 16px; scroll-padding-inline: 16px; }
+  .frame-row:focus-visible { outline-offset: -3px; }
+  .house-tiles { padding-block: 8px; margin-block: -8px; }
+}
+/* On dark panels and over photographs the focus ring is white, as on the hero. */
+.closing-panel.dark :focus-visible, .final-cta :focus-visible { outline-color: #fff; }
+@media (min-width: 641px) { .shop-banner :focus-visible { outline-color: #fff; } }

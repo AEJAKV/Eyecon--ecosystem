@@ -14,6 +14,15 @@ import { frameBrand, framePrice, reserveHref, stylingHref, brandHref, directions
 // localStorage, or null where the browser blocks it (reading the property itself can throw).
 function browserStorage() { try { return window.localStorage; } catch { return null; } }
 const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+// Keyboard focus inside a swipe row: the browser scrolls only far enough to show the focused link, and the snap can
+// then pull the row back so it is hidden again. Bring the whole card that holds it to its snap position instead.
+function revealCard(e) {
+  const row = e.currentTarget, card = [...row.children].find(c => c.contains(e.target));
+  if (!card) return;
+  const r = card.getBoundingClientRect(), box = row.getBoundingClientRect();
+  if (r.left >= box.left && r.right <= box.right) return;
+  card.scrollIntoView({ block: 'nearest', inline: 'start', behavior: reducedMotion() ? 'auto' : 'smooth' });
+}
 
 function ShopHeading() {
   return (
@@ -91,7 +100,7 @@ function FeaturedFrames({ affiliate }) {
             <button type="button" className="carousel-arrow" aria-label="Next frames" disabled={ends.end} onClick={() => move(1)}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6" /></svg></button>
           </div>
         </div>
-        <ul className="frame-row" ref={row} tabIndex={0} aria-label="Featured frames. Use the left and right arrow keys to move." onKeyDown={keys} onScroll={edges}>
+        <ul className="frame-row" ref={row} tabIndex={0} aria-label="Featured frames. Use the left and right arrow keys to move." onKeyDown={keys} onScroll={edges} onFocus={revealCard}>
           {frames.map(f => <FrameCard key={f.slug} frame={f} affiliate={affiliate} saved={saved.includes(f.slug)} onSave={() => save(f.slug)} />)}
         </ul>
       </div>
@@ -170,7 +179,7 @@ function TileRow({ items, affiliate }) {
   }
   return (
     <div className="house-row">
-      <ul className="house-tiles" ref={row} onScroll={follow}>
+      <ul className="house-tiles" ref={row} onScroll={follow} onFocus={revealCard}>
         {items.map(item => item.closing
           ? <ClosingTile key={item.closing} id={item.closing} affiliate={affiliate} />
           : <Tile key={item.slug} brand={item} affiliate={affiliate} />)}

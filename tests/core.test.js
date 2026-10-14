@@ -217,6 +217,13 @@ test('a booking link’s ?brand= preselects that brand for every house',()=>{
   for(const bad of [null,undefined,'','Ray-Ban','cartierx'])assert.equal(brandFromParam(bad),'',String(bad));
   assert.ok(readFileSync(new URL('../components/booking-flow.js',import.meta.url),'utf8').includes("const linkedBrand = brandFromParam(params.get('brand'));"));
 });
+test('Shop Frames phone polish: 44px targets, focus rings with room, focus brings the card into its snap place',()=>{
+  const read=f=>readFileSync(new URL(f,import.meta.url),'utf8');
+  const css=read('../app/site.css'),shop=read('../components/shop.js');
+  for(const part of ['.frame-reserve, .house-link, .brand-back .text-link, .collections-more .text-link { display: inline-block; min-height: 44px; padding-block: 10px; background-origin: content-box;','.site-header .shop-link { min-height: 44px; }','.logo { min-height: 44px;','.footer-col a { display: inline-flex; align-items: center; min-height: 44px; }','.preview-bar a { display: inline-flex; align-items: center; min-height: 44px; margin-block: -12px; }','.frame-row { padding: 8px; margin: -8px; scroll-padding-inline: 8px; }','.frame-row { margin: -8px calc(50% - 50vw); padding: 8px 16px; scroll-padding-inline: 16px; }','.closing-panel.dark :focus-visible, .final-cta :focus-visible { outline-color: #fff; }'])assert.ok(css.includes(part),part);
+  assert.equal((shop.match(/onFocus=\{revealCard\}/g)||[]).length,2,'both swipe rows');
+  assert.ok(shop.includes("card.scrollIntoView({ block: 'nearest', inline: 'start', behavior: reducedMotion() ? 'auto' : 'smooth' });"));
+});
 test('withAffiliate carries a well-formed affiliate onto every shop booking link',()=>{
   assert.equal(withAffiliate('/booking','alex-morgan'),'/booking?affiliate=alex-morgan');
   assert.equal(withAffiliate('/booking?service=styling','alex-morgan'),'/booking?service=styling&affiliate=alex-morgan');
