@@ -1,11 +1,11 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { Header, Footer, Icon } from './ui';
-import Photo from './photo';
-import { DEMO, frames, shopUrl } from '@/lib/config';
+import { Header, Footer, Icon, Button } from './ui';
+import Photo, { ArtPhoto } from './photo';
+import { DEMO, clinic, frames, shopUrl } from '@/lib/config';
 import { withAffiliate } from '@/lib/affiliate';
-import { frameBrand, framePrice, reserveHref, readSavedFrames, writeSavedFrames, toggleSaved } from '@/lib/shop';
+import { frameBrand, framePrice, reserveHref, stylingHref, brandHref, directionsUrl, brandGroups, readSavedFrames, writeSavedFrames, toggleSaved } from '@/lib/shop';
 
 /* The Shop Frames page: featured frames and the houses Eyecon carries. affiliate is the ?affiliate= value the page
    was opened with; every booking link built here goes through withAffiliate so the referral is kept. */
@@ -92,12 +92,104 @@ function FeaturedFrames({ affiliate }) {
   );
 }
 
+/* The houses, below the featured row, in the order of collections (grouped by brandGroups in lib/shop.js). Every
+   photograph falls back to the brand's carousel photograph in public/images/brands, then to a named placeholder. */
+function BrandPhoto({ brand, sizes }) {
+  return <Photo src={'/images/brands/' + brand.slug + '.webp'} alt={brand.name + ' eyewear'} sizes={sizes}><span className="brand-placeholder"><strong>{brand.name}</strong>{' '}<small>Photograph to follow</small></span></Photo>;
+}
+
+// A full-width band: 16:9 with the words low over the photograph on larger screens; 4:5 with the words below on phones.
+function Banner({ brand, affiliate }) {
+  const art = '/images/shop/banners/' + brand.slug;
+  return (
+    <article className="shop-banner" aria-labelledby={'house-' + brand.slug}>
+      <div className="shop-banner-media">
+        <ArtPhoto desktop={art + '-desktop.webp'} mobile={art + '-mobile.webp'} alt={brand.name + ' eyewear'}><BrandPhoto brand={brand} sizes="100vw" /></ArtPhoto>
+      </div>
+      <div className="shop-banner-text">
+        <h3 id={'house-' + brand.slug} className="house-name">{brand.name}</h3>
+        <p className="house-tagline">{brand.tagline}</p>
+        <Button className="outline" href={brandHref(brand.slug, affiliate)}>Shop the collection<span className="sr-only"> from {brand.name}</span></Button>
+      </div>
+    </article>
+  );
+}
+
+function Tile({ brand, affiliate }) {
+  return (
+    <li className="house-tile">
+      <div className="house-media">
+        <Photo src={'/images/shop/tiles/' + brand.slug + '.webp'} alt={brand.name + ' eyewear'} sizes="(max-width: 640px) 78vw, 33vw"><BrandPhoto brand={brand} sizes="(max-width: 640px) 78vw, 33vw" /></Photo>
+      </div>
+      <h3 className="house-name">{brand.name}</h3>
+      <p className="house-tagline">{brand.tagline}</p>
+      <Link className="text-link house-link" href={brandHref(brand.slug, affiliate)}>Discover<span className="sr-only"> {brand.name}</span></Link>
+    </li>
+  );
+}
+
+// The two tiles that close the page and fill any short row of tiles.
+function ClosingTile({ id, affiliate }) {
+  if (id === 'styling') return (
+    <li className="house-tile closing-tile">
+      <div className="closing-panel dark">
+        <h3>Book a styling visit</h3>
+        <p>Try pieces from every house with a personal styling consultation.</p>
+        <Button href={stylingHref(affiliate)}>Book now</Button>
+      </div>
+    </li>
+  );
+  const directions = directionsUrl(clinic.address);
+  return (
+    <li className="house-tile closing-tile">
+      <div className="closing-panel">
+        <h3>Visit the boutique</h3>
+        {clinic.address ? <p>{clinic.address}</p> : <p className="pending-text">Address to be confirmed</p>}
+        {directions && <a className="button secondary" href={directions} target="_blank" rel="noopener noreferrer">Get directions<span className="sr-only"> (opens in a new tab)</span></a>}
+      </div>
+    </li>
+  );
+}
+
+// Three equal columns; on phones a swipe row with a "1 / 3" counter that follows the scroll.
+function TileRow({ items, affiliate }) {
+  const row = useRef(null), [index, setIndex] = useState(0);
+  function follow() {
+    const el = row.current, [first, second] = el.children;
+    const step = second ? second.offsetLeft - first.offsetLeft : el.clientWidth;
+    const atEnd = el.scrollLeft + el.clientWidth >= el.scrollWidth - 2;
+    setIndex(atEnd ? items.length - 1 : Math.min(items.length - 1, Math.round(el.scrollLeft / step)));
+  }
+  return (
+    <div className="house-row">
+      <ul className="house-tiles" ref={row} onScroll={follow}>
+        {items.map(item => item.closing
+          ? <ClosingTile key={item.closing} id={item.closing} affiliate={affiliate} />
+          : <Tile key={item.slug} brand={item} affiliate={affiliate} />)}
+      </ul>
+      <p className="house-count" aria-hidden="true">{index + 1} / {items.length}</p>
+    </div>
+  );
+}
+
+function Houses({ affiliate }) {
+  return (
+    <section className="houses" aria-labelledby="houses-title">
+      <h2 id="houses-title" className="sr-only">The houses we carry</h2>
+      {brandGroups().map((group, i) => group.type === 'banner'
+        ? <Banner key={group.items[0].slug} brand={group.items[0]} affiliate={affiliate} />
+        : <TileRow key={'row-' + i} items={group.items} affiliate={affiliate} />)}
+    </section>
+  );
+}
+
 export default function Shop({ affiliate }) {
   return <>
     <Header bookingHref={withAffiliate('/booking', affiliate)} shopHref={withAffiliate(shopUrl, affiliate)} />
     <main id="main-content" className="shop">
       <ShopHeading />
       <FeaturedFrames affiliate={affiliate} />
+      <Houses affiliate={affiliate} />
     </main>
     <Footer />
   </>;

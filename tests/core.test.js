@@ -14,7 +14,7 @@ import { nullEmr,emrAdapter,applyEmr } from '../lib/emr.js';
 import { calculateCommission,validateCompletion,validatePricing } from '../lib/commission.js';
 import { affiliatePerformance,performanceTable,topAffiliates,filterAppointments,staffAppointmentRows,STAFF_APPOINTMENT_FIELDS } from '../lib/performance.js';
 import { AFFILIATE_FIELDS,AFFILIATE_COLUMNS,restrictAffiliateRow,affiliateStats,affiliateCsvRows,AFFILIATE_CSV_FIELDS,withAffiliate } from '../lib/affiliate.js';
-import { frameBrand,framePrice,reserveHref,readSavedFrames,writeSavedFrames,toggleSaved,SAVED_FRAMES_KEY } from '../lib/shop.js';
+import { frameBrand,framePrice,reserveHref,readSavedFrames,writeSavedFrames,toggleSaved,SAVED_FRAMES_KEY,brandGroups,CLOSING_TILES,stylingHref,brandHref,directionsUrl } from '../lib/shop.js';
 const patient={name:'Sample Patient',email:'sample@example.com',phone:'+14165550123',service:'eye-exam',doctor:'doctor-1',firstVisit:true,smsConsent:false,start:new Date(Date.now()+86400000).toISOString()};
 // A patient booking a particular slot: that slot's optometrist and start time.
 const at=slot=>({...patient,doctor:slot.doctor,start:slot.start});
@@ -162,6 +162,37 @@ test('Featured this week: sample label in demo only, arrows and keys, phone and 
   assert.match(css,/@media \(hover: none\) \{ \.frame-reserve \{ opacity: 1;/);
   assert.match(css,/@media \(max-width: 640px\) \{[^}]*\}\s*\.featured-arrows \{ display: none; \}\s*\.frame-row \{ --gap: \.9rem; --card: 66vw; margin-inline: calc\(50% - 50vw\); padding-inline: 16px;/);
   assert.match(css,/@media \(prefers-reduced-motion: reduce\) \{\s*\.frame-row \{ scroll-behavior: auto; \}\s*\.frame-reserve, \.frame-save \{ transition: none; \}/);
+});
+test('the houses follow collections: banners alone, tiles in rows of three, closing tiles fill and end the page',()=>{
+  const shape=groups=>groups.map(g=>g.type+':'+g.items.map(i=>i.closing?'+'+i.closing:i.slug).join(','));
+  assert.deepEqual(shape(brandGroups()),['banner:cartier','banner:chrome-hearts','tiles:gucci,lindberg,dita','banner:tom-ford','banner:maybach','tiles:maui-jim,+styling,+visit']);
+  const b=slug=>({slug,layout:'banner'}),t=slug=>({slug,layout:'tile'});
+  assert.deepEqual(shape(brandGroups([b('a')])),['banner:a','tiles:+styling,+visit'],'always closes the page');
+  assert.deepEqual(shape(brandGroups([t('a'),t('b'),t('c'),t('d'),b('e')])),['tiles:a,b,c','tiles:d,+styling,+visit','banner:e','tiles:+styling,+visit'],'four tiles make a full row and a filled one');
+  assert.deepEqual(shape(brandGroups([t('a'),t('b'),t('c')])),['tiles:a,b,c','tiles:+styling,+visit']);
+  assert.deepEqual(shape(brandGroups([t('a'),t('b')])),['tiles:a,b,+styling','tiles:+visit'],'a short last row still ends with both');
+  assert.deepEqual(shape(brandGroups([])),['tiles:+styling,+visit']);
+  assert.deepEqual(CLOSING_TILES,['styling','visit']);
+});
+test('house links: brand pages and Book now keep the affiliate; directions only with an address',()=>{
+  assert.equal(brandHref('cartier','alex-morgan'),'/shop/cartier?affiliate=alex-morgan');assert.equal(brandHref('cartier'),'/shop/cartier');
+  assert.equal(stylingHref('alex-morgan'),'/booking?service=styling&affiliate=alex-morgan');assert.equal(stylingHref(),'/booking?service=styling');
+  assert.equal(directionsUrl(''),'');assert.equal(directionsUrl(undefined),'');
+  assert.equal(directionsUrl('1 King St W, Toronto'),'https://www.google.com/maps/search/?api=1&query=1%20King%20St%20W%2C%20Toronto');
+  const shop=readFileSync(new URL('../components/shop.js',import.meta.url),'utf8');
+  for(const part of ['Try pieces from every house with a personal styling consultation.','<Button href={stylingHref(affiliate)}>Book now</Button>','Address to be confirmed','{directions && <a','>Get directions<','href={brandHref(brand.slug, affiliate)}>Shop the collection','>Discover<'])assert.ok(shop.includes(part),part);
+});
+test('house photographs: art-directed banners, tile photos, brand photo fallback and alt text',()=>{
+  const read=f=>readFileSync(new URL(f,import.meta.url),'utf8');
+  const shop=read('../components/shop.js'),photo=read('../components/photo.js'),css=read('../app/site.css');
+  for(const part of ["'/images/shop/banners/' + brand.slug","art + '-desktop.webp'","art + '-mobile.webp'","'/images/shop/tiles/' + brand.slug + '.webp'","'/images/brands/' + brand.slug + '.webp'"])assert.ok(shop.includes(part),part);
+  assert.equal((shop.match(/alt=\{brand\.name \+ ' eyewear'\}/g)||[]).length,3,'banner, tile and fallback alt');
+  assert.ok(photo.includes('<source media="(max-width: 640px)" srcSet={narrow} />')&&photo.includes('onError={fail}'));
+  for(const c of collections)assert.ok(readFileSync(new URL('../public/images/brands/'+c.slug+'.webp',import.meta.url)).length>0,c.slug+' fallback exists');
+  assert.ok(css.includes('aspect-ratio: 16 / 9; max-height: 80vh;'));
+  assert.match(css,/@media \(max-width: 640px\) \{\s*\.houses[^}]*\}[\s\S]*?\.shop-banner-media \{ aspect-ratio: 4 \/ 5; max-height: none; \}[\s\S]*?\.shop-banner-text \{ position: static;[\s\S]*?\.house-tile \{ flex: 0 0 74vw;/);
+  assert.match(css,/@media \(prefers-reduced-motion: reduce\) \{\s*\.house-media img \{ transition: none; \}/);
+  assert.ok(css.includes('.frame-card { position: relative;')&&css.includes('.house-tile { position: relative;'),'cards contain their screen-reader labels, so a scroll row never widens the page');
 });
 test('withAffiliate carries a well-formed affiliate onto every shop booking link',()=>{
   assert.equal(withAffiliate('/booking','alex-morgan'),'/booking?affiliate=alex-morgan');
