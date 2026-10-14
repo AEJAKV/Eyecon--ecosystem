@@ -1,25 +1,15 @@
 'use client';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import Script from 'next/script';
 import Link from 'next/link';
 import { useApp } from './provider';
 import DocumentsForm from './documents-form';
+import Captcha from './captcha';
+import CalendarCard from './calendar-card';
 import Image from 'next/image';
 import { DEMO, clinic, services, brands, doctors, doctorName, findDoctor, formatDate, instructions } from '@/lib/config';
 import { validateBooking, slotTaken } from '@/lib/validation';
-import { calendarFile, googleCalendar, outlookCalendar, downloadFile } from '@/lib/calendar';
 import { Header, Footer, Button, Field, Gift, Icon, Notice, Loading, Referral } from './ui';
-
-function Captcha({ onToken }) {
-  const el = useRef(null), [loaded, setLoaded] = useState(false);
-  useEffect(() => {
-    if (!loaded || !el.current || !window.turnstile) return;
-    const id = window.turnstile.render(el.current, { sitekey: process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY, action: 'booking', callback: onToken, 'expired-callback': () => onToken('') });
-    return () => window.turnstile?.remove(id);
-  }, [loaded]);
-  return <><Script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" onReady={() => setLoaded(true)} /><div ref={el} /></>;
-}
 
 // Optometrist cards: photo, name and focus. With counts, each card says how many online times they have and
 // a card with none cannot be chosen.
@@ -48,14 +38,6 @@ function ranges() {
     { label: 'Later', from: toSunday + 21, to: Infinity }
   ];
 }
-// Pick the calendar that this device most likely uses for the one-tap button.
-function preferredCalendar() {
-  if (typeof navigator === 'undefined') return 'google';
-  const ua = navigator.userAgent;
-  if (/iPhone|iPad|Macintosh/.test(ua)) return 'apple';
-  if (/Windows/.test(ua)) return 'outlook';
-  return 'google';
-}
 
 export default function BookingFlow() {
   const params = useSearchParams(), slug = params.get('affiliate'), { data, ready, book } = useApp();
@@ -73,8 +55,6 @@ export default function BookingFlow() {
   const [confirmation, setConfirmation] = useState(null);
   const [captcha, setCaptcha] = useState('');
   const [captchaKey, setCaptchaKey] = useState(0);
-  const [added, setAdded] = useState('');
-  const [calendar, setCalendar] = useState('google');
   // A brand passed in the link (from the collections carousel) arrives already chosen; unknown names are ignored.
   const linkedBrand = brands.find(b => b.toLowerCase() === (params.get('brand') || '').trim().toLowerCase());
   const [details, setDetails] = useState({ name: '', email: '', phone: '', firstVisit: '', insurance: '', policy: '', brands: linkedBrand ? [linkedBrand] : [], smsConsent: false, website: '' });
@@ -86,7 +66,6 @@ export default function BookingFlow() {
   const [doctor, setDoctor] = useState(linkedDoctor);
   const titleRef = useRef(null), firstRender = useRef(true);
 
-  useEffect(() => { setCalendar(preferredCalendar()); }, []);
   useEffect(() => {
     if (DEMO) {
       if (!ready) return;
@@ -153,17 +132,10 @@ export default function BookingFlow() {
     } catch (e) { setError(e.message); setCaptcha(''); setCaptchaKey(k => k + 1); }
     finally { setBusy(false); }
   }
-  function addTo(kind) {
-    const b = confirmation.booking;
-    if (kind === 'apple') downloadFile(calendarFile(b), 'eyecon-appointment.ics', 'text/calendar');
-    else window.open(kind === 'google' ? googleCalendar(b) : outlookCalendar(b), '_blank', 'noopener,noreferrer');
-    setAdded(kind);
-  }
 
   if (loading) return <Loading />;
   if (loadError) return <><Header /><main className="container empty-page" id="main-content"><h1>Arrange your visit</h1><Notice error>{loadError}</Notice>{slug ? <Button href="/booking">Book directly</Button> : <Button onClick={() => window.location.reload()}>Try again</Button>}</main><Footer /></>;
 
-  const calendarNames = { google: 'Google Calendar', apple: 'Apple Calendar', outlook: 'Outlook' };
   const summary = (action = null) => <div className="selection-summary"><Icon name="calendar" /><div><strong>{chosenService?.name}</strong><small>With {doctorName(doctor)}</small><small>{formatDate(start, { dateStyle: 'full', timeStyle: 'short' })}</small></div>{action}</div>;
   const timeText = iso => formatDate(iso, { dateStyle: undefined, timeStyle: 'short' });
   const shortName = slug => { const d = findDoctor(slug); return d ? `${d.title} ${d.last}` : ''; };
@@ -279,7 +251,7 @@ export default function BookingFlow() {
           <label className="checkbox-label"><input type="checkbox" checked={details.smsConsent} onChange={e => change('smsConsent', e.target.checked)} /><span>Text me appointment reminders{affiliate ? ' and my gift card details' : ''}.<small>Optional. Message and data rates may apply. Contact the clinic to stop.</small></span></label>
           <p className="privacy-note">{affiliate ? `${affiliate.name} can see your name and booking status. Your appointment type and insurance stay with the clinic. ` : ''}Read our <Link href="/privacy">privacy notice</Link>.</p>
           <div className="honeypot" aria-hidden="true"><label htmlFor="website">Leave this blank</label><input id="website" value={details.website} onChange={e => change('website', e.target.value)} tabIndex={-1} autoComplete="off" /></div>
-          {!DEMO && <Captcha key={captchaKey} onToken={setCaptcha} />}
+          {!DEMO && <Captcha key={captchaKey} action="booking" onToken={setCaptcha} />}
           <div className="form-actions"><Button type="button" secondary onClick={() => back(1)}>Back</Button><Button disabled={busy} type="submit">{busy ? 'Booking…' : 'Confirm booking'}</Button></div>
         </form>}
 
@@ -288,7 +260,7 @@ export default function BookingFlow() {
           <p className="confirmation-lead">We look forward to seeing you, {confirmation.booking.name.split(' ')[0]}.</p>
           <div className="confirmation-card">
             <h3>{services.find(s => s.id === confirmation.booking.service)?.name}</h3>
-            <p className="ref">Reference<strong>{confirmation.booking.id.slice(0, 8).toUpperCase()}</strong></p>
+            <p className="ref">Reference<strong>{confirmation.booking.reference}</strong></p>
             <p>With {doctorName(confirmation.booking.doctor)}</p>
             <p>{formatDate(confirmation.booking.start, { dateStyle: 'full', timeStyle: 'short' })}</p>
             <p className="muted">{clinic.address || 'The clinic will confirm the location with you.'}</p>
@@ -296,15 +268,7 @@ export default function BookingFlow() {
 
           <DocumentsForm token={confirmation.booking.documentsToken} canSkip />
 
-          <div className="calendar-card">
-            <h3>Add it to your calendar</h3>
-            <p>One tap, so you won’t miss it. Your confirmation email has the invite too.</p>
-            <div className="calendar-actions">
-              <button type="button" className="button primary" onClick={() => addTo(calendar)}><Icon name="calendar" size={20} />Add to {calendarNames[calendar]}</button>
-              {['google', 'apple', 'outlook'].filter(k => k !== calendar).map(k => <button type="button" key={k} className="button" onClick={() => addTo(k)}>{calendarNames[k]}</button>)}
-            </div>
-            {added && <p className="calendar-added" role="status"><Icon name="check" size={18} />Opened in {calendarNames[added]}. Save it there to finish.</p>}
-          </div>
+          <CalendarCard booking={confirmation.booking} />
 
           {affiliate && <Gift affiliate={affiliate} card={confirmation.booking.giftCard} />}
           <h3 className="plain">Before your visit</h3>

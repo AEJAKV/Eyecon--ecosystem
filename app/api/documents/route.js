@@ -33,7 +33,10 @@ export async function POST(request){
     const {data:claimed,error:ce}=await db.from('booking_document_tokens').update({used_at:now}).eq('token_hash',hashToken(token)).is('used_at',null).gt('expires_at',now).select('booking_id');
     if(ce||!claimed?.length)throw new Error(USED);
     const bookingId=claimed[0].booking_id,stored=[];
-    const undo=async()=>{if(stored.length)await db.storage.from('booking-documents').remove(stored);await db.from('booking_document_tokens').update({used_at:null}).eq('booking_id',bookingId);};
+    // A booking can have several links (the emailed one and any issued on /my-booking). Undo frees only this one.
+    const undo=async()=>{if(stored.length)await db.storage.from('booking-documents').remove(stored);await db.from('booking_document_tokens').update({used_at:null}).eq('token_hash',hashToken(token));};
+    const {data:existing}=await db.from('booking_documents').select('id').eq('booking_id',bookingId).eq('kind','government-id').limit(1);
+    if(existing?.length)throw new Error('Your file is already complete. To change it, please contact the clinic.');
     try{
       const rows=[];
       for(const [i,f] of files.entries()){
@@ -45,6 +48,8 @@ export async function POST(request){
       const {error:de}=await db.from('booking_documents').insert(rows);if(de)throw new Error('Your files could not be saved. Please try again.');
       const {error:be}=await db.from('bookings').update({residency_status:residencyStatus}).eq('id',bookingId);if(be){await db.from('booking_documents').delete().in('file_path',stored);throw new Error('Your file could not be saved. Please try again.');}
     }catch(e){await undo();throw e;}
+    // The file is complete, so every other link for this booking closes too.
+    await db.from('booking_document_tokens').update({used_at:now}).eq('booking_id',bookingId).is('used_at',null);
     await audit(db,null,'documents',bookingId);
     return Response.json({ok:true,count:files.length},{status:201,headers:{'Cache-Control':'no-store'}});
   }catch(e){return fail(e);}

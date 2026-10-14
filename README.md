@@ -7,6 +7,8 @@ A complete Next.js project for the affiliate referral and appointment-booking ex
 - Premium public landing page and personalised affiliate landing pages.
 - Four-step booking: service, optometrist and time, patient details and confirmation. Every appointment belongs to one optometrist. Patients either choose an optometrist first (their photo, name and focus, then that optometrist's days and times) or a time first (each time shows which optometrists are free; when more than one is, the patient picks). Two optometrists can see patients at the same time; one optometrist cannot be double-booked.
 - “Complete your file” after booking: residency status, one valid government ID and optional tagged documents (diploma, certificate, high school diploma, English language test result, other). PDF, JPG or PNG, up to 10 MB each and 8 files, checked by file signature on the server. Patients can skip and finish later from the single-use, expiring link in their confirmation email (`{documents_link}`). Files go to a private storage bucket; staff open them through links that expire after 5 minutes; affiliates never see them. In demo mode only file names and sizes are kept, in the browser.
+- “Find my booking” at `/my-booking` for patients without an account: booking reference (8 characters, e.g. 7K2M9QXB) plus the booking email. Shows the booking card, add-to-calendar buttons, the gift card number, a “Complete your file” link while the ID is missing, and a line to call the clinic for changes. Turnstile, a honeypot and 10 attempts per IP per hour; not found and wrong email give the same answer. Linked from the footer and the confirmation email (`{reference}`, `{lookup_link}`).
+- EMR placeholder (`lib/emr.js`): an adapter with `getAppointment(reference)` and `syncBooking(booking)` that returns null until the clinic confirms its EMR vendor. The lookup already lets EMR data override status, doctor and time.
 - Referral identity throughout booking; the $50 gift appears only with an active affiliate referral.
 - Google, Apple `.ics` and Outlook calendar options. The event, the confirmation card and the confirmation email (template field `{doctor}`) name the optometrist.
 - Affiliate dashboard, referrals, referral link/QR, earnings, profile editing and photo upload.
@@ -34,6 +36,7 @@ Demo data is stored in the current browser and is neither secure nor shared betw
 | `/booking` | Direct booking flow |
 | `/booking?service=eye-exam&doctor=doctor-1` | Booking flow opened on “Choose a doctor” with that optometrist selected (the “Book with” button on the home page’s optometrist cards) |
 | `/documents#t=…` | “Complete your file” from the confirmation email’s single-use link |
+| `/my-booking` | Find my booking: reference and email lookup |
 | `/login` | Demo exploration or live sign-in/password reset |
 | `/affiliate` | Affiliate overview |
 | `/affiliate/referrals` | Referral status and CSV export |
@@ -143,7 +146,7 @@ These are deployment steps, not required for exploring the demo.
 
 1. Create a new Supabase project. Choose a region and service agreements appropriate for the clinic's privacy/data-residency decisions.
 2. Open **SQL Editor**. Paste the complete `supabase/schema.sql` and run it **once on an empty project**. It creates tables, access rules, booking/payout functions and the affiliate-photo bucket. Running it again will produce "already exists" errors; use reviewed migrations for later changes.
-   Then run each file in `supabase/migrations/` once, in number order. `004_doctor_availability.sql` makes slots and bookings per optometrist; it assigns any existing slots to `doctor-1`, so staff should review them afterwards. `005_documents.sql` adds “Complete your file”: the residency status, the document records, hashed upload tokens and the **private** `booking-documents` storage bucket. Do not add storage policies to that bucket.
+   Then run each file in `supabase/migrations/` once, in number order. `004_doctor_availability.sql` makes slots and bookings per optometrist; it assigns any existing slots to `doctor-1`, so staff should review them afterwards. `005_documents.sql` adds “Complete your file”: the residency status, the document records, hashed upload tokens and the **private** `booking-documents` storage bucket. Do not add storage policies to that bucket. `006_booking_lookup.sql` gives every booking a unique reference (existing bookings included) and adds the rate-limited lookup.
 3. In **Authentication**, create the initial staff user with a confirmed email and a strong password. Copy that user's UUID.
 4. In SQL Editor run the following, replacing the UUID with the actual user ID:
 

@@ -550,6 +550,14 @@ details p { margin: 1rem 0 0; color: var(--muted); }
 .success-mark.small { width: 44px; height: 44px; margin-bottom: .9rem; }
 .documents-page { max-width: 760px; padding-block: 4rem 6rem; }
 .documents-page h1 { font-size: 3rem; margin-bottom: 1.5rem; }
+/* /my-booking */
+.lookup-page { max-width: 760px; padding-block: 4rem 6rem; }
+.lookup-page h1 { font-size: 3rem; margin-bottom: 1rem; }
+.lookup-form { max-width: 460px; margin-top: 1.5rem; }
+.lookup-result .confirmation-card { margin-top: 0; }
+.lookup-line { display: flex; align-items: center; gap: .75rem; margin: 0 0 1.25rem; font-size: .98rem; }
+.lookup-line svg { color: var(--gold-text); flex: none; }
+.lookup-line a { color: var(--ink); }
 .calendar-card { padding: 1.75rem; background: var(--ink); color: var(--paper); margin-bottom: 1.75rem; }
 .calendar-card h3 { font-family: var(--serif); font-weight: 400; font-size: 1.7rem; margin: 0 0 .4rem; }
 .calendar-card > p { color: #b8bcc2; font-size: .95rem; margin-bottom: 1.25rem; }
