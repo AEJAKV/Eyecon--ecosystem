@@ -101,3 +101,19 @@ test('skin technologies are three bracketed placeholders with unique slugs',()=>
 test('a technology is optional, kept only for skin tightening, and saved with the booking',()=>{const skin={...patient,service:'skin-tightening'};assert.equal(validateBooking(skin).serviceOption,null);assert.equal(validateBooking({...skin,serviceOption:'technology-1'}).serviceOption,'technology-1');assert.equal(validateBooking({...skin,serviceOption:'laser-9000'}).serviceOption,null);assert.equal(validateBooking({...patient,serviceOption:'technology-1'}).serviceOption,null,'not kept for another service');const data=seedDemo();const saved=applyDemo(data,'booking',validateBooking({...at(data.slots[1]),service:'skin-tightening',serviceOption:'technology-3'}),null).bookings[0];assert.equal(saved.service,'skin-tightening');assert.equal(saved.serviceOption,'technology-3');assert.ok(seedDemo().procedureCosts.some(p=>p.service==='skin-tightening'));for(const key of ['serviceOption','service_option'])assert.equal(key in restrictAffiliateRow({...saved,service_option:'technology-3'}),false);});
 test('Shop frames points at the collections carousel by default',()=>{assert.equal(shopUrl,'/#collections');assert.ok(readFileSync(new URL('../components/landing.js',import.meta.url),'utf8').includes('id="collections"'));});
 test('migration 008 allows skin tightening and adds the service option',()=>{const sql=readFileSync(new URL('../supabase/migrations/008_services.sql',import.meta.url),'utf8');const list="('eye-exam','contacts','dry-eye','children','testing','skin-tightening','styling')";assert.equal(sql.split(list).length-1,2,'bookings and procedure_costs both allow it');for(const part of ['drop constraint if exists bookings_service_check','add column if not exists service_option text','drop constraint if exists procedure_costs_service_check',"values ('skin-tightening', 0, 0)"])assert.ok(sql.includes(part),part);for(const sv of services)assert.ok(sql.includes("'"+sv.id+"'"),sv.id);});
+
+// The logo mark
+test('the logo mark is a decorative gold outlined 3:2 rectangle, deeper gold on light backgrounds',()=>{
+  const read=f=>readFileSync(new URL(f,import.meta.url),'utf8');
+  const ui=read('../components/ui.js'),css=read('../app/site.css'),icon=read('../app/icon.svg');
+  const start=ui.indexOf('export function Logo'),logo=ui.slice(start,ui.indexOf('</Link>;}',start));
+  assert.ok(logo.includes('aria-label="Eyecon Optometry home"'));
+  assert.ok(logo.includes('<svg className="logo-mark" viewBox="0 0 30 20" aria-hidden="true"'),'decorative inline SVG, 3:2');
+  assert.ok(logo.includes('<rect x="1" y="1" width="28" height="18" fill="none" stroke="currentColor" strokeWidth="2"/>'),'outline, no fill');
+  const rule=css.slice(css.indexOf('.logo-mark {'),css.indexOf('}',css.indexOf('.logo-mark {')));
+  assert.ok(rule.includes('color: var(--gold-text)'),'deep gold on light backgrounds');
+  assert.ok(!rule.includes('#'),'no new hex code');
+  assert.ok(css.includes('.site-header.overlay:not(.scrolled) .logo-mark, .login-editorial .logo-mark { color: var(--gold); }'),'accent gold on dark backgrounds');
+  assert.ok(icon.includes('<rect x="14" y="20" width="36" height="24" fill="none" stroke="#b49a67"'),'tab icon is the gold rectangle');
+  assert.ok(ui.includes('aria-label={bookingLabel}'),'the short phone button keeps its full accessible name');
+});

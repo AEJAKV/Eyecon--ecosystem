@@ -43,7 +43,14 @@ h3 { font-weight: 500; }
 
 /* ---------- Logo ---------- */
 .logo { display: inline-flex; flex-direction: column; align-items: center; width: max-content; line-height: 1; text-decoration: none; color: inherit; }
-.logo span { font-family: var(--serif); font-variation-settings: 'opsz' 20; font-size: 1.7rem; letter-spacing: .32em; margin-right: -.32em; }
+.logo span { font-family: var(--serif); font-variation-settings: 'opsz' 20; letter-spacing: .32em; margin-right: -.32em; }
+/* The mark: as tall as the capitals (Bodoni Moda's capitals measure .77em), on the baseline, about one letter's width
+   after the N (the .32em letter spacing plus .38em). The mark and the N's trailing letter spacing hang into the logo's right padding, so EYECON and
+   Optometry stay centred on each other. Deep gold on light backgrounds; the lighter accent gold on dark ones. */
+.logo { --word: 1.7rem; --mark-h: .77em; --mark-gap: .38em; padding-right: calc(var(--word) * (.32 + .38 + .77 * 1.5)); }
+.logo span { white-space: nowrap; font-size: var(--word); }
+.logo-mark { display: inline-block; height: var(--mark-h); width: calc(var(--mark-h) * 1.5); margin-left: var(--mark-gap); margin-right: calc(-1 * (var(--mark-gap) + var(--mark-h) * 1.5)); vertical-align: baseline; overflow: visible; color: var(--gold-text); }
+.site-header.overlay:not(.scrolled) .logo-mark, .login-editorial .logo-mark { color: var(--gold); }
 .logo small { font-size: .62rem; letter-spacing: .45em; margin-right: -.45em; margin-top: .45rem; text-transform: uppercase; color: var(--muted); }
 
 /* ---------- Header: sticky, compacts on scroll ---------- */
@@ -599,7 +606,7 @@ details p { margin: 1rem 0 0; color: var(--muted); }
   .call-link span { display: none; }
   .call-link { width: 44px; height: 44px; justify-content: center; border: 1px solid var(--line); border-radius: 50%; }
   .header-actions .button { min-height: 44px; padding: .6rem 1rem; font-size: .82rem; }
-  .logo span { font-size: 1.4rem; }
+  .logo { --word: 1.4rem; }
   /* On phones the hero is at least 92svh and grows rather than clipping its copy */
   .hero { --r: 95px; display: flex; height: auto; min-height: 92svh; }
   .scroll-cue { display: none; }
@@ -774,7 +781,7 @@ details p { margin: 1rem 0 0; color: var(--muted); }
   .form-actions .button { flex: 1; padding: .85rem 1rem; }
   .stepper { grid-template-columns: 1fr; }
   .stepper li:not([aria-current]) { display: none; }
-  .logo span { font-size: 1.25rem; }
+  .logo { --word: 1.25rem; }
   .header-actions { gap: .6rem; }
 }
 
@@ -835,3 +842,17 @@ details p { margin: 1rem 0 0; color: var(--muted); }
 .booking-review-list .review-card footer { font-size: .84rem; }
 /* With reviews the column is taller than the screen: let it scroll fully into view, then stick by its bottom edge. */
 .booking-aside:has(.booking-reviews) { top: auto; bottom: 1.5rem; }
+
+/* Header on phones: the logo with its mark, Shop frames, Clinic phone and the booking button on one row. */
+.header-actions .label-short { display: none; }
+@media (max-width: 480px) {
+  .header-inner { gap: .75rem; }
+  .header-actions { gap: .4rem; }
+  .site-header .logo { --word: 1.1rem; }
+  .header-actions .label-long { display: none; }
+  .header-actions .label-short { display: inline; }
+}
+/* The narrowest phones: Shop frames stays in the appointments section rather than the header. */
+@media (max-width: 359px) {
+  .header-actions .shop-link { display: none; }
+}

@@ -146,7 +146,7 @@ export default function BookingFlow() {
   const timeText = iso => formatDate(iso, { dateStyle: undefined, timeStyle: 'short' });
   const shortName = slug => { const d = findDoctor(slug); return d ? `${d.title} ${d.last}` : ''; };
   return <>
-    <Header bookingHref={affiliate ? '/book/' + affiliate.slug : '/'} bookingLabel="Back to Eyecon" />
+    <Header bookingHref={affiliate ? '/book/' + affiliate.slug : '/'} bookingLabel="Back to Eyecon" bookingShort="Back" />
     <main className="booking-shell" id="main-content">
       <aside className="booking-aside">
         <h1>A little time, a clearer view.</h1>
