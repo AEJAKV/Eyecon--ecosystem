@@ -3,7 +3,9 @@ import { useEffect, useRef, useState } from 'react';
 import Image, { getImageProps } from 'next/image';
 import { useApp } from './provider';
 import { Header, Footer, Button, Icon, Gift, Referral, Loading, Notice, Stars } from './ui';
-import { DEMO, services, collections, doctors, instructions, clinic, siteContent } from '@/lib/config';
+import { DEMO, services, collections, doctors, instructions, clinic, shopUrl } from '@/lib/config';
+import { content, RatingSeal, ReviewCard } from './reviews';
+import SkinTechnologies from './skin-technologies';
 
 /* Hero photograph. Art direction: a 16:9 crop above 860px and a 9:16 crop on phones.
    Only the matching source is downloaded, so it is prioritised with fetchPriority rather than preload. */
@@ -126,6 +128,7 @@ function ServiceDetail({ service, href, leaving = false }) {
       <p className="service-meta">{service.meta}</p>
       <h3>{service.name}</h3>
       <ul className="service-points">{service.points.map(point => <li key={point}>{point}</li>)}</ul>
+      {service.id === 'skin-tightening' && !leaving && <SkinTechnologies hrefFor={slug => href + '&option=' + encodeURIComponent(slug)} />}
       <Button href={href} tabIndex={leaving ? -1 : undefined}>Book this visit</Button>
     </div>
   );
@@ -295,45 +298,6 @@ function Doctors({ serviceHref }) {
         <DoctorIntro doctor={person} href={href(person)} onClose={close} />
       </div>
     </section>
-  );
-}
-
-// Real content where it exists; sample content, labelled as such, in demo mode only (see siteContent in lib/config.js).
-const content = siteContent();
-
-/* The Google rating as a round seal that links to the clinic’s reviews. Without a rating it only names the source. */
-function RatingSeal() {
-  const { value, count, sample } = content.rating;
-  const link = clinic.reviews ? { href: clinic.reviews, target: '_blank', rel: 'noopener noreferrer' } : null;
-  if (!value) return (
-    <div className="rating-seal empty">
-      <span className="seal-title">Google reviews</span>
-      {link && <a className="text-link" {...link}>Read on Google<span className="sr-only"> (opens in a new tab)</span></a>}
-    </div>
-  );
-  const label = `${sample ? 'Sample rating for the design preview: ' : 'Rated '}${value.toFixed(1)} out of 5 on Google${count ? ` from ${count} reviews` : ''}`;
-  const Seal = link ? 'a' : 'div';
-  return (
-    <Seal className="rating-seal" {...link} aria-label={link ? label + '. Read the reviews on Google (opens in a new tab)' : label} role={link ? undefined : 'img'}>
-      <span className="seal-arc" aria-hidden="true" />
-      <strong>{value.toFixed(1)}</strong>
-      <Stars value={value} size={14} />
-      <span>{count ? <>{count} reviews<br />on Google</> : 'on Google'}</span>
-    </Seal>
-  );
-}
-
-function ReviewCard({ review, filler }) {
-  return (
-    <li className={`review-card ${filler ? 'filler' : ''}`}>
-      {review.stars > 0 && <span className="review-stars"><Stars value={review.stars} size={14} /><span className="sr-only">{review.stars} out of 5 stars</span></span>}
-      <p>{review.text}</p>
-      <footer>
-        <strong>{review.name}</strong>
-        {review.service && <span className="service-pill">{review.service}</span>}
-        <span className="review-source">{review.source}</span>
-      </footer>
-    </li>
   );
 }
 
@@ -590,6 +554,13 @@ function Appointments({ serviceHref }) {
         </div>
       </div>
       <AppointmentCards serviceHref={serviceHref} />
+      <div className="container">
+        <a className="shop-card" href={shopUrl}>
+          <Icon name="bag" size={28} />
+          <span><strong>Shop frames</strong><small>Browse our collections, from Cartier to LINDBERG.</small></span>
+          <i className="chart-arrow" aria-hidden="true" />
+        </a>
+      </div>
       <div className="urgent-strip">
         <div className="container">
           <p>Urgent eye concern? Talk to the team now.</p>
@@ -629,7 +600,7 @@ function Collections({ href }) {
     go(active + (e.key === 'ArrowRight' ? 1 : -1));
   }
   return (
-    <section className="collections" aria-labelledby="collections-title" onKeyDown={keys}>
+    <section className="collections" id="collections" aria-labelledby="collections-title" onKeyDown={keys}>
       <div className="collections-inner">
         <div className="collections-story">
           <h2 id="collections-title" className="collections-title">Our collections</h2>

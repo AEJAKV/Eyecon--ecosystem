@@ -791,3 +791,47 @@ details p { margin: 1rem 0 0; color: var(--muted); }
   .review-row { overflow-x: auto; -webkit-mask-image: none; mask-image: none; }
   .review-set.copy { display: none; }
 }
+
+/* Skin tightening technologies: a scroll-snap row of cards, in the home panel and booking step 1 */
+.skin-tech { margin: 0 0 1.75rem; min-width: 0; }
+.skin-tech-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: .75rem; }
+.skin-tech-title { margin: 0; font-size: .85rem; font-weight: 500; letter-spacing: .04em; }
+.skin-tech-title small { margin-left: .4rem; font-weight: 400; color: var(--muted); }
+.skin-tech-arrows { display: flex; gap: .5rem; }
+.carousel-arrow.small { width: 38px; height: 38px; }
+.skin-tech-track { --gap: .75rem; display: flex; gap: var(--gap); margin: 0; padding: 0 0 .25rem; list-style: none; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x mandatory; scrollbar-width: none; }
+.skin-tech-track::-webkit-scrollbar { display: none; }
+.skin-tech-track:focus-visible { outline: 3px solid var(--gold-text); outline-offset: 4px; }
+.skin-tech-track { --card: min(240px, 72%); }
+.skin-tech-track li { flex: 0 0 var(--card); scroll-snap-align: start; }
+.skin-tech-track .skin-tech-end { flex-basis: calc(100% - var(--card) - var(--gap)); scroll-snap-align: none; }
+.tech-card { display: flex; flex-direction: column; width: 100%; height: 100%; padding: 0; text-align: left; background: var(--white); border: 1px solid var(--line); border-radius: var(--radius); color: inherit; text-decoration: none; cursor: pointer; overflow: hidden; transition: border-color .25s, box-shadow .25s; }
+.tech-card:hover { border-color: #9fa0a0; }
+.tech-card[aria-pressed="true"] { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
+.tech-media { position: relative; display: block; aspect-ratio: 16 / 9; background: var(--soft); }
+.tech-media img { object-fit: cover; }
+.tech-body { display: flex; flex-direction: column; gap: .3rem; padding: .85rem .95rem 1rem; }
+.tech-body strong { font-weight: 500; }
+.tech-body small { font-size: .85rem; line-height: 1.45; color: var(--muted); }
+.tech-session { margin-top: .2rem; font-size: .8rem; color: var(--gold-text); }
+.service-choices + .skin-tech { margin-top: 1.5rem; }
+
+/* Shop frames: a card under the appointment chart, and a link in the header */
+.shop-card { display: flex; align-items: center; gap: 1.25rem; margin: 2.5rem 0 3rem; padding: 1.4rem 1.6rem; border: 1px solid var(--line); background: var(--white); color: inherit; text-decoration: none; transition: border-color .25s; }
+.shop-card svg { color: var(--gold-text); flex: none; }
+.shop-card strong { display: block; font-family: var(--serif); font-weight: 400; font-size: 1.5rem; }
+.shop-card small { display: block; color: var(--muted); }
+.shop-card > span { flex: 1; }
+.shop-card .chart-arrow { opacity: 1; transform: none; }
+.shop-card:hover { border-color: #9fa0a0; }
+
+/* Booking page: rating seal and review cards in the left column */
+.booking-reviews { margin-top: 2.5rem; padding-top: 1.75rem; border-top: 1px solid var(--line); display: grid; gap: 1rem; }
+.booking-reviews .rating-seal { width: 150px; height: 150px; margin: 0; }
+.booking-reviews .rating-seal strong { font-size: 2.6rem; }
+.booking-review-list { list-style: none; margin: 0; padding: 0; display: grid; gap: .75rem; }
+.booking-review-list .review-card { flex: none; padding: 1.1rem 1.2rem; gap: .6rem; }
+.booking-review-list .review-card p { font-size: .92rem; -webkit-line-clamp: 3; line-clamp: 3; }
+.booking-review-list .review-card footer { font-size: .84rem; }
+/* With reviews the column is taller than the screen: let it scroll fully into view, then stick by its bottom edge. */
+.booking-aside:has(.booking-reviews) { top: auto; bottom: 1.5rem; }

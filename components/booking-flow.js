@@ -7,7 +7,9 @@ import DocumentsForm from './documents-form';
 import Captcha from './captcha';
 import CalendarCard from './calendar-card';
 import Image from 'next/image';
-import { DEMO, clinic, services, brands, doctors, doctorName, findDoctor, formatDate, instructions } from '@/lib/config';
+import { DEMO, clinic, services, brands, doctors, doctorName, findDoctor, formatDate, instructions, serviceOptions, serviceOptionName } from '@/lib/config';
+import SkinTechnologies from './skin-technologies';
+import { BookingReviews } from './reviews';
 import { validateBooking, slotTaken } from '@/lib/validation';
 import { Header, Footer, Button, Field, Gift, Icon, Notice, Loading, Referral } from './ui';
 
@@ -47,6 +49,9 @@ export default function BookingFlow() {
   const [loadError, setLoadError] = useState('');
   const [step, setStep] = useState(0);
   const [service, setService] = useState(params.get('service') || '');
+  // An optional choice within the service, such as the skin tightening technology. One passed in the link (from a
+  // technology card on the home page) arrives already chosen; unknown slugs are ignored.
+  const [serviceOption, setServiceOption] = useState(() => serviceOptions[params.get('service')]?.find(o => o.slug === params.get('option'))?.slug || '');
   const [day, setDay] = useState('');
   const [start, setStart] = useState('');
   const [range, setRange] = useState(0);
@@ -125,7 +130,7 @@ export default function BookingFlow() {
   async function submit(e) {
     e.preventDefault(); setError(''); setBusy(true);
     try {
-      const payload = validateBooking({ ...details, brands: details.brands.join(', '), firstVisit: details.firstVisit === 'yes' ? true : details.firstVisit === 'no' ? false : null, service, start, doctor, affiliateId: affiliate?.id });
+      const payload = validateBooking({ ...details, brands: details.brands.join(', '), firstVisit: details.firstVisit === 'yes' ? true : details.firstVisit === 'no' ? false : null, service, serviceOption, start, doctor, affiliateId: affiliate?.id });
       if (!DEMO && !captcha) throw new Error('Complete the verification before booking.');
       const result = await book({ ...payload, captcha, website: details.website });
       setConfirmation(result); setStep(3);
@@ -136,7 +141,8 @@ export default function BookingFlow() {
   if (loading) return <Loading />;
   if (loadError) return <><Header /><main className="container empty-page" id="main-content"><h1>Arrange your visit</h1><Notice error>{loadError}</Notice>{slug ? <Button href="/booking">Book directly</Button> : <Button onClick={() => window.location.reload()}>Try again</Button>}</main><Footer /></>;
 
-  const summary = (action = null) => <div className="selection-summary"><Icon name="calendar" /><div><strong>{chosenService?.name}</strong><small>With {doctorName(doctor)}</small><small>{formatDate(start, { dateStyle: 'full', timeStyle: 'short' })}</small></div>{action}</div>;
+  const optionName = serviceOptionName(service, serviceOption);
+  const summary = (action = null) => <div className="selection-summary"><Icon name="calendar" /><div><strong>{chosenService?.name}{optionName && <> · {optionName}</>}</strong><small>With {doctorName(doctor)}</small><small>{formatDate(start, { dateStyle: 'full', timeStyle: 'short' })}</small></div>{action}</div>;
   const timeText = iso => formatDate(iso, { dateStyle: undefined, timeStyle: 'short' });
   const shortName = slug => { const d = findDoctor(slug); return d ? `${d.title} ${d.last}` : ''; };
   return <>
@@ -151,6 +157,7 @@ export default function BookingFlow() {
           <h3>Prefer to talk to us?</h3>
           {clinic.phone ? <a href={'tel:' + clinic.phone}>{clinic.phone}</a> : <p>The clinic phone number will be added before launch.</p>}
         </div>
+        <BookingReviews />
       </aside>
 
       <section className="booking-panel">
@@ -165,11 +172,12 @@ export default function BookingFlow() {
         {step === 0 && <div className="step" key="s0">
           <div className="service-choices" role="radiogroup" aria-label="Appointment type">
             {services.map(s => <label key={s.id} className={`service-choice ${service === s.id ? 'selected' : ''}`}>
-              <input type="radio" name="service" value={s.id} checked={service === s.id} onChange={() => setService(s.id)} />
+              <input type="radio" name="service" value={s.id} checked={service === s.id} onChange={() => { setService(s.id); if (!serviceOptions[s.id]) setServiceOption(''); }} />
               <Icon name={s.icon} />
               <span><strong>{s.name}</strong><small>{s.description}</small></span>
             </label>)}
           </div>
+          {service === 'skin-tightening' && <SkinTechnologies value={serviceOption} onChange={setServiceOption} />}
           <p className="urgent-note">Urgent eye concern? {clinic.phone ? <a href={'tel:' + clinic.phone}>Call the clinic</a> : 'Please call the clinic for guidance.'}</p>
           <div className="form-actions"><Button onClick={next} disabled={!chosenService}>Continue</Button></div>
         </div>}
@@ -260,6 +268,7 @@ export default function BookingFlow() {
           <p className="confirmation-lead">We look forward to seeing you, {confirmation.booking.name.split(' ')[0]}.</p>
           <div className="confirmation-card">
             <h3>{services.find(s => s.id === confirmation.booking.service)?.name}</h3>
+            {serviceOptionName(confirmation.booking.service, confirmation.booking.serviceOption) && <p>{serviceOptionName(confirmation.booking.service, confirmation.booking.serviceOption)}</p>}
             <p className="ref">Reference<strong>{confirmation.booking.reference}</strong></p>
             <p>With {doctorName(confirmation.booking.doctor)}</p>
             <p>{formatDate(confirmation.booking.start, { dateStyle: 'full', timeStyle: 'short' })}</p>
