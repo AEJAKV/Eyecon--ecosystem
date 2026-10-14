@@ -5,11 +5,11 @@ A complete Next.js project for the affiliate referral and appointment-booking ex
 ## What is included
 
 - Premium public landing page and personalised affiliate landing pages.
-- Four-step booking: service, date/time, patient details and confirmation.
+- Four-step booking: service, optometrist and time, patient details and confirmation. Every appointment belongs to one optometrist. Patients either choose an optometrist first (their photo, name and focus, then that optometrist's days and times) or a time first (each time shows which optometrists are free; when more than one is, the patient picks). Two optometrists can see patients at the same time; one optometrist cannot be double-booked.
 - Referral identity throughout booking; the $50 gift appears only with an active affiliate referral.
-- Google, Apple `.ics` and Outlook calendar options.
+- Google, Apple `.ics` and Outlook calendar options. The event, the confirmation card and the confirmation email (template field `{doctor}`) name the optometrist.
 - Affiliate dashboard, referrals, referral link/QR, earnings, profile editing and photo upload.
-- Staff booking list/calendar, patient details, attendance status, manual bookings, availability, affiliate management, leads, commission approvals, payout recording and message templates.
+- Staff booking list/calendar showing each booking's optometrist, patient details, attendance status, manual bookings (free times grouped by optometrist), availability per optometrist, affiliate management, leads, commission approvals, payout recording and message templates.
 - Supabase database schema, authentication and server-side role checks for live mode.
 - Turnstile booking verification, optional Resend email, Twilio SMS with opt-in, and an authenticated reminder endpoint.
 - Responsive layouts, keyboard controls, native form labels, focus handling, reduced-motion support and optimised local WebP images.
@@ -31,6 +31,7 @@ Demo data is stored in the current browser and is neither secure nor shared betw
 | `/book/[slug]` | Active affiliate's personalised landing page |
 | `/booking?affiliate=alex-morgan` | Booking flow with affiliate referral |
 | `/booking` | Direct booking flow |
+| `/booking?service=eye-exam&doctor=doctor-1` | Booking flow opened on “Choose a doctor” with that optometrist selected (the “Book with” button on the home page’s optometrist cards) |
 | `/login` | Demo exploration or live sign-in/password reset |
 | `/affiliate` | Affiliate overview |
 | `/affiliate/referrals` | Referral status and CSV export |
@@ -81,7 +82,7 @@ npm run build
 npm run start
 ```
 
-`npm test` checks booking validation, overlapping appointment protection, affiliate data filtering, payout guards, CSV handling and calendars. `npm run build` prepares and checks the production build. `npm run start` runs that production build locally. To reproduce the pinned installation later, use `npm ci` in place of `npm install`.
+`npm test` checks booking validation, per-optometrist booking and overlap protection, affiliate data filtering, payout guards, CSV handling and calendars. `npm run build` prepares and checks the production build. `npm run start` runs that production build locally. To reproduce the pinned installation later, use `npm ci` in place of `npm install`.
 
 ## 3. Preview and explore locally
 
@@ -140,6 +141,7 @@ These are deployment steps, not required for exploring the demo.
 
 1. Create a new Supabase project. Choose a region and service agreements appropriate for the clinic's privacy/data-residency decisions.
 2. Open **SQL Editor**. Paste the complete `supabase/schema.sql` and run it **once on an empty project**. It creates tables, access rules, booking/payout functions and the affiliate-photo bucket. Running it again will produce "already exists" errors; use reviewed migrations for later changes.
+   Then run each file in `supabase/migrations/` once, in number order. `004_doctor_availability.sql` makes slots and bookings per optometrist; it assigns any existing slots to `doctor-1`, so staff should review them afterwards.
 3. In **Authentication**, create the initial staff user with a confirmed email and a strong password. Copy that user's UUID.
 4. In SQL Editor run the following, replacing the UUID with the actual user ID:
 
@@ -174,13 +176,13 @@ Set its full output as `INSURANCE_ENCRYPTION_KEY` in your private environment. K
 ### D. Activate and verify
 
 1. Set every confirmed clinic value, the live URL and service keys. Change **only the configured live environment** to `NEXT_PUBLIC_DEMO_MODE=false`, restart locally or redeploy.
-2. Sign in with the real staff account. Add appointment slots using **Add available time**. The input explicitly uses the staff browser's local timezone; patient displays use `NEXT_PUBLIC_CLINIC_TIMEZONE`. Confirm both before adding slots.
+2. Sign in with the real staff account. Add appointment slots for each optometrist using **Add available time**. The input explicitly uses the staff browser's local timezone; patient displays use `NEXT_PUBLIC_CLINIC_TIMEZONE`. Confirm both before adding slots.
 3. Add an affiliate and complete the email invitation. Verify their photo, link, QR, active/inactive state and restricted workspace.
 4. Book a test appointment from that affiliate link. Verify database persistence, referral attribution, email/SMS, calendar timezone, staff status updates and manually approved commission.
-5. Try simultaneous bookings for an overlapping interval and confirm only one succeeds. Test both roles with separate accounts and verify anonymous requests cannot access patient data.
+5. Try simultaneous bookings with the same optometrist for an overlapping interval and confirm only one succeeds; then book two different optometrists at the same time and confirm both succeed. Test both roles with separate accounts and verify anonymous requests cannot access patient data.
 6. Check notification failures, audit records, provider bills, backup/recovery and data retention with the team's deployment owner. Approve real copy, portrait rights, gift terms, privacy wording and clinical scheduling before accepting patients.
 
-The calendar is one shared booking resource with explicit staff-created slots. Durations are assigned to slots, not automatically determined by service/doctor. It does not sync MyVisionExpress, offer self-service rescheduling/cancellation, manage multiple locations or implement a rules-based commission engine. The staff API currently loads at most 2,000 bookings and 100 recent delivery jobs; add server pagination for larger use. Staff have a shared staff role, not per-action permissions or MFA enforcement. Account deletion, data retention, consent withdrawal and retry workflows require the clinic's operational processes or later implementation. For a partial affiliate invitation failure, review the auth user and inactive/missing affiliate/profile in Supabase before retrying; the server does not delete auth accounts automatically.
+Each optometrist has their own calendar of explicit staff-created slots. Durations are assigned to slots, not automatically determined by service. It does not sync MyVisionExpress, offer self-service rescheduling/cancellation, manage multiple locations or implement a rules-based commission engine. The staff API currently loads at most 2,000 bookings and 100 recent delivery jobs; add server pagination for larger use. Staff have a shared staff role, not per-action permissions or MFA enforcement. Account deletion, data retention, consent withdrawal and retry workflows require the clinic's operational processes or later implementation. For a partial affiliate invitation failure, review the auth user and inactive/missing affiliate/profile in Supabase before retrying; the server does not delete auth accounts automatically.
 
 ## Editing the design
 

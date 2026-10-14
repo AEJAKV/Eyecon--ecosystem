@@ -1,5 +1,5 @@
 import { identity, requireStaff, sameOrigin, fail, mapBooking, mapAffiliate, encryptPolicy, audit, issueGift } from '@/lib/server';
-import { clean, validateStatus, validateSlug, validateBooking, safePhoto, validateGiftCode } from '@/lib/validation';
+import { clean, validateStatus, validateSlug, validateBooking, safePhoto, validateGiftCode, validateDoctor } from '@/lib/validation';
 import { claimAndSend } from '@/lib/notifications';
 import { clinic } from '@/lib/config';
 export const dynamic='force-dynamic';
@@ -51,9 +51,9 @@ export async function POST(request){
       }else if(action==='template'){
         const subject=clean(p.subject,150),body=clean(p.body,3000);if(!subject||!body)throw new Error('Enter a subject and message.');({error}=await db.from('message_templates').update({subject,body}).eq('id',p.id));
       }else if(action==='slot'){
-        const start=new Date(p.start),duration=Number(p.duration);if(!Number.isFinite(start.getTime())||start<=new Date()||![15,30,45,60,90].includes(duration))throw new Error('Choose a future time and a valid duration.');({error}=await db.from('appointment_slots').insert({start:start.toISOString(),duration}));
+        const start=new Date(p.start),duration=Number(p.duration);if(!Number.isFinite(start.getTime())||start<=new Date()||![15,30,45,60,90].includes(duration))throw new Error('Choose a future time and a valid duration.');const doctor=validateDoctor(p.doctor);({error}=await db.from('appointment_slots').insert({doctor,start:start.toISOString(),duration}));if(error?.code==='23505')throw new Error('This optometrist already has this time.');
       }else if(action==='booking'){
-        const b=validateBooking(p,true);const {data,error:e}=await db.rpc('create_booking',{p_name:b.name,p_email:b.email,p_phone:b.phone,p_start:b.start,p_service:b.service,p_affiliate:b.affiliateId,p_source:b.source,p_first_visit:b.firstVisit,p_insurance:b.insurance,p_policy:encryptPolicy(b.policy),p_brands:b.brands,p_sms:b.smsConsent,p_request_hash:null});error=e;if(!e)await claimAndSend(db,mapBooking(await issueGift(db,data[0])),'confirmation');
+        const b=validateBooking(p,true);const {data,error:e}=await db.rpc('create_booking',{p_name:b.name,p_email:b.email,p_phone:b.phone,p_doctor:b.doctor,p_start:b.start,p_service:b.service,p_affiliate:b.affiliateId,p_source:b.source,p_first_visit:b.firstVisit,p_insurance:b.insurance,p_policy:encryptPolicy(b.policy),p_brands:b.brands,p_sms:b.smsConsent,p_request_hash:null});error=e;if(!e)await claimAndSend(db,mapBooking(await issueGift(db,data[0])),'confirmation');
       }else throw new Error('Unknown action.');
     }
     if(error)throw new Error('Could not save the change. Check the selected records and try again.');await audit(db,u.id,action,p.id||'batch');return Response.json({ok:true});

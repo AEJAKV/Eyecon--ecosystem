@@ -4,7 +4,8 @@ import { useSearchParams } from 'next/navigation';
 import Script from 'next/script';
 import Link from 'next/link';
 import { useApp } from './provider';
-import { DEMO, clinic, services, brands, doctors, doctorName, formatDate, instructions } from '@/lib/config';
+import Image from 'next/image';
+import { DEMO, clinic, services, brands, doctors, doctorName, findDoctor, formatDate, instructions } from '@/lib/config';
 import { validateBooking, slotTaken } from '@/lib/validation';
 import { calendarFile, googleCalendar, outlookCalendar, downloadFile } from '@/lib/calendar';
 import { Header, Footer, Button, Field, Gift, Icon, Notice, Loading, Referral } from './ui';
@@ -17,6 +18,21 @@ function Captcha({ onToken }) {
     return () => window.turnstile?.remove(id);
   }, [loaded]);
   return <><Script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" onReady={() => setLoaded(true)} /><div ref={el} /></>;
+}
+
+// Optometrist cards: photo, name and focus. With counts, each card says how many online times they have and
+// a card with none cannot be chosen.
+function DoctorChoices({ name, label, list, value, counts, onChange }) {
+  return <div className="doctor-choices" role="radiogroup" aria-label={label}>
+    {list.map(d => {
+      const open = counts?.[d.slug], none = counts && !open;
+      return <label key={d.slug} className={`doctor-choice ${value === d.slug ? 'selected' : ''} ${none ? 'unavailable' : ''}`}>
+        <input type="radio" name={name} value={d.slug} checked={value === d.slug} disabled={none} onChange={() => onChange(d.slug)} />
+        <Image src={d.photo} alt={d.alt || ''} width={64} height={80} sizes="64px" />
+        <span><strong>{doctorName(d.slug)}</strong><small>{d.focus}</small>{counts && <small className="doctor-choice-open">{none ? 'No online times' : `${open} open time${open === 1 ? '' : 's'}`}</small>}</span>
+      </label>;
+    })}
+  </div>;
 }
 
 const LABELS = ['Appointment', 'Date and time', 'Your details', 'Confirmed'];
@@ -61,8 +77,12 @@ export default function BookingFlow() {
   // A brand passed in the link (from the collections carousel) arrives already chosen; unknown names are ignored.
   const linkedBrand = brands.find(b => b.toLowerCase() === (params.get('brand') || '').trim().toLowerCase());
   const [details, setDetails] = useState({ name: '', email: '', phone: '', firstVisit: '', insurance: '', policy: '', brands: linkedBrand ? [linkedBrand] : [], smsConsent: false, website: '' });
-  // An optometrist passed in the link (from their card on the home page) is kept as a preference; unknown slugs are ignored.
-  const [preferredDoctor, setPreferredDoctor] = useState(() => doctors.find(d => d.slug === params.get('doctor'))?.slug || '');
+  // Every appointment is with one optometrist. Patients either pick the optometrist first ("doctor" mode) or the time
+  // first ("time" mode). An optometrist passed in the link (from their card on the home page) opens doctor mode with
+  // them already chosen; unknown slugs are ignored.
+  const linkedDoctor = findDoctor(params.get('doctor'))?.slug || '';
+  const [mode, setMode] = useState(linkedDoctor ? 'doctor' : 'time');
+  const [doctor, setDoctor] = useState(linkedDoctor);
   const titleRef = useRef(null), firstRender = useRef(true);
 
   useEffect(() => { setCalendar(preferredCalendar()); }, []);
@@ -72,11 +92,11 @@ export default function BookingFlow() {
       const a = slug ? data.affiliates.find(a => a.slug === slug && a.active) : null;
       if (slug && !a) { setLoadError('This referral is unavailable. You can book directly instead.'); setLoading(false); return; }
       setAffiliate(a);
-      setSlots(data.slots.filter(s => new Date(s.start) > new Date() && !slotTaken(s, data.bookings)));
+      setSlots(data.slots.filter(s => new Date(s.start) > new Date() && findDoctor(s.doctor) && !slotTaken(s, data.bookings)));
       setLoading(false);
     } else {
       fetch('/api/availability' + (slug ? '?affiliate=' + encodeURIComponent(slug) : ''))
-        .then(async r => { const d = await r.json(); if (!r.ok) throw new Error(d.error); setAffiliate(d.affiliate); setSlots(d.slots); })
+        .then(async r => { const d = await r.json(); if (!r.ok) throw new Error(d.error); setAffiliate(d.affiliate); setSlots(d.slots.filter(s => findDoctor(s.doctor))); })
         .catch(e => setLoadError(e.message)).finally(() => setLoading(false));
     }
   }, [ready, slug, data]);
@@ -87,33 +107,45 @@ export default function BookingFlow() {
   }, [step]);
 
   const dayKey = iso => new Intl.DateTimeFormat('en-CA', { timeZone: clinic.timezone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(iso));
-  const days = useMemo(() => [...new Map(slots.map(s => [dayKey(s.start), s.start])).entries()], [slots]);
+  // The times on offer: one optometrist's in doctor mode, everyone's in time mode.
+  const pool = useMemo(() => mode === 'doctor' ? slots.filter(s => s.doctor === doctor) : slots, [slots, mode, doctor]);
+  const openCount = useMemo(() => Object.fromEntries(doctors.map(d => [d.slug, slots.filter(s => s.doctor === d.slug).length])), [slots]);
+  const days = useMemo(() => [...new Map(pool.map(s => [dayKey(s.start), s.start])).entries()], [pool]);
+  // Each start time on the chosen day, with the optometrists free at that moment.
+  const times = useMemo(() => { const m = new Map(); for (const s of pool) if (dayKey(s.start) === day) m.set(s.start, [...(m.get(s.start) || []), s.doctor]); return [...m.entries()]; }, [pool, day]);
+  const freeAtStart = times.find(([iso]) => iso === start)?.[1] || [];
   const rangeList = useMemo(ranges, []);
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const inRange = (iso, r) => { const d = (new Date(iso) - today) / 86400000; return d >= r.from && d < r.to; };
   const visibleDays = days.filter(([, iso]) => inRange(iso, rangeList[range]));
   const chosenService = services.find(s => s.id === service);
+  const chosen = !!(start && doctor && slots.some(s => s.doctor === doctor && s.start === start));
 
   // Open on the first range that has times, so nobody lands on an empty week.
   useEffect(() => {
-    if (!slots.length || step !== 1 || visibleDays.length) return;
+    if (!pool.length || step !== 1 || visibleDays.length) return;
     const first = rangeList.findIndex(r => days.some(([, iso]) => inRange(iso, r)));
     if (first > -1 && first !== range) setRange(first);
-  }, [step, slots.length]);
+  }, [step, pool.length, mode, doctor]);
 
   function change(key, value) { setDetails(d => ({ ...d, [key]: value })); }
   function toggleBrand(b) { setDetails(d => ({ ...d, brands: d.brands.includes(b) ? d.brands.filter(x => x !== b) : [...d.brands, b] })); }
+  // In time mode the optometrist follows from the time, so clearing the time clears them too.
+  function clearTime(nextDay = '') { setDay(nextDay); setStart(''); if (mode === 'time') setDoctor(''); }
+  function switchMode(m) { if (m === mode) return; setError(''); setMode(m); setDay(''); setStart(''); if (m === 'time') setDoctor(''); }
+  function pickDoctor(slug) { setError(''); setDoctor(slug); setDay(''); setStart(''); }
+  function pickTime(iso, free) { setError(''); setStart(iso); if (mode === 'time') setDoctor(free.length === 1 ? free[0] : ''); }
   function next() {
     setError('');
     if (step === 0 && !chosenService) { setError('Choose the care you need.'); return; }
-    if (step === 1 && !start) { setError('Choose a date and an available time.'); return; }
+    if (step === 1 && !chosen) { setError(start && !doctor ? 'Choose which optometrist you would like to see.' : 'Choose an optometrist and an available time.'); return; }
     setStep(s => s + 1);
   }
   function back(to) { setError(''); setStep(to); }
   async function submit(e) {
     e.preventDefault(); setError(''); setBusy(true);
     try {
-      const payload = validateBooking({ ...details, brands: details.brands.join(', '), firstVisit: details.firstVisit === 'yes' ? true : details.firstVisit === 'no' ? false : null, service, start, affiliateId: affiliate?.id, preferredDoctor: preferredDoctor || null });
+      const payload = validateBooking({ ...details, brands: details.brands.join(', '), firstVisit: details.firstVisit === 'yes' ? true : details.firstVisit === 'no' ? false : null, service, start, doctor, affiliateId: affiliate?.id });
       if (!DEMO && !captcha) throw new Error('Complete the verification before booking.');
       const result = await book({ ...payload, captcha, website: details.website });
       setConfirmation(result); setStep(3);
@@ -131,7 +163,9 @@ export default function BookingFlow() {
   if (loadError) return <><Header /><main className="container empty-page" id="main-content"><h1>Arrange your visit</h1><Notice error>{loadError}</Notice>{slug ? <Button href="/booking">Book directly</Button> : <Button onClick={() => window.location.reload()}>Try again</Button>}</main><Footer /></>;
 
   const calendarNames = { google: 'Google Calendar', apple: 'Apple Calendar', outlook: 'Outlook' };
-  const preferred = preferredDoctor && <p className="preferred-doctor"><span>Preferred optometrist: <strong>{doctorName(preferredDoctor)}</strong></span><button type="button" className="text-link" onClick={() => setPreferredDoctor('')}>Remove</button></p>;
+  const summary = (action = null) => <div className="selection-summary"><Icon name="calendar" /><div><strong>{chosenService?.name}</strong><small>With {doctorName(doctor)}</small><small>{formatDate(start, { dateStyle: 'full', timeStyle: 'short' })}</small></div>{action}</div>;
+  const timeText = iso => formatDate(iso, { dateStyle: undefined, timeStyle: 'short' });
+  const shortName = slug => { const d = findDoctor(slug); return d ? `${d.title} ${d.last}` : ''; };
   return <>
     <Header bookingHref={affiliate ? '/book/' + affiliate.slug : '/'} bookingLabel="Back to Eyecon" />
     <main className="booking-shell" id="main-content">
@@ -169,35 +203,57 @@ export default function BookingFlow() {
 
         {step === 1 && <div className="step" key="s1">
           <p className="muted">{chosenService?.name}</p>
-          {preferred}
+          <div className="mode-toggle" role="group" aria-label="How would you like to choose?">
+            {[['doctor', 'Choose a doctor'], ['time', 'Choose a time']].map(([m, label]) => <button type="button" key={m} className={mode === m ? 'active' : ''} aria-pressed={mode === m} onClick={() => switchMode(m)}>{label}</button>)}
+          </div>
           {!slots.length ? <Notice>No online times are available right now. Please call the clinic or check back later.</Notice> : <>
-            <div className="week-tabs" role="group" aria-label="When">
-              {rangeList.map((r, i) => <button type="button" key={r.label} className={range === i ? 'active' : ''} aria-pressed={range === i} onClick={() => { setRange(i); setDay(''); setStart(''); }}>{r.label}</button>)}
-            </div>
-            {visibleDays.length
-              ? <div className="day-grid" role="group" aria-label="Available days">
-                  {visibleDays.map(([key, iso]) => <button type="button" key={key} className={day === key ? 'active' : ''} aria-pressed={day === key} onClick={() => { setDay(key); setStart(''); }}>
-                    <small>{formatDate(iso, { dateStyle: undefined, timeStyle: undefined, weekday: 'short' })}</small>
-                    <span>{formatDate(iso, { dateStyle: undefined, timeStyle: undefined, day: 'numeric' })}</span>
-                    <small>{formatDate(iso, { dateStyle: undefined, timeStyle: undefined, month: 'short' })}</small>
-                  </button>)}
-                </div>
-              : <p className="empty-range">No open times in this range. Try another.</p>}
-            {day && <>
-              <p className="time-label">Available times</p>
-              <div className="time-grid" role="group" aria-label="Available times" key={day}>
-                {slots.filter(s => dayKey(s.start) === day).map((s, i) => <button type="button" key={s.start} style={{ animationDelay: i * 30 + 'ms' }} aria-pressed={start === s.start} className={start === s.start ? 'active' : ''} onClick={() => setStart(s.start)}>{formatDate(s.start, { dateStyle: undefined, timeStyle: 'short' })}</button>)}
-              </div>
+            {mode === 'doctor' && <>
+              <p className="time-label">Your optometrist</p>
+              <DoctorChoices name="doctor" label="Optometrist" list={doctors} value={doctor} counts={openCount} onChange={pickDoctor} />
+              {!doctor && <p className="quiet">Pick an optometrist to see the days they are available.</p>}
             </>}
-            {!day && visibleDays.length > 0 && <p className="quiet">Pick a day to see the times.</p>}
-            {start && <div className="selection-summary"><Icon name="calendar" /><div><strong>{chosenService?.name}</strong><small>{formatDate(start, { dateStyle: 'full', timeStyle: 'short' })}</small></div></div>}
+            {(mode === 'time' || doctor) && (pool.length ? <>
+              <div className="week-tabs" role="group" aria-label="When">
+                {rangeList.map((r, i) => <button type="button" key={r.label} className={range === i ? 'active' : ''} aria-pressed={range === i} onClick={() => { setRange(i); clearTime(); }}>{r.label}</button>)}
+              </div>
+              {visibleDays.length
+                ? <div className="day-grid" role="group" aria-label={mode === 'doctor' ? 'Days ' + doctorName(doctor) + ' is available' : 'Available days'}>
+                    {visibleDays.map(([key, iso]) => <button type="button" key={key} className={day === key ? 'active' : ''} aria-pressed={day === key} onClick={() => clearTime(key)}>
+                      <small>{formatDate(iso, { dateStyle: undefined, timeStyle: undefined, weekday: 'short' })}</small>
+                      <span>{formatDate(iso, { dateStyle: undefined, timeStyle: undefined, day: 'numeric' })}</span>
+                      <small>{formatDate(iso, { dateStyle: undefined, timeStyle: undefined, month: 'short' })}</small>
+                    </button>)}
+                  </div>
+                : <p className="empty-range">No open times in this range. Try another.</p>}
+              {day && <>
+                <p className="time-label">Available times</p>
+                <div className={`time-grid ${mode === 'time' ? 'with-doctors' : ''}`} role="group" aria-label="Available times" key={mode + day}>
+                  {times.map(([iso, free], i) => {
+                    const names = free.map(doctorName).join(' and ');
+                    return <button type="button" key={iso} style={{ animationDelay: i * 30 + 'ms' }} aria-pressed={start === iso} className={start === iso ? 'active' : ''} onClick={() => pickTime(iso, free)}
+                      aria-label={mode === 'time' ? `${timeText(iso)}, with ${names}` : undefined} title={mode === 'time' ? names : undefined}>
+                      {timeText(iso)}
+                      {mode === 'time' && <span className="time-doctors" aria-hidden="true">
+                        <span className="time-avatars">{free.map(slug => <Image key={slug} src={findDoctor(slug).photo} alt="" width={20} height={20} sizes="20px" />)}</span>
+                        <small>{free.map(shortName).join(' · ')}</small>
+                      </span>}
+                    </button>;
+                  })}
+                </div>
+              </>}
+              {!day && visibleDays.length > 0 && <p className="quiet">Pick a day to see the times.</p>}
+              {mode === 'time' && start && freeAtStart.length > 1 && <div className="doctor-pick">
+                <p className="time-label">Who would you like to see? {freeAtStart.length} optometrists are free at {timeText(start)}</p>
+                <DoctorChoices name="doctor-at-time" label={'Optometrist at ' + timeText(start)} list={doctors.filter(d => freeAtStart.includes(d.slug))} value={doctor} onChange={slug => { setError(''); setDoctor(slug); }} />
+              </div>}
+              {chosen && summary()}
+            </> : <p className="empty-range">{doctorName(doctor)} has no online times right now. Choose another optometrist, or switch to “Choose a time”.</p>)}
           </>}
-          <div className="form-actions"><Button secondary onClick={() => back(0)}>Back</Button><Button onClick={next} disabled={!start}>Continue</Button></div>
+          <div className="form-actions"><Button secondary onClick={() => back(0)}>Back</Button><Button onClick={next} disabled={!chosen}>Continue</Button></div>
         </div>}
 
         {step === 2 && <form onSubmit={submit} className="stack step" key="s2">
-          <div className="selection-summary"><Icon name="calendar" /><div><strong>{chosenService?.name}</strong><small>{formatDate(start, { dateStyle: 'full', timeStyle: 'short' })}</small></div><button type="button" className="text-link" onClick={() => back(1)}>Change</button></div>
-          {preferred}
+          {summary(<button type="button" className="text-link" onClick={() => back(1)}>Change</button>)}
           <Field label="Full name" id="patient-name" autoComplete="name" required maxLength={120} value={details.name} onChange={e => change('name', e.target.value)} />
           <div className="form-grid">
             <Field label="Mobile number" id="patient-phone" type="tel" autoComplete="tel" required maxLength={32} placeholder="+1 416 555 0123" value={details.phone} onChange={e => change('phone', e.target.value)} />
@@ -232,6 +288,7 @@ export default function BookingFlow() {
           <div className="confirmation-card">
             <h3>{services.find(s => s.id === confirmation.booking.service)?.name}</h3>
             <p className="ref">Reference<strong>{confirmation.booking.id.slice(0, 8).toUpperCase()}</strong></p>
+            <p>With {doctorName(confirmation.booking.doctor)}</p>
             <p>{formatDate(confirmation.booking.start, { dateStyle: 'full', timeStyle: 'short' })}</p>
             <p className="muted">{clinic.address || 'The clinic will confirm the location with you.'}</p>
           </div>

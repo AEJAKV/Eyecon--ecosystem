@@ -8,13 +8,14 @@ export function Provider({children}){
   const [data,setData]=useState({affiliates:[],bookings:[],templates:[],slots:[],jobs:[]}),[user,setUser]=useState(null),[ready,setReady]=useState(false),[error,setError]=useState('');
   async function headers(){const {data:{session}}=await browserClient().auth.getSession();return {Authorization:'Bearer '+(session?.access_token||'')};}
   async function reload(){const response=await fetch('/api/workspace',{headers:await headers(),cache:'no-store'});const result=await response.json();if(!response.ok)throw new Error(result.error);setData(result);setUser(result.user);return result;}
+  // Demo data is saved under v2 since slots and bookings gained a doctor; data saved by earlier versions is not loaded.
   useEffect(()=>{
-    if(DEMO){try{const saved=JSON.parse(localStorage.getItem('eyecon-demo-v1')||'null');setData(saved?.affiliates&&saved?.bookings?saved:seedDemo());const u=JSON.parse(sessionStorage.getItem('eyecon-demo-user')||'null');if(u&&['staff','affiliate'].includes(u.role))setUser(u);}catch{setData(seedDemo());}setReady(true);return;}
+    if(DEMO){try{const saved=JSON.parse(localStorage.getItem('eyecon-demo-v2')||'null');setData(saved?.affiliates&&saved?.bookings?saved:seedDemo());const u=JSON.parse(sessionStorage.getItem('eyecon-demo-user')||'null');if(u&&['staff','affiliate'].includes(u.role))setUser(u);}catch{setData(seedDemo());}setReady(true);return;}
     let active=true,subscription;
     try{const client=browserClient();client.auth.getSession().then(async({data:{session}})=>{if(session)try{await reload();}catch(e){if(active)setError(e.message);}if(active)setReady(true);});subscription=client.auth.onAuthStateChange((event,session)=>{if(event==='SIGNED_OUT'){setUser(null);setData({affiliates:[],bookings:[],templates:[],slots:[]});}}).data.subscription;}catch(e){setError(e.message);setReady(true);}
     return()=>{active=false;subscription?.unsubscribe();};
   },[]);
-  useEffect(()=>{if(DEMO&&ready)try{localStorage.setItem('eyecon-demo-v1',JSON.stringify(data));}catch{setError('This browser could not save demo changes. Keep this tab open or reset the demo.');}},[data,ready]);
+  useEffect(()=>{if(DEMO&&ready)try{localStorage.setItem('eyecon-demo-v2',JSON.stringify(data));}catch{setError('This browser could not save demo changes. Keep this tab open or reset the demo.');}},[data,ready]);
   async function action(action,payload){
     if(DEMO){let next=applyDemo(data,action,payload,user);setData(next);return action==='booking'?{booking:next.bookings[0],notifications:{email:'demo',sms:'demo'}}:{ok:true};}
     const response=await fetch('/api/workspace',{method:'POST',headers:{...await headers(),'Content-Type':'application/json'},body:JSON.stringify({action,payload})});const result=await response.json();if(!response.ok)throw new Error(result.error);await reload();return result;
