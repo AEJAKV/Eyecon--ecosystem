@@ -5,7 +5,7 @@ import { seedDemo,applyDemo,affiliateRows } from '../lib/demo.js';
 import { calendarFile } from '../lib/calendar.js';
 import { readFileSync } from 'node:fs';
 import { demoSlots } from '../lib/demo.js';
-import { doctors, doctorName, defaultTemplates, residencyStatuses, services, skinTechnologies, serviceOptions, serviceOptionName, shopUrl, collections, frames, brands } from '../lib/config.js';
+import { doctors, doctorName, defaultTemplates, residencyStatuses, services, skinTechnologies, serviceOptions, serviceOptionName, shopUrl, collections, frames, brands, brandFromParam } from '../lib/config.js';
 import { giftSerial,issueGiftCard,giftCode,giftNumber,bookingReference } from '../lib/gift.js';
 import { demoLookup } from '../lib/demo.js';
 import { featuredFirst,excerpt,EXCERPT_LENGTH } from '../lib/reviews.js';
@@ -193,6 +193,29 @@ test('house photographs: art-directed banners, tile photos, brand photo fallback
   assert.match(css,/@media \(max-width: 640px\) \{\s*\.houses[^}]*\}[\s\S]*?\.shop-banner-media \{ aspect-ratio: 4 \/ 5; max-height: none; \}[\s\S]*?\.shop-banner-text \{ position: static;[\s\S]*?\.house-tile \{ flex: 0 0 74vw;/);
   assert.match(css,/@media \(prefers-reduced-motion: reduce\) \{\s*\.house-media img \{ transition: none; \}/);
   assert.ok(css.includes('.frame-card { position: relative;')&&css.includes('.house-tile { position: relative;'),'cards contain their screen-reader labels, so a scroll row never widens the page');
+});
+test('brand pages: every brand built ahead, unknown slugs not found, own title, affiliate read in the browser',()=>{
+  const read=f=>readFileSync(new URL(f,import.meta.url),'utf8');
+  const page=read('../app/shop/[slug]/page.js'),shop=read('../components/shop.js');
+  assert.ok(page.includes('export const dynamicParams=false;'));
+  assert.ok(page.includes('export function generateStaticParams(){return collections.map(c=>({slug:c.slug}));}'));
+  assert.ok(page.includes('notFound()')&&page.includes('title:{absolute:`${brand.name} · Shop Frames · Eyecon Optometry`}'));
+  assert.ok(!page.includes('searchParams'),'reading searchParams on the server would stop the pages being built ahead');
+  for(const part of ["<Suspense fallback={<BrandPageBody brand={brand} affiliate={null} />}>","useSearchParams().get('affiliate')","href={withAffiliate('/shop', affiliate)}>","All frames</Link>",'<Banner brand={brand} page />','{brand.blurb}','New pieces arriving soon. Book a styling visit to see the full collection in person.','Want to try {brand.name} in person?','<Button href={stylingHref(affiliate, brand.name)}>Book a styling visit</Button>','<FrameCard key={f.slug}'])assert.ok(shop.includes(part),part);
+  assert.ok(shop.includes("{!page && <Button className=\"outline\""),'no button on the brand page banner');
+  const css=read('../app/site.css');
+  assert.ok(css.includes('.frame-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));'));
+  assert.ok(css.includes('@media (max-width: 1024px) { .frame-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }'));
+  assert.deepEqual(collections.filter(c=>!frames.some(f=>f.brand===c.slug)).map(c=>c.slug),['gucci','maui-jim'],'these brands show the arriving-soon line');
+});
+test('a booking link’s ?brand= preselects that brand for every house',()=>{
+  for(const c of collections){
+    const link=new URL(stylingHref('alex-morgan',c.name),'http://localhost');
+    assert.equal(brandFromParam(link.searchParams.get('brand')),c.name,c.name);
+    assert.equal(brandFromParam(c.name.toUpperCase()),c.name);assert.equal(brandFromParam(' '+c.name.toLowerCase()+' '),c.name);
+  }
+  for(const bad of [null,undefined,'','Ray-Ban','cartierx'])assert.equal(brandFromParam(bad),'',String(bad));
+  assert.ok(readFileSync(new URL('../components/booking-flow.js',import.meta.url),'utf8').includes("const linkedBrand = brandFromParam(params.get('brand'));"));
 });
 test('withAffiliate carries a well-formed affiliate onto every shop booking link',()=>{
   assert.equal(withAffiliate('/booking','alex-morgan'),'/booking?affiliate=alex-morgan');

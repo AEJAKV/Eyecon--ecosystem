@@ -1,9 +1,10 @@
 'use client';
-import { useEffect, useRef, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { Header, Footer, Icon, Button } from './ui';
 import Photo, { ArtPhoto } from './photo';
-import { DEMO, clinic, frames, shopUrl } from '@/lib/config';
+import { DEMO, clinic, collections, frames, shopUrl } from '@/lib/config';
 import { withAffiliate } from '@/lib/affiliate';
 import { frameBrand, framePrice, reserveHref, stylingHref, brandHref, directionsUrl, brandGroups, readSavedFrames, writeSavedFrames, toggleSaved } from '@/lib/shop';
 
@@ -26,12 +27,25 @@ function ShopHeading() {
   );
 }
 
-function FrameCard({ frame, saved, onSave, affiliate }) {
+// The hearted frames and a toggle that saves them. They are read after the first render, so the server and the
+// browser render the same hearts.
+function useSavedFrames() {
+  const [saved, setSaved] = useState([]);
+  useEffect(() => { setSaved(readSavedFrames(browserStorage())); }, []);
+  function toggle(slug) {
+    const next = toggleSaved(saved, slug), storage = browserStorage();
+    setSaved(next);
+    if (storage) writeSavedFrames(storage, next);
+  }
+  return [saved, toggle];
+}
+
+function FrameCard({ frame, saved, onSave, affiliate, sizes = '(max-width: 640px) 66vw, 24vw' }) {
   const brand = frameBrand(frame), name = (brand?.name || '') + ' ' + frame.model, price = framePrice(frame.price);
   return (
     <li className="frame-card">
       <div className="frame-media">
-        <Photo src={'/images/shop/frames/' + frame.slug + '.webp'} alt={name} sizes="(max-width: 640px) 66vw, 24vw">
+        <Photo src={'/images/shop/frames/' + frame.slug + '.webp'} alt={name} sizes={sizes}>
           <span className="frame-placeholder"><Icon name="glasses" size={30} /><small>Photograph to follow</small></span>
         </Photo>
         {frame.isNew && <span className="frame-new">New</span>}
@@ -50,9 +64,7 @@ function FrameCard({ frame, saved, onSave, affiliate }) {
 function FeaturedFrames({ affiliate }) {
   const row = useRef(null);
   const [ends, setEnds] = useState({ start: true, end: true });
-  const [saved, setSaved] = useState([]);
-  // Saved frames are read after the first render, so the server and browser render the same hearts.
-  useEffect(() => { setSaved(readSavedFrames(browserStorage())); }, []);
+  const [saved, save] = useSavedFrames();
   function edges() {
     const el = row.current;
     if (el) setEnds({ start: el.scrollLeft <= 1, end: el.scrollLeft + el.clientWidth >= el.scrollWidth - 1 });
@@ -67,11 +79,6 @@ function FeaturedFrames({ affiliate }) {
     if (e.target !== e.currentTarget || (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight')) return;
     e.preventDefault();
     move(e.key === 'ArrowRight' ? 1 : -1);
-  }
-  function save(slug) {
-    const next = toggleSaved(saved, slug), storage = browserStorage();
-    setSaved(next);
-    if (storage) writeSavedFrames(storage, next);
   }
   return (
     <section className="featured-frames" aria-labelledby="featured-title">
@@ -99,19 +106,20 @@ function BrandPhoto({ brand, sizes }) {
 }
 
 // A full-width band: 16:9 with the words low over the photograph on larger screens; 4:5 with the words below on phones.
-function Banner({ brand, affiliate }) {
-  const art = '/images/shop/banners/' + brand.slug;
+// On /shop it is an article with a Shop the collection button; on the brand's own page it heads the page (an h1, no button).
+function Banner({ brand, affiliate, page = false }) {
+  const art = '/images/shop/banners/' + brand.slug, Wrap = page ? 'header' : 'article', Heading = page ? 'h1' : 'h3';
   return (
-    <article className="shop-banner" aria-labelledby={'house-' + brand.slug}>
+    <Wrap className="shop-banner" aria-labelledby={'house-' + brand.slug}>
       <div className="shop-banner-media">
         <ArtPhoto desktop={art + '-desktop.webp'} mobile={art + '-mobile.webp'} alt={brand.name + ' eyewear'}><BrandPhoto brand={brand} sizes="100vw" /></ArtPhoto>
       </div>
       <div className="shop-banner-text">
-        <h3 id={'house-' + brand.slug} className="house-name">{brand.name}</h3>
+        <Heading id={'house-' + brand.slug} className="house-name">{brand.name}</Heading>
         <p className="house-tagline">{brand.tagline}</p>
-        <Button className="outline" href={brandHref(brand.slug, affiliate)}>Shop the collection<span className="sr-only"> from {brand.name}</span></Button>
+        {!page && <Button className="outline" href={brandHref(brand.slug, affiliate)}>Shop the collection<span className="sr-only"> from {brand.name}</span></Button>}
       </div>
-    </article>
+    </Wrap>
   );
 }
 
@@ -190,6 +198,45 @@ export default function Shop({ affiliate }) {
       <ShopHeading />
       <FeaturedFrames affiliate={affiliate} />
       <Houses affiliate={affiliate} />
+    </main>
+    <Footer />
+  </>;
+}
+
+/* A brand's own page at /shop/[slug]. It is built ahead of time, so the affiliate is read in the browser: the
+   prerendered page has no referral on its links, and the browser swaps in the same page with the referral added. */
+export function BrandPage({ slug }) {
+  const brand = collections.find(c => c.slug === slug);
+  return <Suspense fallback={<BrandPageBody brand={brand} affiliate={null} />}><BrandPageWithAffiliate brand={brand} /></Suspense>;
+}
+
+function BrandPageWithAffiliate({ brand }) {
+  return <BrandPageBody brand={brand} affiliate={useSearchParams().get('affiliate')} />;
+}
+
+function BrandPageBody({ brand, affiliate }) {
+  const [saved, save] = useSavedFrames(), pieces = frames.filter(f => f.brand === brand.slug);
+  return <>
+    <Header bookingHref={withAffiliate('/booking', affiliate)} shopHref={withAffiliate(shopUrl, affiliate)} />
+    <main id="main-content" className="shop brand-page">
+      <p className="container brand-back"><Link className="text-link" href={withAffiliate('/shop', affiliate)}><span aria-hidden="true">← </span>All frames</Link></p>
+      <Banner brand={brand} page />
+      <div className="container brand-intro"><p className="brand-blurb">{brand.blurb}</p></div>
+      <section className="container brand-frames" aria-labelledby="brand-frames-title">
+        <div className="featured-head">
+          <h2 id="brand-frames-title" className="featured-title">{brand.name} frames</h2>
+          {DEMO && pieces.length > 0 && <span className="featured-sample">Sample selection</span>}
+        </div>
+        {pieces.length
+          ? <ul className="frame-grid">{pieces.map(f => <FrameCard key={f.slug} frame={f} affiliate={affiliate} sizes="(max-width: 1024px) 50vw, 25vw" saved={saved.includes(f.slug)} onSave={() => save(f.slug)} />)}</ul>
+          : <p className="brand-empty">New pieces arriving soon. Book a styling visit to see the full collection in person.</p>}
+      </section>
+      <section className="final-cta brand-cta" aria-labelledby="brand-cta-title">
+        <div className="container">
+          <h2 id="brand-cta-title">Want to try {brand.name} in person?</h2>
+          <Button href={stylingHref(affiliate, brand.name)}>Book a styling visit</Button>
+        </div>
+      </section>
     </main>
     <Footer />
   </>;

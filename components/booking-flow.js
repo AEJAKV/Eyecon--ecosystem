@@ -7,7 +7,7 @@ import DocumentsForm from './documents-form';
 import Captcha from './captcha';
 import CalendarCard from './calendar-card';
 import Image from 'next/image';
-import { DEMO, clinic, services, brands, doctors, doctorName, findDoctor, formatDate, instructions, serviceOptions, serviceOptionName } from '@/lib/config';
+import { DEMO, clinic, services, brands, brandFromParam, doctors, doctorName, findDoctor, formatDate, instructions, serviceOptions, serviceOptionName } from '@/lib/config';
 import SkinTechnologies from './skin-technologies';
 import { BookingReviews } from './reviews';
 import { validateBooking, slotTaken } from '@/lib/validation';
@@ -61,7 +61,7 @@ export default function BookingFlow() {
   const [captcha, setCaptcha] = useState('');
   const [captchaKey, setCaptchaKey] = useState(0);
   // A brand passed in the link (from the collections carousel) arrives already chosen; unknown names are ignored.
-  const linkedBrand = brands.find(b => b.toLowerCase() === (params.get('brand') || '').trim().toLowerCase());
+  const linkedBrand = brandFromParam(params.get('brand'));
   const [details, setDetails] = useState({ name: '', email: '', phone: '', firstVisit: '', insurance: '', policy: '', brands: linkedBrand ? [linkedBrand] : [], smsConsent: false, website: '' });
   // Every appointment is with one optometrist. Patients either pick the optometrist first ("doctor" mode) or the time
   // first ("time" mode). An optometrist passed in the link (from their card on the home page) opens doctor mode with
