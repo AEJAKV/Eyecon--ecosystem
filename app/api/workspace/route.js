@@ -1,7 +1,8 @@
-import { identity, requireStaff, sameOrigin, fail, mapBooking, mapAffiliate, encryptPolicy, audit, issueGift, issueDocumentToken } from '@/lib/server';
+import { identity, requireStaff, sameOrigin, fail, mapBooking, mapAffiliate, mapPricing, encryptPolicy, audit, issueGift, issueDocumentToken } from '@/lib/server';
 import { clean, validateStatus, validateSlug, validateBooking, safePhoto, validateGiftCode, validateDoctor } from '@/lib/validation';
 import { claimAndSend } from '@/lib/notifications';
-import { clinic, documentsLink } from '@/lib/config';
+import { clinic, documentsLink, services } from '@/lib/config';
+import { validateCompletion, validatePricing } from '@/lib/commission';
 export const dynamic='force-dynamic';
 export async function GET(request){
   try{const u=await identity(request);const db=u.db;
@@ -18,7 +19,9 @@ export async function GET(request){
     const d=await db.from('booking_documents').select('id,booking_id,kind,original_name,size,mime,uploaded_at').order('uploaded_at').limit(16000);
     if(d.error)console.error('Documents not loaded:',d.error.code);
     const docs=new Map();for(const r of d.data||[])docs.set(r.booking_id,[...(docs.get(r.booking_id)||[]),r]);
-    return Response.json({user:{role:'staff'},affiliates:a.data.map(mapAffiliate),bookings:b.data.map(r=>mapBooking(r,docs.get(r.id))),templates:t.data,slots:s.data,jobs:j.data},{headers:{'Cache-Control':'no-store'}});
+    // Procedure prices (migration 007). Missing before it has run: the workspace still loads, with no prices.
+    const pr=await db.from('procedure_costs').select('*');if(pr.error)console.error('Pricing not loaded:',pr.error.code);
+    return Response.json({user:{role:'staff'},procedureCosts:(pr.data||[]).map(mapPricing),affiliates:a.data.map(mapAffiliate),bookings:b.data.map(r=>mapBooking(r,docs.get(r.id))),templates:t.data,slots:s.data,jobs:j.data},{headers:{'Cache-Control':'no-store'}});
   }catch(e){return fail(e,401);}
 }
 export async function POST(request){
@@ -39,9 +42,17 @@ export async function POST(request){
       if(action==='status'){
         const status=validateStatus(p.status);({error}=await db.from('bookings').update({status}).eq('id',p.id));
         if(!error&&status==='No-show'){const {data:b}=await db.from('bookings').select('*').eq('id',p.id).single();if(b)await claimAndSend(db,mapBooking(b),'no-show');}
-      }else if(action==='commission'){
-        const amount=Number(p.amount);if(!Number.isFinite(amount)||amount<0||amount>100000)throw new Error('Enter a valid commission amount.');
-        const result=await db.from('bookings').update({commission:amount}).eq('id',p.id).eq('status','Attended').neq('payout','Paid').not('affiliate_id','is',null).select('id');error=result.error;if(!error&&!result.data.length)throw new Error('Only unpaid attended referrals can receive commission.');
+      }else if(action==='complete'){
+        // Staff send only what the patient was billed and the discount. The database snapshots the operation cost and
+        // the affiliate's rate, calculates net and commission, marks the visit Attended and writes the audit entry.
+        const {gross,discount}=validateCompletion(p);
+        const {error:ce}=await db.rpc('complete_appointment',{p_id:String(p.id||''),p_gross:gross,p_discount:discount,p_actor:u.id});
+        if(ce)throw new Error(ce.message.includes('locked')?'This referral has been paid, so its commission is locked.':ce.message.includes('not found')?'Booking not found.':'Could not save this appointment. Check the amounts and try again.');
+        return Response.json({ok:true});
+      }else if(action==='pricing'){
+        if(!services.some(s=>s.id===p.service))throw new Error('Unknown procedure.');
+        const {retailPrice,operationCost}=validatePricing(p);
+        ({error}=await db.from('procedure_costs').upsert({service:p.service,retail_price:retailPrice,operation_cost:operationCost,updated_at:new Date().toISOString()}));
       }else if(action==='payout'){
         if(!Array.isArray(p.ids)||!p.ids.length||p.ids.length>100)throw new Error('Select up to 100 referrals.');({error}=await db.rpc('approve_payout',{p_ids:p.ids,p_actor:u.id}));
       }else if(action==='affiliate'){

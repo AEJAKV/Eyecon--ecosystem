@@ -12,7 +12,7 @@ A complete Next.js project for the affiliate referral and appointment-booking ex
 - Referral identity throughout booking; the $50 gift appears only with an active affiliate referral.
 - Google, Apple `.ics` and Outlook calendar options. The event, the confirmation card and the confirmation email (template field `{doctor}`) name the optometrist.
 - Affiliate dashboard, referrals, referral link/QR, earnings, profile editing and photo upload.
-- Staff booking list/calendar showing each booking's optometrist, patient details, attendance status, manual bookings (free times grouped by optometrist), availability per optometrist, affiliate management, leads, commission approvals, payout recording and message templates.
+- Staff booking list/calendar showing each booking's optometrist, patient details, attendance status, manual bookings (free times grouped by optometrist), availability per optometrist, affiliate management, leads, procedure pricing, calculated commission, payout recording and message templates.
 - Supabase database schema, authentication and server-side role checks for live mode.
 - Turnstile booking verification, optional Resend email, Twilio SMS with opt-in, and an authenticated reminder endpoint.
 - Responsive layouts, keyboard controls, native form labels, focus handling, reduced-motion support and optimised local WebP images.
@@ -21,7 +21,7 @@ A complete Next.js project for the affiliate referral and appointment-booking ex
 
 This implements **Module 1**, the referral/booking platform. It does not implement the later e-commerce, lens builder, virtual try-on, AI concierge, patient portal or MyVisionExpress modules.
 
-The grayscale photography is concept imagery from the design mockup. Doctor panels are explicitly marked as preview content; use approved real portraits, credentials, biographies and photography before launch. Clinic contact details, hours, verified reviews, insurance wording, appointment durations and gift eligibility need confirmation. No invented ratings or testimonials are included. Commission rates are informational; staff explicitly approve commission amounts. Payout recording is a ledger update, not a bank transfer.
+The grayscale photography is concept imagery from the design mockup. Doctor panels are explicitly marked as preview content; use approved real portraits, credentials, biographies and photography before launch. Clinic contact details, hours, verified reviews, insurance wording, appointment durations and gift eligibility need confirmation. No invented ratings or testimonials are included. Commission is calculated, never typed: the affiliate’s commission rate × net, where net = amount billed to the patient (gross − discount) − the procedure’s operation cost, never below $0. Example: $400 billed, $200 operation cost → $200 net → 10% → $20. Retail prices and operation costs start at $0 and must be entered in Staff admin > Pricing. Payout recording is a ledger update, not a bank transfer.
 
 Demo data is stored in the current browser and is neither secure nor shared between users. Use fictional details only. Live mode uses Supabase and must be configured and verified with your own services before collecting real patient information. This delivery does not certify privacy compliance, WCAG conformance, production security or a PageSpeed score. No live service credentials were available during development.
 
@@ -46,7 +46,8 @@ Demo data is stored in the current browser and is neither secure nor shared betw
 | `/admin` | Staff bookings, availability and calendar |
 | `/admin/affiliates` | Add, activate/deactivate and photograph affiliates |
 | `/admin/leads` | Search/filter/export bookings |
-| `/admin/payouts` | Approve commission and record payments |
+| `/admin/payouts` | Calculate commission for attended referrals and record payments |
+| `/admin/pricing` | Retail price and operation cost for each procedure |
 | `/admin/messages` | Edit templates and inspect live delivery activity |
 | `/privacy` | Draft privacy notice requiring clinic review |
 
@@ -94,7 +95,7 @@ npm run start
 1. Open [http://localhost:3000](http://localhost:3000) in your browser, or use the URL printed in the terminal if port 3000 is occupied.
 2. Visit [the example affiliate page](http://localhost:3000/book/alex-morgan), choose a service and finish a booking with **fictional** patient details.
 3. Open `/login`, click **Explore affiliate demo**, then explore Referrals, My link & QR, Earnings and Profile.
-4. Open `/login` again and click **Explore staff demo**. Change a booking to Attended, enter a commission amount in Payouts and record a payment. These actions change only sample data in your browser.
+4. Open `/login` again and click **Explore staff demo**. Set a retail price and operation cost in Pricing. Change a booking to Attended, open **Calculate** in Payouts, enter the amount billed and any discount, save, and record a payment. These actions change only sample data in your browser.
 5. Use **Reset demo data** at `/login` to restore the examples and refresh the demo availability dates.
 6. To inspect mobile layout, narrow your browser window or use your browser's device toolbar. Check the public page, each booking step and both dashboards.
 
@@ -146,7 +147,7 @@ These are deployment steps, not required for exploring the demo.
 
 1. Create a new Supabase project. Choose a region and service agreements appropriate for the clinic's privacy/data-residency decisions.
 2. Open **SQL Editor**. Paste the complete `supabase/schema.sql` and run it **once on an empty project**. It creates tables, access rules, booking/payout functions and the affiliate-photo bucket. Running it again will produce "already exists" errors; use reviewed migrations for later changes.
-   Then run each file in `supabase/migrations/` once, in number order. `004_doctor_availability.sql` makes slots and bookings per optometrist; it assigns any existing slots to `doctor-1`, so staff should review them afterwards. `005_documents.sql` adds “Complete your file”: the residency status, the document records, hashed upload tokens and the **private** `booking-documents` storage bucket. Do not add storage policies to that bucket. `006_booking_lookup.sql` gives every booking a unique reference (existing bookings included) and adds the rate-limited lookup.
+   Then run each file in `supabase/migrations/` once, in number order. `004_doctor_availability.sql` makes slots and bookings per optometrist; it assigns any existing slots to `doctor-1`, so staff should review them afterwards. `005_documents.sql` adds “Complete your file”: the residency status, the document records, hashed upload tokens and the **private** `booking-documents` storage bucket. Do not add storage policies to that bucket. `006_booking_lookup.sql` gives every booking a unique reference (existing bookings included) and adds the rate-limited lookup. `007_commission.sql` adds procedure pricing and calculates commission in the database (`complete_appointment`); after running it, set each affiliate’s real commission rate.
 3. In **Authentication**, create the initial staff user with a confirmed email and a strong password. Copy that user's UUID.
 4. In SQL Editor run the following, replacing the UUID with the actual user ID:
 
@@ -183,7 +184,7 @@ Set its full output as `INSURANCE_ENCRYPTION_KEY` in your private environment. K
 1. Set every confirmed clinic value, the live URL and service keys. Change **only the configured live environment** to `NEXT_PUBLIC_DEMO_MODE=false`, restart locally or redeploy.
 2. Sign in with the real staff account. Add appointment slots for each optometrist using **Add available time**. The input explicitly uses the staff browser's local timezone; patient displays use `NEXT_PUBLIC_CLINIC_TIMEZONE`. Confirm both before adding slots.
 3. Add an affiliate and complete the email invitation. Verify their photo, link, QR, active/inactive state and restricted workspace.
-4. Book a test appointment from that affiliate link. Verify database persistence, referral attribution, email/SMS, calendar timezone, staff status updates and manually approved commission.
+4. Book a test appointment from that affiliate link. Verify database persistence, referral attribution, email/SMS, calendar timezone, staff status updates and the calculated commission.
 5. Try simultaneous bookings with the same optometrist for an overlapping interval and confirm only one succeeds; then book two different optometrists at the same time and confirm both succeed. Test both roles with separate accounts and verify anonymous requests cannot access patient data.
 6. Check notification failures, audit records, provider bills, backup/recovery and data retention with the team's deployment owner. Approve real copy, portrait rights, gift terms, privacy wording and clinical scheduling before accepting patients.
 
