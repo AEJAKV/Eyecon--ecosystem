@@ -1,12 +1,14 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import Image, { getImageProps } from 'next/image';
+import Link from 'next/link';
 import { useApp } from './provider';
 import { Header, Footer, Button, Icon, Gift, Referral, Loading, Notice, Stars } from './ui';
 import { DEMO, services, collections, doctors, instructions, clinic, shopUrl } from '@/lib/config';
 import { content, orderedReviews, RatingSeal, ReviewCard } from './reviews';
 import { excerpt } from '@/lib/reviews';
 import SkinTechnologies from './skin-technologies';
+import { withAffiliate } from '@/lib/affiliate';
 
 /* Hero photograph. Art direction: a 16:9 crop above 860px and a 9:16 crop on phones.
    Only the matching source is downloaded, so it is prioritised with fetchPriority rather than preload. */
@@ -468,7 +470,7 @@ function insideTriangle(p, a, b, c) {
    if the mouse stops on it or turns away. A click pins a line; other lines then only preview on hover. */
 const AIM_WAIT = 250, HOVER_INTENT = 120, AIM_TOLERANCE = 20, STOPPED_AFTER = 90;
 
-function Appointments({ serviceHref }) {
+function Appointments({ serviceHref, shopHref }) {
   const [active, setActive] = useState(0), [leaving, setLeaving] = useState(null), [pinned, setPinned] = useState(null), [preview, setPreview] = useState(null);
   // Timers read the latest values from refs rather than from the render they were created in.
   const current = useRef(0), pin = useRef(null), over = useRef(null), trail = useRef([]), pending = useRef(0), pointer = useRef(''), panel = useRef(null);
@@ -558,7 +560,7 @@ function Appointments({ serviceHref }) {
       </div>
       <AppointmentCards serviceHref={serviceHref} />
       <div className="container">
-        <a className="shop-card" href={shopUrl}>
+        <a className="shop-card" href={shopHref}>
           <Icon name="bag" size={28} />
           <span><strong>Shop frames</strong><small>Browse our collections, from Cartier to LINDBERG.</small></span>
           <i className="chart-arrow" aria-hidden="true" />
@@ -578,7 +580,7 @@ function Appointments({ serviceHref }) {
 
 /* Brand carousel. The track is a native scroll-snap list, so swiping and trackpads work without script;
    arrows, the keyboard and clicking a card move it one brand at a time. No autoplay. */
-function Collections({ href }) {
+function Collections({ href, shopHref }) {
   const [active, setActive] = useState(0);
   const track = useRef(null), moving = useRef(0);
   const last = collections.length - 1, brand = collections[active];
@@ -630,6 +632,7 @@ function Collections({ href }) {
           <li className="brand-track-end" aria-hidden="true" />
         </ul>
       </div>
+      <p className="collections-more"><Link className="text-link" href={shopHref}>Shop all frames <span aria-hidden="true">→</span></Link></p>
     </section>
   );
 }
@@ -675,12 +678,13 @@ export default function Landing({ slug }) {
 
   const booking = affiliate ? '/booking?affiliate=' + encodeURIComponent(affiliate.slug) : '/booking';
   const serviceHref = id => booking + (affiliate ? '&' : '?') + 'service=' + id;
+  const shop = withAffiliate(shopUrl, affiliate?.slug);
 
   if (!loaded) return <Loading />;
   if (error) return <><Header /><main className="container empty-page" id="main-content"><h1>Your introduction to Eyecon</h1><Notice error>{error}</Notice><Button href="/booking">Book directly</Button></main><Footer /></>;
 
   return <>
-    <Header bookingHref={booking} overlay />
+    <Header bookingHref={booking} shopHref={shop} overlay />
     <main id="main-content">
       <Hero>
         <div className="hero-copy">
@@ -700,9 +704,9 @@ export default function Landing({ slug }) {
         </div>
       </Hero>
 
-      <Collections href={serviceHref('styling')} />
+      <Collections href={serviceHref('styling')} shopHref={shop} />
 
-      <Appointments serviceHref={serviceHref} />
+      <Appointments serviceHref={serviceHref} shopHref={shop} />
 
       <Doctors serviceHref={serviceHref} />
 

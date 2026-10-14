@@ -852,7 +852,7 @@ details p { margin: 1rem 0 0; color: var(--muted); }
   .header-actions .label-long { display: none; }
   .header-actions .label-short { display: inline; }
 }
-/* The narrowest phones: Shop frames stays in the appointments section rather than the header. */
+/* The narrowest phones: Shop Frames stays in the appointments section and under the carousel rather than the header. */
 @media (max-width: 359px) {
   .header-actions .shop-link { display: none; }
 }
@@ -867,3 +867,30 @@ button.review-text { padding: 0; border: 0; background: none; color: inherit; fo
 .seal-wrap { display: flex; flex-direction: column; align-items: center; gap: .7rem; }
 .seal-tag { text-align: center; }
 .booking-reviews .seal-wrap { align-items: flex-start; }
+
+/* Shop */
+/* Header link: Shop Frames, shortened to Frames on phones. It shares .call-link, so the overlay and scrolled header
+   states colour it like the phone link. */
+.shop-link .shop-long { display: inline; }
+.shop-link .shop-short { display: none; }
+/* Below 860px the phone link becomes a round icon button; Shop Frames stays text, with the same 44px tap height. */
+@media (max-width: 860px) {
+  .header-actions .shop-link { width: auto; height: 44px; border: 0; border-radius: 0; }
+}
+@media (max-width: 639px) {
+  .shop-link .shop-long { display: none; }
+  .shop-link .shop-short { display: inline; }
+}
+/* The quiet link under the home page carousel, lined up with the page container. */
+.collections-more { width: min(1250px, calc(100% - 3rem)); margin: 2.5rem auto 0; text-align: right; font-size: .95rem; letter-spacing: .02em; }
+.collections-more .text-link { color: var(--muted); }
+.collections-more .text-link:hover { color: var(--gold-text); }
+@media (max-width: 860px) { .collections-more { margin-top: 1.75rem; text-align: left; } }
+
+/* The /shop page heading: centred, like a boutique's front window. */
+.shop { background: var(--paper); color: var(--ink); }
+.shop-heading { padding: clamp(4rem, 9vw, 7.5rem) 0 clamp(3rem, 6vw, 5rem); text-align: center; border-bottom: 1px solid var(--line); }
+.shop-heading .eyebrow { margin: 0 0 1.25rem; font-family: var(--sans); letter-spacing: .24em; margin-right: -.24em; color: var(--gold-text); }
+.shop-heading h1 { margin: 0; font-family: var(--serif); font-weight: 400; font-size: clamp(3.25rem, 8vw, 6.5rem); line-height: 1; letter-spacing: -.02em; }
+.shop-heading h1::after { content: ''; display: block; width: 3rem; height: 1px; margin: clamp(1.5rem, 3vw, 2.25rem) auto; background: var(--gold); }
+.shop-subline { max-width: 34rem; margin: 0 auto; font-family: var(--sans); font-size: 1.05rem; line-height: 1.6; color: var(--muted); text-wrap: balance; }

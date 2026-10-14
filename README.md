@@ -4,7 +4,8 @@ A complete Next.js project for the affiliate referral and appointment-booking ex
 
 ## What is included
 
-- Premium public landing page and personalised affiliate landing pages, with “Shop frames” in the header and the appointments section (`shopUrl` in `lib/config.js`, or `NEXT_PUBLIC_SHOP_URL`; it points at the collections carousel until the store exists).
+- Premium public landing page and personalised affiliate landing pages, with “Shop Frames” in the header (“Frames” on phones), the appointments section and a “Shop all frames →” link under the collections carousel. They go to `shopUrl` in `lib/config.js` (or `NEXT_PUBLIC_SHOP_URL`), which is `/shop` by default.
+- Shop Frames page at `/shop`, a boutique page for the houses Eyecon carries and featured frames. This stage has the page heading; the brands (`collections`, with a tagline, blurb and banner or tile layout each) and six sample frames (`frames`, to replace with frames Eyecon stocks; a price shows only once filled in) are in `lib/config.js`. Opened with `?affiliate=SLUG`, every booking link on the page carries the same affiliate (`withAffiliate` in `lib/affiliate.js`), and an affiliate landing page passes its referral on to the shop links.
 - Non-Invasive Skin Tightening as a service, with its technologies (`skinTechnologies` in `lib/config.js`, bracketed placeholders until the clinic supplies them) shown as a swipeable, keyboard-friendly row of cards in the home page panel and booking step 1. Choosing a technology is optional and is saved with the booking.
 - “In their words” on the home page and the booking page’s left column show Eyecon’s real Google reviews (in `lib/config.js`, word for word, featured ones first). Long featured reviews show an excerpt with “Read full review”; review cards clamp to four lines and open on click. Until the clinic sets its real Google rating and review count, demo mode shows a sample rating labelled “Sample rating”; live mode shows none.
 - Four-step booking: service, optometrist and time, patient details and confirmation. Every appointment belongs to one optometrist. Patients either choose an optometrist first (their photo, name and focus, then that optometrist's days and times) or a time first (each time shows which optometrists are free; when more than one is, the patient picks). Two optometrists can see patients at the same time; one optometrist cannot be double-booked.
@@ -37,6 +38,8 @@ Demo data is stored in the current browser and is neither secure nor shared betw
 | `/booking?affiliate=alex-morgan` | Booking flow with affiliate referral |
 | `/booking` | Direct booking flow |
 | `/booking?service=eye-exam&doctor=doctor-1` | Booking flow opened on “Choose a doctor” with that optometrist selected (the “Book with” button on the home page’s optometrist cards) |
+| `/shop` | Shop Frames: the houses Eyecon carries and featured frames |
+| `/shop?affiliate=alex-morgan` | Shop Frames with an affiliate referral carried onto its booking links |
 | `/documents#t=…` | “Complete your file” from the confirmation email’s single-use link |
 | `/my-booking` | Find my booking: reference and email lookup |
 | `/login` | Demo exploration or live sign-in/password reset |
@@ -199,7 +202,8 @@ Each optometrist has their own calendar of explicit staff-created slots. Duratio
 | --- | --- |
 | Colours, spacing, mobile breakpoints, typography | `app/globals.css` |
 | Public landing page copy/sections | `components/landing.js` |
-| Services, brands, pre-visit instructions | `lib/config.js` |
+| Services, brands, sample frames, pre-visit instructions | `lib/config.js` |
+| Shop Frames page | `components/shop.js` |
 | Booking steps and questions | `components/booking-flow.js` |
 | Affiliate and staff screens | `components/workspace.js` |
 | Reusable header, footer, buttons and fields | `components/ui.js` |

@@ -9,13 +9,13 @@ export function Icon({name='eye',size=24}){const paths={eye:<><path d="M2 12s4-7
 // stays sharp at any size, sits on the baseline at the height of the capitals, and is decorative (the link is labelled).
 export function Logo(){return <Link href="/" className="logo" aria-label="Eyecon Optometry home"><span>EYECON<svg className="logo-mark" viewBox="0 0 30 20" aria-hidden="true" focusable="false"><rect x="1" y="1" width="28" height="18" fill="none" stroke="currentColor" strokeWidth="2"/></svg></span><small>Optometry</small></Link>;}
 export function Button({children,href,secondary=false,className='',...props}){const classes=`button ${secondary?'secondary':''} ${className}`;return href?<Link className={classes} href={href} {...props}>{children}</Link>:<button className={classes} {...props}>{children}</button>;}
-// On phones the booking button shows bookingShort so the logo and all three header actions fit on one row; its
-// accessible name stays the full label.
-export function Header({bookingHref='/booking',bookingLabel='Book appointment',bookingShort='Book',overlay=false}){
+// On phones the booking button shows bookingShort and Shop Frames shows Frames, so the logo and all three header
+// actions fit on one row; their accessible names stay the full labels. shopHref carries an affiliate's referral.
+export function Header({bookingHref='/booking',bookingLabel='Book appointment',bookingShort='Book',shopHref=shopUrl,overlay=false}){
   const [scrolled,setScrolled]=useState(false);
   useEffect(()=>{const on=()=>setScrolled(window.scrollY>(overlay?40:24));on();window.addEventListener('scroll',on,{passive:true});return()=>window.removeEventListener('scroll',on);},[overlay]);
   return <header className={`site-header ${overlay?'overlay':''} ${scrolled?'scrolled':''}`}><div className="header-inner"><Logo/><div className="header-actions">
-    <a className="call-link shop-link" href={shopUrl} aria-label="Shop frames"><Icon name="bag" size={18}/><span>Shop frames</span></a>
+    <Link className="call-link shop-link" href={shopHref} aria-label="Shop Frames"><span className="shop-long">Shop Frames</span><span className="shop-short" aria-hidden="true">Frames</span></Link>
     {clinic.phone
       ?<a className="call-link" href={'tel:'+clinic.phone} aria-label={'Call Eyecon at '+clinic.phone}><Icon name="phone" size={18}/><span>{clinic.phone}</span></a>
       :<span className="call-link pending" title="The clinic phone number will be added before launch"><Icon name="phone" size={18}/><span>Clinic phone</span></span>}

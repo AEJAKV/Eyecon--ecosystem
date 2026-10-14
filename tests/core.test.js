@@ -5,7 +5,7 @@ import { seedDemo,applyDemo,affiliateRows } from '../lib/demo.js';
 import { calendarFile } from '../lib/calendar.js';
 import { readFileSync } from 'node:fs';
 import { demoSlots } from '../lib/demo.js';
-import { doctors, doctorName, defaultTemplates, residencyStatuses, services, skinTechnologies, serviceOptions, serviceOptionName, shopUrl } from '../lib/config.js';
+import { doctors, doctorName, defaultTemplates, residencyStatuses, services, skinTechnologies, serviceOptions, serviceOptionName, shopUrl, collections, frames, brands } from '../lib/config.js';
 import { giftSerial,issueGiftCard,giftCode,giftNumber,bookingReference } from '../lib/gift.js';
 import { demoLookup } from '../lib/demo.js';
 import { featuredFirst,excerpt,EXCERPT_LENGTH } from '../lib/reviews.js';
@@ -13,7 +13,7 @@ import { lookupView,validateLookup,LOOKUP_NOT_FOUND } from '../lib/lookup.js';
 import { nullEmr,emrAdapter,applyEmr } from '../lib/emr.js';
 import { calculateCommission,validateCompletion,validatePricing } from '../lib/commission.js';
 import { affiliatePerformance,performanceTable,topAffiliates,filterAppointments,staffAppointmentRows,STAFF_APPOINTMENT_FIELDS } from '../lib/performance.js';
-import { AFFILIATE_FIELDS,AFFILIATE_COLUMNS,restrictAffiliateRow,affiliateStats,affiliateCsvRows,AFFILIATE_CSV_FIELDS } from '../lib/affiliate.js';
+import { AFFILIATE_FIELDS,AFFILIATE_COLUMNS,restrictAffiliateRow,affiliateStats,affiliateCsvRows,AFFILIATE_CSV_FIELDS,withAffiliate } from '../lib/affiliate.js';
 const patient={name:'Sample Patient',email:'sample@example.com',phone:'+14165550123',service:'eye-exam',doctor:'doctor-1',firstVisit:true,smsConsent:false,start:new Date(Date.now()+86400000).toISOString()};
 // A patient booking a particular slot: that slot's optometrist and start time.
 const at=slot=>({...patient,doctor:slot.doctor,start:slot.start});
@@ -100,7 +100,46 @@ test('preview as affiliate shows only the restricted rows',()=>{const rows=affil
 test('skin tightening is a service with bracketed placeholder content, an icon and a neutral image',()=>{const st=services.find(s=>s.id==='skin-tightening');assert.ok(st);assert.equal(st.name,'Non-Invasive Skin Tightening');for(const text of [st.description,st.meta,...st.points])assert.match(text,/\[[^\]]+\]/,text);assert.equal(st.icon,'skin');assert.ok(readFileSync(new URL('../components/ui.js',import.meta.url),'utf8').includes('skin:<>'));assert.ok(readFileSync(new URL('../public/images/services/skin-tightening.webp',import.meta.url)).subarray(8,12).toString()==='WEBP');});
 test('skin technologies are three bracketed placeholders with unique slugs',()=>{assert.equal(skinTechnologies.length,3);assert.equal(new Set(skinTechnologies.map(t=>t.slug)).size,3);for(const t of skinTechnologies){assert.match(t.slug,/^[a-z0-9]+(-[a-z0-9]+)*$/);for(const k of ['name','summary','session'])assert.match(t[k],/\[[^\]]+\]/,k);assert.ok(t.image.startsWith('/images/'));}assert.equal(serviceOptions['skin-tightening'],skinTechnologies);assert.equal(serviceOptionName('skin-tightening','technology-2'),'[Technology two]');assert.equal(serviceOptionName('eye-exam','technology-2'),'');});
 test('a technology is optional, kept only for skin tightening, and saved with the booking',()=>{const skin={...patient,service:'skin-tightening'};assert.equal(validateBooking(skin).serviceOption,null);assert.equal(validateBooking({...skin,serviceOption:'technology-1'}).serviceOption,'technology-1');assert.equal(validateBooking({...skin,serviceOption:'laser-9000'}).serviceOption,null);assert.equal(validateBooking({...patient,serviceOption:'technology-1'}).serviceOption,null,'not kept for another service');const data=seedDemo();const saved=applyDemo(data,'booking',validateBooking({...at(data.slots[1]),service:'skin-tightening',serviceOption:'technology-3'}),null).bookings[0];assert.equal(saved.service,'skin-tightening');assert.equal(saved.serviceOption,'technology-3');assert.ok(seedDemo().procedureCosts.some(p=>p.service==='skin-tightening'));for(const key of ['serviceOption','service_option'])assert.equal(key in restrictAffiliateRow({...saved,service_option:'technology-3'}),false);});
-test('Shop frames points at the collections carousel by default',()=>{assert.equal(shopUrl,'/#collections');assert.ok(readFileSync(new URL('../components/landing.js',import.meta.url),'utf8').includes('id="collections"'));});
+// Shop Frames page
+test('Shop frames points at the /shop page by default, from the header and under the carousel',()=>{
+  const read=f=>readFileSync(new URL(f,import.meta.url),'utf8');
+  assert.equal(shopUrl,'/shop');
+  const ui=read('../components/ui.js'),landing=read('../components/landing.js'),css=read('../app/site.css');
+  const header=ui.slice(ui.indexOf('export function Header'),ui.indexOf('export function PreviewBar'));
+  assert.ok(header.indexOf('shop-link')<header.indexOf("'tel:'"),'Shop Frames sits before the phone link');
+  for(const part of ['>Shop Frames<','>Frames<','href={shopHref}'])assert.ok(header.includes(part),part);
+  assert.match(css,/@media \(max-width: 639px\) \{\s*\.shop-link \.shop-long \{ display: none; \}\s*\.shop-link \.shop-short \{ display: inline; \}/);
+  assert.ok(landing.includes('className="collections-more"')&&landing.includes('Shop all frames'));
+  assert.ok(css.includes('/* Shop */'));
+});
+test('the Shop page has its own title, heading and components file',()=>{
+  const read=f=>readFileSync(new URL(f,import.meta.url),'utf8');
+  const page=read('../app/shop/page.js'),shop=read('../components/shop.js');
+  assert.ok(page.includes("title:{absolute:'Shop Frames · Eyecon Optometry'}"));
+  for(const part of ['>The boutique<','>Frames</h1>','Featured pieces and the houses we carry. Reserve any frame to try at your visit.','<Header','<Footer'])assert.ok(shop.includes(part),part);
+  assert.ok(!read('../components/landing.js').includes('shop-heading'),'shop components stay out of landing.js');
+});
+test('collections are in boutique order, each with a tagline, a two-sentence blurb and a layout',()=>{
+  assert.deepEqual(collections.map(c=>c.slug+':'+c.layout),['cartier:banner','chrome-hearts:banner','gucci:tile','lindberg:tile','dita:tile','tom-ford:banner','maybach:banner','maui-jim:tile']);
+  assert.deepEqual(brands,collections.map(c=>c.name));
+  for(const c of collections){assert.ok(c.line&&c.tagline,c.slug);assert.equal(c.blurb.match(/[.!?](\s|$)/g)?.length,2,c.slug+' blurb');}
+});
+test('sample frames belong to known brands, have unique slugs and no price until one is filled in',()=>{
+  assert.deepEqual(frames.map(f=>f.slug),['cartier-santos','chrome-hearts-bone-prone-ii','lindberg-strip-titanium','tom-ford-square-acetate','dita-mach-one','maybach-the-artist-i']);
+  const slugs=new Set(collections.map(c=>c.slug));
+  for(const f of frames){assert.ok(slugs.has(f.brand),f.slug);assert.deepEqual(Object.keys(f).sort(),['brand','isNew','material','model','price','slug']);assert.equal(f.price,'');assert.equal(typeof f.isNew,'boolean');}
+  assert.match(readFileSync(new URL('../lib/config.js',import.meta.url),'utf8'),/SAMPLE FRAMES: replace these with frames Eyecon actually stocks/);
+});
+test('withAffiliate carries a well-formed affiliate onto every shop booking link',()=>{
+  assert.equal(withAffiliate('/booking','alex-morgan'),'/booking?affiliate=alex-morgan');
+  assert.equal(withAffiliate('/booking?service=styling','alex-morgan'),'/booking?service=styling&affiliate=alex-morgan');
+  assert.equal(withAffiliate('/#collections','alex-morgan'),'/?affiliate=alex-morgan#collections');
+  assert.equal(withAffiliate('/shop',['alex-morgan','other']),'/shop?affiliate=alex-morgan');
+  for(const bad of [undefined,'','Alex','a--b','x"><script>','a'.repeat(71)])assert.equal(withAffiliate('/booking',bad),'/booking',String(bad));
+  const shop=readFileSync(new URL('../components/shop.js',import.meta.url),'utf8');
+  assert.ok(shop.includes("bookingHref={withAffiliate('/booking', affiliate)}"));
+  assert.equal((shop.match(/\/booking/g)||[]).length,(shop.match(/withAffiliate\('\/booking/g)||[]).length,'no booking link without the affiliate');
+});
 test('migration 008 allows skin tightening and adds the service option',()=>{const sql=readFileSync(new URL('../supabase/migrations/008_services.sql',import.meta.url),'utf8');const list="('eye-exam','contacts','dry-eye','children','testing','skin-tightening','styling')";assert.equal(sql.split(list).length-1,2,'bookings and procedure_costs both allow it');for(const part of ['drop constraint if exists bookings_service_check','add column if not exists service_option text','drop constraint if exists procedure_costs_service_check',"values ('skin-tightening', 0, 0)"])assert.ok(sql.includes(part),part);for(const sv of services)assert.ok(sql.includes("'"+sv.id+"'"),sv.id);});
 
 // The logo mark
