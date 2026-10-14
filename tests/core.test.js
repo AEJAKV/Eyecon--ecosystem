@@ -8,6 +8,7 @@ import { demoSlots } from '../lib/demo.js';
 import { doctors, doctorName, defaultTemplates, residencyStatuses, services, skinTechnologies, serviceOptions, serviceOptionName, shopUrl } from '../lib/config.js';
 import { giftSerial,issueGiftCard,giftCode,giftNumber,bookingReference } from '../lib/gift.js';
 import { demoLookup } from '../lib/demo.js';
+import { featuredFirst,excerpt,EXCERPT_LENGTH } from '../lib/reviews.js';
 import { lookupView,validateLookup,LOOKUP_NOT_FOUND } from '../lib/lookup.js';
 import { nullEmr,emrAdapter,applyEmr } from '../lib/emr.js';
 import { calculateCommission,validateCompletion,validatePricing } from '../lib/commission.js';
@@ -34,7 +35,7 @@ test('staff add available time for a chosen optometrist',()=>{const data=seedDem
 const migration=()=>readFileSync(new URL('../supabase/migrations/004_doctor_availability.sql',import.meta.url),'utf8');
 test('the confirmation message names the optometrist',()=>{assert.ok(defaultTemplates.find(t=>t.id==='confirmation').body.includes('{doctor}'));assert.ok(migration().includes("'your appointment with {doctor} is booked for'"));});
 test('migration 004 keeps availability and bookings per optometrist',()=>{const sql=migration();for(const part of ['create extension if not exists btree_gist','add primary key (doctor, start)','drop index if exists public.one_active_booking_per_slot','drop constraint if exists no_overlapping_bookings;',"on public.bookings (doctor, start) where status <> 'Cancelled'",'exclude using gist (doctor with =, tstzrange(start, end_time','returns table(doctor text,','b.doctor = s.doctor','where doctor=p_doctor and start=p_start','for update',"raise exception 'doctor required'"])assert.ok(sql.includes(part),part);});
-test('sample reviews, rating and insurers are never used outside demo mode',async()=>{const {siteContent,sample}=await import('../lib/config.js');const empty={rating:null,reviewCount:null,reviews:[],mentions:[],insurers:[],goodToKnow:[]};const live=siteContent(false,empty);assert.deepEqual(live.reviews,{items:[],sample:false});assert.equal(live.rating.value,null);assert.equal(live.rating.count,null);assert.deepEqual(live.insurers.items,[]);assert.deepEqual(live.mentions.items,[]);assert.deepEqual(live.goodToKnow.items,[]);for(const part of Object.values(live))assert.equal(part.sample,false);const demo=siteContent(true,empty);assert.equal(demo.reviews.sample,true);assert.equal(demo.reviews.items,sample.reviews);assert.equal(demo.rating.value,4.9);assert.equal(demo.rating.sample,true);const real=[{name:'Real P.',source:'Google',text:'Real words.'}];const mixed=siteContent(true,{...empty,reviews:real,rating:4.6});assert.equal(mixed.reviews.items,real);assert.equal(mixed.reviews.sample,false);assert.equal(mixed.rating.value,4.6);assert.equal(mixed.rating.count,null);assert.equal(mixed.rating.sample,false);assert.equal(mixed.insurers.sample,true);});
+test('sample rating and insurers are never used outside demo mode, and missing samples fall back to nothing',async()=>{const {siteContent,sample}=await import('../lib/config.js');const empty={rating:null,reviewCount:null,reviews:[],mentions:[],insurers:[],goodToKnow:[]};const live=siteContent(false,empty);assert.deepEqual(live.reviews,{items:[],sample:false});assert.equal(live.rating.value,null);assert.equal(live.rating.count,null);assert.deepEqual(live.insurers.items,[]);assert.deepEqual(live.mentions.items,[]);assert.deepEqual(live.goodToKnow.items,[]);for(const part of Object.values(live))assert.equal(part.sample,false);const demo=siteContent(true,empty);assert.deepEqual(demo.reviews,{items:[],sample:false},'no sample reviews exist any more');assert.deepEqual(demo.mentions,{items:[],sample:false});assert.equal(demo.rating.value,4.9);assert.equal(demo.rating.sample,true);assert.equal(demo.insurers.sample,true);const real=[{name:'Real P.',source:'Google',text:'Real words.'}];const mixed=siteContent(true,{...empty,reviews:real,rating:4.6});assert.equal(mixed.reviews.items,real);assert.equal(mixed.reviews.sample,false);assert.equal(mixed.rating.value,4.6);assert.equal(mixed.rating.count,null);assert.equal(mixed.rating.sample,false);assert.equal('reviews' in sample,false);assert.equal('mentions' in sample,false);});
 test('gift card serials use the unambiguous alphabet and cards expire 180 days after issue',()=>{for(let i=0;i<500;i++)assert.match(giftSerial(),/^[2-9A-HJ-NP-Z]{6}$/);const now=new Date('2026-10-09T15:00:00.000Z'),card=issueGiftCard(()=>false,now);assert.match(card.serial,/^[2-9A-HJ-NP-Z]{6}$/);assert.equal(card.issuedAt,'2026-10-09T15:00:00.000Z');assert.equal(card.expiresAt,'2027-04-07T15:00:00.000Z');assert.equal((new Date(card.expiresAt)-new Date(card.issuedAt))/86400000,180);assert.equal(card.status,'Issued');let calls=0;const second=issueGiftCard(()=>++calls<4);assert.equal(calls,4);assert.match(second.serial,/^[2-9A-HJ-NP-Z]{6}$/);assert.throws(()=>issueGiftCard(()=>true));assert.equal(giftCode({name:'Alex Morgan'}),'AMO');assert.equal(giftCode({name:'Alex Morgan',code:'amx'}),'AMX');assert.equal(giftCode({name:'Cher'}),'CHE');assert.equal(giftCode({name:'Jo Li'}),'JLI');assert.equal(giftNumber({name:'Alex Morgan'},'7K2M9Q'),'EYC-AMO-7K2M9Q');assert.equal(giftNumber({name:'Alex Morgan'}),'EYC-AMO-••••••');});
 test('only referral bookings are issued a gift card, each with its own serial',()=>{const data=seedDemo();const direct=applyDemo(data,'booking',validateBooking(at(data.slots[1])),null);assert.equal('giftCard' in direct.bookings[0],false);const first=applyDemo(data,'booking',validateBooking({...at(data.slots[1]),affiliateId:'demo-alex'}),null),second=applyDemo(first,'booking',validateBooking({...at(data.slots[2]),affiliateId:'demo-alex'}),null);const a=first.bookings[0].giftCard,b=second.bookings[0].giftCard;assert.match(a.serial,/^[2-9A-HJ-NP-Z]{6}$/);assert.equal(a.status,'Issued');assert.equal(Math.round((new Date(a.expiresAt)-new Date(a.issuedAt))/86400000),180);assert.notEqual(a.serial,b.serial);assert.equal(new Set(second.bookings.filter(x=>x.giftCard).map(x=>x.giftCard.serial)).size,second.bookings.filter(x=>x.giftCard).length);});
 
@@ -116,4 +117,49 @@ test('the logo mark is a decorative gold outlined 3:2 rectangle, deeper gold on 
   assert.ok(css.includes('.site-header.overlay:not(.scrolled) .logo-mark, .login-editorial .logo-mark { color: var(--gold); }'),'accent gold on dark backgrounds');
   assert.ok(icon.includes('<rect x="14" y="20" width="36" height="24" fill="none" stroke="#b49a67"'),'tab icon is the gold rectangle');
   assert.ok(ui.includes('aria-label={bookingLabel}'),'the short phone button keeps its full accessible name');
+});
+
+// Eyecon's real reviews
+test('the real reviews are the ten supplied Google reviews, word for word, shown in both modes',async()=>{
+  const { reviews, mentions, siteContent } = await import('../lib/config.js');
+  assert.equal(reviews.length,10);
+  assert.deepEqual(reviews.map(r=>r.name),['Charise S.','Nirvana','Thinh T.','Lilian E.','Matthew A.','Intermilan07','Liubov P.','Lynna J.','Kevin T.','Ram V.']);
+  for(const r of reviews){assert.equal(r.source,'Google');assert.equal(r.stars,5);assert.ok(r.service);assert.ok(/^[A-Z][a-z]+ [A-Z]\.$/.test(r.name)||!r.name.includes(' '),'first name and last initial, or a username: '+r.name);}
+  // Exactly as written, including the reviewers' own typos.
+  assert.ok(reviews.find(r=>r.name==='Thinh T.').text.includes('repaired no one time, and no hassle I was helped'));
+  assert.ok(reviews.find(r=>r.name==='Ram V.').text.includes('pleased with with the service'));
+  assert.ok(reviews.find(r=>r.name==='Lynna J.').text.includes('finding the me some cool'));
+  assert.ok(reviews.find(r=>r.name==='Nirvana').text.includes('professional — he fixed them'));
+  assert.equal(reviews.find(r=>r.name==='Kevin T.').service,"Children's exam");
+  for(const demo of [true,false]){const c=siteContent(demo);assert.equal(c.reviews.items,reviews);assert.equal(c.reviews.sample,false);assert.equal(c.mentions.sample,false);}
+  assert.deepEqual(mentions,['Thorough eye exams','High-end selection','Friendly, knowledgeable staff','Great with kids','No wait time','Free adjustments']);
+});
+test('the featured quote opens on Kevin T., then Lilian E., then Ram V.',async()=>{
+  const { reviews } = await import('../lib/config.js');
+  const ordered=featuredFirst(reviews);
+  assert.deepEqual(ordered.slice(0,3).map(r=>r.name),['Kevin T.','Lilian E.','Ram V.']);
+  assert.equal(ordered.length,10);
+  assert.deepEqual(ordered.slice(3).map(r=>r.name),['Charise S.','Nirvana','Thinh T.','Matthew A.','Intermilan07','Liubov P.','Lynna J.'],'the rest keep their order');
+});
+test('long featured reviews show a whole-word excerpt ending in an ellipsis; short ones are unchanged',async()=>{
+  const { reviews } = await import('../lib/config.js');
+  for(const r of reviews){
+    const e=excerpt(r.text);
+    if(r.text.length<=EXCERPT_LENGTH){assert.equal(e,r.text);continue;}
+    assert.ok(e.endsWith('…'));assert.ok(e.length<=EXCERPT_LENGTH,r.name+' '+e.length);
+    const body=e.slice(0,-1);assert.ok(r.text.startsWith(body),'a prefix of the full text');
+    assert.ok(/[\s,;:.—-]/.test(r.text[body.length])||/[,;:.]/.test(r.text.slice(body.length,body.length+1)),'ends on a whole word: '+r.name);
+  }
+  assert.equal(excerpt('Short and sweet.'),'Short and sweet.');
+  assert.ok(reviews.filter(r=>r.text.length>EXCERPT_LENGTH).length>=5,'several reviews need the toggle');
+});
+test('review cards clamp to four lines and open on click; the sample reviews tag is gone',()=>{
+  const read=f=>readFileSync(new URL(f,import.meta.url),'utf8');
+  const css=read('../app/site.css'),cards=read('../components/reviews.js'),landing=read('../components/landing.js');
+  assert.ok(/\.review-card \.review-text \{[^}]*-webkit-line-clamp: 4/.test(css));
+  assert.ok(css.includes('.review-card.open .review-text {'));
+  assert.ok(cards.includes('aria-expanded={open}'));
+  assert.ok(landing.includes("{open ? 'Show less' : 'Read full review'}"));
+  assert.equal(landing.includes('Sample reviews'),false);assert.equal(cards.includes('Sample reviews'),false);
+  assert.ok(cards.includes('Sample rating'),'a sample rating is still labelled');
 });

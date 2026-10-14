@@ -334,7 +334,7 @@ h3 { font-weight: 500; }
 .review-set { display: flex; gap: 1rem; margin: 0; padding: 0 1rem 0 0; list-style: none; }
 .review-card { position: relative; flex: 0 0 320px; display: flex; flex-direction: column; gap: .9rem; padding: 1.5rem; background: var(--white); border: 1px solid var(--line); border-radius: 6px; }
 .review-stars { position: relative; display: flex; color: var(--gold); }
-.review-card p { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; line-clamp: 4; overflow: hidden; margin: 0; font-size: 1rem; line-height: 1.55; }
+.review-card .review-text { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; line-clamp: 4; overflow: hidden; margin: 0; font-size: 1rem; line-height: 1.55; }
 .review-card footer { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem .6rem; margin-top: auto; padding-top: .9rem; border-top: 1px solid var(--line); font-size: .92rem; }
 .review-card .review-source { margin-left: auto; }
 .review-dots { display: none; }
@@ -838,7 +838,7 @@ details p { margin: 1rem 0 0; color: var(--muted); }
 .booking-reviews .rating-seal strong { font-size: 2.6rem; }
 .booking-review-list { list-style: none; margin: 0; padding: 0; display: grid; gap: .75rem; }
 .booking-review-list .review-card { flex: none; padding: 1.1rem 1.2rem; gap: .6rem; }
-.booking-review-list .review-card p { font-size: .92rem; -webkit-line-clamp: 3; line-clamp: 3; }
+.booking-review-list .review-card .review-text { font-size: .92rem; -webkit-line-clamp: 3; line-clamp: 3; }
 .booking-review-list .review-card footer { font-size: .84rem; }
 /* With reviews the column is taller than the screen: let it scroll fully into view, then stick by its bottom edge. */
 .booking-aside:has(.booking-reviews) { top: auto; bottom: 1.5rem; }
@@ -856,3 +856,14 @@ details p { margin: 1rem 0 0; color: var(--muted); }
 @media (max-width: 359px) {
   .header-actions .shop-link { display: none; }
 }
+
+/* Real reviews: a card shows four lines and opens fully on click; the featured quote has a Read full review toggle. */
+.review-card { cursor: pointer; }
+button.review-text { padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: inherit; cursor: pointer; }
+.review-card .review-text { font-size: 1rem; line-height: 1.55; overflow-wrap: anywhere; }
+.review-card.open .review-text { display: block; -webkit-line-clamp: unset; line-clamp: none; overflow: visible; }
+.review-card:hover { border-color: #b9b8b2; }
+.voice-more { display: inline-block; margin-top: 1rem; font-size: .92rem; }
+.seal-wrap { display: flex; flex-direction: column; align-items: center; gap: .7rem; }
+.seal-tag { text-align: center; }
+.booking-reviews .seal-wrap { align-items: flex-start; }

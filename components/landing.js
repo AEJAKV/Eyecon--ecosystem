@@ -4,7 +4,8 @@ import Image, { getImageProps } from 'next/image';
 import { useApp } from './provider';
 import { Header, Footer, Button, Icon, Gift, Referral, Loading, Notice, Stars } from './ui';
 import { DEMO, services, collections, doctors, instructions, clinic, shopUrl } from '@/lib/config';
-import { content, RatingSeal, ReviewCard } from './reviews';
+import { content, orderedReviews, RatingSeal, ReviewCard } from './reviews';
+import { excerpt } from '@/lib/reviews';
 import SkinTechnologies from './skin-technologies';
 
 /* Hero photograph. Art direction: a 16:9 crop above 860px and a 9:16 crop on phones.
@@ -304,7 +305,7 @@ function Doctors({ serviceHref }) {
 /* One row of the review wall. On desktop the belt drifts slowly (pausing on hover or keyboard focus), with a second copy
    of the cards so the loop has no seam. With reduced motion, and on phones, nothing moves and the row scrolls sideways. */
 function ReviewRow({ items, extra, reverse = false, label, rowRef, onScroll }) {
-  const cards = hidden => [...items.map((r, i) => <ReviewCard key={(hidden ? 'c' : 'r') + i} review={r} />), ...extra.map((r, i) => <ReviewCard key={(hidden ? 'cf' : 'f') + i} review={r} filler />)];
+  const cards = hidden => [...items.map((r, i) => <ReviewCard key={(hidden ? 'c' : 'r') + i} review={r} copy={hidden} />), ...extra.map((r, i) => <ReviewCard key={(hidden ? 'cf' : 'f') + i} review={r} filler copy={hidden} />)];
   return (
     <div className={`review-row ${reverse ? 'reverse' : ''}`} tabIndex={0} role="group" aria-label={label} ref={rowRef} onScroll={onScroll}>
       <div className="review-belt">
@@ -316,14 +317,15 @@ function ReviewRow({ items, extra, reverse = false, label, rowRef, onScroll }) {
 }
 
 /* “In their words”: the rating seal beside a featured review, then a wall of review cards and what patients mention.
-   Reviews are never invented for the live site: they come from lib/config.js, and the labelled samples appear in demo
-   mode only. No autoplay on the featured review; its arrows, or the left and right keys, change it with a crossfade. */
+   The reviews are Eyecon's real Google reviews from lib/config.js, the featured ones first. No autoplay on the featured
+   review; its arrows, or the left and right keys, change it with a crossfade. A long review shows as an excerpt with a
+   "Read full review" toggle, so the full text is always one click away. */
 function Voices() {
-  const reviews = content.reviews.items, count = reviews.length;
-  const [index, setIndex] = useState(0), [leaving, setLeaving] = useState(null), [dot, setDot] = useState(0);
+  const reviews = orderedReviews, count = reviews.length;
+  const [index, setIndex] = useState(0), [leaving, setLeaving] = useState(null), [dot, setDot] = useState(0), [full, setFull] = useState(false);
   const row = useRef(null), frame = useRef(0);
   useEffect(() => () => cancelAnimationFrame(frame.current), []);
-  function go(to) { const next = (to + count) % count; if (next !== index) { setLeaving(index); setIndex(next); } }
+  function go(to) { const next = (to + count) % count; if (next !== index) { setLeaving(index); setIndex(next); setFull(false); } }
   // The outgoing quote stays just long enough to fade out.
   useEffect(() => { if (leaving === null) return; const timer = setTimeout(() => setLeaving(null), 380); return () => clearTimeout(timer); }, [leaving, index]);
   function keys(e) {
@@ -340,12 +342,14 @@ function Voices() {
       if (cards?.length > 1) setDot(Math.max(0, Math.min(count - 1, Math.round(row.current.scrollLeft / (cards[1].offsetLeft - cards[0].offsetLeft)))));
     });
   }
-  const quote = (r, out = false) => (
-    <figure className={`voice ${out ? 'leaving' : ''}`} key={(out ? 'leaving-' : '') + reviews.indexOf(r)} aria-hidden={out || undefined}>
-      <blockquote><p>“{r.text}”</p></blockquote>
+  const quote = (r, out = false) => {
+    const short = excerpt(r.text), long = short !== r.text, open = full && !out;
+    return <figure className={`voice ${out ? 'leaving' : ''}`} key={(out ? 'leaving-' : '') + reviews.indexOf(r)} aria-hidden={out || undefined}>
+      <blockquote id={out ? undefined : 'featured-review'}><p>“{long && !open ? short : r.text}”</p></blockquote>
+      {long && !out && <button type="button" className="text-link voice-more" aria-expanded={open} aria-controls="featured-review" onClick={() => setFull(f => !f)}>{open ? 'Show less' : 'Read full review'}</button>}
       <figcaption><strong>{r.name}</strong>{r.service && <span className="service-pill">{r.service}</span>}<span className="review-source">{r.source} review</span></figcaption>
-    </figure>
-  );
+    </figure>;
+  };
   // The wall needs a few reviews to be worth showing. Short lists are repeated so a row always fills a wide screen.
   const wall = count >= 4, extra = wall && count < 8 ? Array.from({ length: 8 - count }, (_, i) => reviews[i % count]) : [];
   const half = Math.ceil(count / 2), second = [...reviews.slice(half), ...reviews.slice(0, half)];
@@ -355,7 +359,6 @@ function Voices() {
         <RatingSeal />
         <div className="voices-main" onKeyDown={keys}>
           <h2 id="voices-title" className="voices-label">In their words</h2>
-          {(content.reviews.sample || content.rating.sample) && <p className="sample-tag">Sample reviews · design preview</p>}
           {count === 0
             ? <>
                 <p className="voice-empty">Kind words from our patients will appear here soon.</p>
