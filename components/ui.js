@@ -27,3 +27,5 @@ export function Notice({children,error=false}){return children?<div role={error?
 export function Modal({open,title,onClose,children}){const ref=useRef(null);useEffect(()=>{const d=ref.current;if(open&&!d.open)d.showModal();if(!open&&d.open)d.close();},[open]);return <dialog ref={ref} className="modal" onCancel={onClose} onClose={onClose} aria-labelledby="modal-title"><div className="modal-head"><h2 id="modal-title">{title}</h2><button onClick={onClose} className="icon-button" aria-label="Close dialog"><Icon name="close"/></button></div>{open&&children}</dialog>;}
 export function Loading(){return <div className="loading" role="status"><span className="spinner"/>Loading your Eyecon experience…</div>;}
 export function Portrait({src,alt,...props}){return <Image src={src} alt={alt} {...props}/>;}
+// The empty state for a table or list.
+export function Empty({text='No records match your filters.'}){return <div className="empty-state"><Icon name="calendar" size={32}/><h3>{text}</h3><p>Your next update will appear here.</p></div>;}

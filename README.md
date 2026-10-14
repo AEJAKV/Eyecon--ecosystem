@@ -12,7 +12,7 @@ A complete Next.js project for the affiliate referral and appointment-booking ex
 - Referral identity throughout booking; the $50 gift appears only with an active affiliate referral.
 - Google, Apple `.ics` and Outlook calendar options. The event, the confirmation card and the confirmation email (template field `{doctor}`) name the optometrist.
 - Affiliate dashboard (completed referrals this month and all time, upcoming bookings as a count that “counts once completed”, commission earned and paid), referrals, referral link/QR, earnings, profile editing and photo upload. A referral counts, and earns commission, only once its appointment is completed (Attended).
-- Staff booking list/calendar showing each booking's optometrist, patient details, attendance status, manual bookings (free times grouped by optometrist), availability per optometrist, affiliate management, leads, procedure pricing, calculated commission, payout recording and message templates.
+- Staff booking list/calendar showing each booking's optometrist, patient details, attendance status, manual bookings (free times grouped by optometrist), availability per optometrist, affiliate performance dashboard (per-affiliate bookings, completed, upcoming, billed and commission, sortable; a page per affiliate with every appointment amount, inline commission calculator, date and status filters, staff CSV, and “Preview as affiliate”; “Top affiliates this month” on the overview), leads, procedure pricing, calculated commission, payout recording and message templates.
 - Supabase database schema, authentication and server-side role checks for live mode.
 - Turnstile booking verification, optional Resend email, Twilio SMS with opt-in, and an authenticated reminder endpoint.
 - Responsive layouts, keyboard controls, native form labels, focus handling, reduced-motion support and optimised local WebP images.
@@ -43,8 +43,9 @@ Demo data is stored in the current browser and is neither secure nor shared betw
 | `/affiliate/link` | Personal link and downloadable QR code |
 | `/affiliate/earnings` | Commission per completed appointment and its payout status |
 | `/affiliate/profile` | Display name, introduction and portrait |
-| `/admin` | Staff bookings, availability and calendar |
-| `/admin/affiliates` | Add, activate/deactivate and photograph affiliates |
+| `/admin` | Staff bookings, availability, calendar and “Top affiliates this month” |
+| `/admin/affiliates` | Affiliate performance table (cards on phones), sortable by completed and commission; add, activate/deactivate and photograph affiliates |
+| `/admin/affiliates/[slug]` | One affiliate: stats, appointments with gross, discount, operation cost, net and commission, inline calculator, filters, CSV, and “Preview as affiliate” (read-only) |
 | `/admin/leads` | Search/filter/export bookings |
 | `/admin/payouts` | Calculate commission for attended referrals and record payments |
 | `/admin/pricing` | Retail price and operation cost for each procedure |

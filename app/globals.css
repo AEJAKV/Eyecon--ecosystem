@@ -176,3 +176,45 @@ td select{font-size:.85rem;padding:.5rem .7rem;min-height:42px;min-width:120px}
 @media(max-width:480px){.calc-grid{grid-template-columns:1fr}}
 /* Affiliate overview: a short note under each figure, e.g. "counts once completed" */
 .stats small{display:block;margin-top:.35rem;font-size:.8rem;color:var(--muted)}
+/* Staff: affiliate performance (table, cards on phones), the affiliate page and the overview strip */
+.sort-button{border:0;background:none;padding:0;font:inherit;font-weight:inherit;color:inherit;cursor:pointer;white-space:nowrap}
+.sort-button:hover{text-decoration:underline}
+.affiliate-name{display:flex;align-items:center;gap:.75rem;color:inherit;text-decoration:none}
+.affiliate-name img{width:40px;height:40px;border-radius:50%;object-fit:cover;flex:none}
+.affiliate-name:hover strong{text-decoration:underline}
+.affiliate-name small{display:block;color:#5f625c}
+.row-actions{display:flex;gap:1rem;flex-wrap:wrap}
+.upload-inline{cursor:pointer}
+.upload-inline:focus-within{outline:3px solid var(--gold-text,#8a6d2b);outline-offset:2px}
+.top-affiliates{margin-bottom:1.75rem}
+.top-affiliates ol{list-style:none;padding:0;margin:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:.75rem}
+.top-affiliates a{display:flex;align-items:center;gap:.75rem;padding:.9rem 1rem;border:1px solid var(--line);background:var(--white);border-radius:4px;color:inherit;text-decoration:none}
+.top-affiliates a:hover{border-color:#9fa0a0}
+.top-affiliates img{width:44px;height:44px;border-radius:50%;object-fit:cover}
+.top-affiliates small{display:block;color:#5f625c}
+.top-affiliates .rank{font-family:var(--serif);font-size:1.4rem;width:1.2rem;text-align:center}
+.affiliate-hero{display:flex;align-items:center;gap:1.25rem;flex-wrap:wrap;margin-bottom:1.25rem}
+.affiliate-hero img{width:72px;height:72px;border-radius:50%;object-fit:cover}
+.affiliate-hero>div:first-of-type{flex:1;min-width:14rem}
+.affiliate-hero h2{display:flex;align-items:center;gap:.6rem;margin:0 0 .3rem}
+.stats-six{grid-template-columns:repeat(6,1fr)}
+.stats-six strong{font-size:1.8rem}
+.appointments-table td,.appointments-table th,.performance-table td,.performance-table th{white-space:nowrap}
+.calc-row td{background:#f6f5f2;white-space:normal}
+.calc-row .calculator{max-width:560px;margin:0;border:0;padding:.5rem 0}
+.affiliate-preview{border:1px dashed #b9b8b2;padding:1.25rem;border-radius:4px}
+@media(max-width:1100px){.stats-six{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:700px){
+ .stats-six{grid-template-columns:repeat(2,1fr)}
+ .performance-table table,.performance-table tbody,.performance-table tr,.performance-table td,.appointments-table table,.appointments-table tbody,.appointments-table tr,.appointments-table td{display:block;width:100%}
+ .performance-table thead,.appointments-table thead{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+ .performance-table tr,.appointments-table tbody>tr:not(.calc-row){border:1px solid var(--line);border-radius:4px;margin-bottom:.75rem;padding:.5rem .75rem;background:var(--white)}
+ .performance-table td,.appointments-table td{display:flex;justify-content:space-between;gap:1rem;border:0;padding:.35rem 0;white-space:normal;text-align:right}
+ .performance-table td::before,.appointments-table td::before{content:attr(data-label);color:#5f625c;font-size:.85rem;text-align:left}
+ .performance-table td[data-label="Affiliate"],.appointments-table td[data-label="Patient"]{display:block;text-align:left}
+ .performance-table td[data-label="Affiliate"]::before,.appointments-table td[data-label="Patient"]::before{content:none}
+ .performance-table,.appointments-table{border:0;overflow:visible}
+}
+/* Keep absolutely positioned screen-reader text inside a scrolling table from widening the page */
+.table-wrap{position:relative}
+.stats-six strong{font-size:1.5rem;white-space:nowrap;overflow-wrap:normal}
