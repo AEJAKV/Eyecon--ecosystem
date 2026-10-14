@@ -320,3 +320,5 @@ test('clinic phoneHref is a digits-only tel: link and every call link uses it',(
     assert.ok(!/'tel:'\s*\+\s*clinic\.phone/.test(read(f)),f+' builds tel: from the display phone');
   }
 });
+
+test('footer shows the clinic description under the logo',()=>{const ui=readFileSync(new URL('../components/ui.js',import.meta.url),'utf8');assert.ok(ui.includes('<div className="footer-brand"><Logo/><p className="footer-about">Eyecon is the leading provider of optometry services and vision care products in Edmonton. Come visit us today!</p></div>'));});
