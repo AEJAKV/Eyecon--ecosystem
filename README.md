@@ -29,6 +29,59 @@ The grayscale photography is concept imagery from the design mockup. Doctor pane
 
 Demo data is stored in the current browser and is neither secure nor shared between users. Use fictional details only. Live mode uses Supabase and must be configured and verified with your own services before collecting real patient information. This delivery does not certify privacy compliance, WCAG conformance, production security or a PageSpeed score. No live service credentials were available during development.
 
+## Planned: Optometrist profiles and schedules (staff-managed)
+
+Not built yet. Goal: staff add and edit doctors and their working hours in the staff workspace. The website's “The people behind your exam” section and the booking form's “Choose your doctor” date and time step both read from this, so they are always correct.
+
+Today the two placeholder doctors are written in `lib/config.js` (changing them needs a developer), and staff add bookable times one slot at a time in Staff admin › Bookings › Add available time.
+
+### Backend needed (extends the existing Supabase + Next.js API; no new service)
+
+**Database: new migration `supabase/migrations/009_doctors_and_schedules.sql`**
+- `doctors` table: slug, title, first name, last name, short line, intro, focus, languages, frames they wear, photo, services they perform, show on website (yes/no), display order.
+- `doctor_weekly_hours` table: doctor, weekday, start time, end time (several rows per day allowed, so a lunch break is just a gap).
+- One appointment length per doctor (15/30/45/60/90 min).
+- `doctor_time_off` table: doctor, from, to, reason (vacation, half day, blocked hour).
+- `doctor_extra_hours` table: doctor, date, start, end (one-off extra days).
+- Moves today's two placeholder doctors from `lib/config.js` into the table.
+- Existing bookings and the double-booking protection stay exactly as they are.
+
+**Photo storage**
+- A Supabase storage bucket for doctor photos (public, images only, size-limited).
+
+**Automatic time slots**
+- A database function turns weekly hours, minus time off, plus extra hours, into bookable slots, always 90 days ahead.
+- Runs whenever staff save a schedule, and once a day through the existing hourly scheduler that already calls `/api/reminders` (no new scheduler needed).
+- Never removes a slot that already has a booking.
+
+**Server API (`app/api/workspace`, staff only)**
+- Add, edit, hide and reorder a doctor; upload a photo.
+- Save weekly hours and slot length; add or remove time off and extra hours.
+- Warn staff when new time off overlaps confirmed appointments, listing the patients to rebook.
+- A doctor with upcoming appointments can be hidden but not deleted.
+
+**Public read**
+- The home page and booking form load the shown doctors (name, photo, bio, services) from the database instead of the code. No patient data is involved.
+
+**Demo mode**
+- Sample doctors and schedules in `lib/demo.js`, so the preview keeps working with no keys.
+
+### Setup steps once it is built
+1. Run `009_doctors_and_schedules.sql` once in the Supabase SQL editor.
+2. Confirm the doctor-photos storage bucket exists (the migration creates it).
+3. No new environment variables or accounts are needed.
+
+### Open questions
+- One appointment length per doctor, or different lengths per service?
+- Do all doctors perform every service (for example skin tightening)?
+- Does the front desk manage schedules, or does each doctor sign in to manage their own?
+- Will schedules later come from the EMR / MyVisionExpress?
+
+### Build order
+1. Doctor profiles in the staff workspace, feeding the website.
+2. Weekly hours and time off generating the booking slots.
+3. A week calendar view per doctor (open, booked and blocked times; click to block a time).
+
 ## Pages / sitemap
 
 | Address | Page |
