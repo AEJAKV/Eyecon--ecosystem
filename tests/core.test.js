@@ -102,6 +102,20 @@ test('preview as affiliate shows only the restricted rows',()=>{const rows=affil
 test('skin tightening is a service with bracketed placeholder content, an icon and a neutral image',()=>{const st=services.find(s=>s.id==='skin-tightening');assert.ok(st);assert.equal(st.name,'Non-Invasive Skin Tightening');for(const text of [st.description,st.meta,...st.points])assert.match(text,/\[[^\]]+\]/,text);assert.equal(st.icon,'skin');assert.ok(readFileSync(new URL('../components/ui.js',import.meta.url),'utf8').includes('skin:<>'));assert.ok(readFileSync(new URL('../public/images/services/skin-tightening.webp',import.meta.url)).subarray(8,12).toString()==='WEBP');});
 test('skin technologies are three bracketed placeholders with unique slugs',()=>{assert.equal(skinTechnologies.length,3);assert.equal(new Set(skinTechnologies.map(t=>t.slug)).size,3);for(const t of skinTechnologies){assert.match(t.slug,/^[a-z0-9]+(-[a-z0-9]+)*$/);for(const k of ['name','summary','session'])assert.match(t[k],/\[[^\]]+\]/,k);assert.ok(t.image.startsWith('/images/'));}assert.equal(serviceOptions['skin-tightening'],skinTechnologies);assert.equal(serviceOptionName('skin-tightening','technology-2'),'[Technology two]');assert.equal(serviceOptionName('eye-exam','technology-2'),'');});
 test('a technology is optional, kept only for skin tightening, and saved with the booking',()=>{const skin={...patient,service:'skin-tightening'};assert.equal(validateBooking(skin).serviceOption,null);assert.equal(validateBooking({...skin,serviceOption:'technology-1'}).serviceOption,'technology-1');assert.equal(validateBooking({...skin,serviceOption:'laser-9000'}).serviceOption,null);assert.equal(validateBooking({...patient,serviceOption:'technology-1'}).serviceOption,null,'not kept for another service');const data=seedDemo();const saved=applyDemo(data,'booking',validateBooking({...at(data.slots[1]),service:'skin-tightening',serviceOption:'technology-3'}),null).bookings[0];assert.equal(saved.service,'skin-tightening');assert.equal(saved.serviceOption,'technology-3');assert.ok(seedDemo().procedureCosts.some(p=>p.service==='skin-tightening'));for(const key of ['serviceOption','service_option'])assert.equal(key in restrictAffiliateRow({...saved,service_option:'technology-3'}),false);});
+// Phone header: menu button, centred logo, and a drawer with Book, Shop Frames, the phone and the location
+test('on phones the header is a menu button and a centred logo, and the drawer holds Book, Shop Frames, phone and location',()=>{
+  const read=f=>readFileSync(new URL(f,import.meta.url),'utf8');
+  const ui=read('../components/ui.js'),css=read('../app/site.css');
+  const menu=ui.slice(ui.indexOf('function MobileMenu'),ui.indexOf('export function Header'));
+  for(const part of ['href={bookingHref}','href={shopHref}','>Shop Frames<','clinic.phoneHref','google.com/maps/search/?api=1&query=','Phone to be confirmed','Address to be confirmed','aria-label="Close menu"','showModal()'])assert.ok(menu.includes(part),part);
+  const header=ui.slice(ui.indexOf('export function Header'),ui.indexOf('export function PreviewBar'));
+  assert.ok(header.indexOf('className="menu-toggle"')<header.indexOf('<Logo/>'),'menu button sits left of the logo');
+  assert.ok(header.indexOf('</header>')<header.indexOf('<MobileMenu'),'drawer sits outside the header so the overlay never tints it');
+  assert.ok(css.includes('.menu-toggle, .menu-spacer { display: none; }'),'wider screens never show the menu button');
+  assert.match(css,/@media \(max-width: 640px\) \{\s*\.site-header \.header-inner \{ display: grid; grid-template-columns: 44px 1fr 44px;[^}]*\}\s*\.site-header \.header-actions \{ display: none; \}/);
+  assert.ok(css.includes('.site-header .logo { justify-self: center;'));
+  assert.ok(ui.includes(',pin:<>'),'location pin icon');
+});
 // Shop Frames page
 test('Shop frames points at the /shop page by default, from the header and under the carousel',()=>{
   const read=f=>readFileSync(new URL(f,import.meta.url),'utf8');

@@ -1052,3 +1052,48 @@ button.review-text { padding: 0; border: 0; background: none; color: inherit; fo
 /* On dark panels and over photographs the focus ring is white, as on the hero. */
 .closing-panel.dark :focus-visible, .final-cta :focus-visible { outline-color: #fff; }
 @media (min-width: 641px) { .shop-banner :focus-visible { outline-color: #fff; } }
+
+/* ---------- Phone header and menu drawer (640px and narrower only) ---------- */
+/* Like a fashion house: the menu button on the left, the logo with its mark centred, and an empty slot on the right the
+   same width as the menu button so the logo sits in the true centre. Book, Shop Frames, the phone and the location move
+   into the drawer; the hero already carries the booking button. Wider screens are unchanged. */
+.menu-toggle, .menu-spacer { display: none; }
+@media (max-width: 640px) {
+  .site-header .header-inner { display: grid; grid-template-columns: 44px 1fr 44px; align-items: center; gap: .5rem; }
+  .site-header .header-actions { display: none; }
+  .menu-spacer { display: block; width: 44px; height: 44px; }
+  .menu-toggle { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; margin-left: -10px; padding: 0; border: 0; background: none; color: inherit; cursor: pointer; }
+  .menu-toggle svg { stroke-width: 1.25; }
+  .site-header.overlay:not(.scrolled) .menu-toggle { filter: drop-shadow(0 1px 8px rgba(20, 24, 29, .45)); }
+  .site-header .logo { justify-self: center; --word: 1.3rem; }
+}
+/* The drawer slides in from the left over a dimmed page; tapping the dimmed page, the close button or Escape closes it. */
+.menu-drawer { position: fixed; inset: 0 auto 0 0; width: min(88vw, 380px); max-width: none; height: 100dvh; max-height: none; margin: 0; padding: 0; border: 0; background: var(--paper); color: var(--ink); overflow-y: auto; overscroll-behavior: contain; }
+.menu-drawer[open] { animation: menu-in .42s var(--ease); }
+.menu-drawer::backdrop { background: rgba(20, 24, 29, .45); animation: menu-fade .42s ease; }
+@keyframes menu-in { from { transform: translateX(-100%); } }
+@keyframes menu-fade { from { opacity: 0; } }
+html:has(.menu-drawer[open]) { overflow: hidden; }
+.menu-panel { min-height: 100%; display: flex; flex-direction: column; padding: 1.25rem 1.25rem calc(1.5rem + env(safe-area-inset-bottom)); }
+.menu-head { display: grid; grid-template-columns: 44px 1fr 44px; align-items: center; gap: .5rem; padding-bottom: 1.25rem; border-bottom: 1px solid var(--line); }
+.menu-head > span { justify-self: center; }
+.menu-head .logo { --word: 1.15rem; }
+.menu-head .menu-spacer { display: block; }
+.menu-close { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; margin-left: -10px; padding: 0; border: 0; background: none; color: inherit; cursor: pointer; }
+.menu-close svg { stroke-width: 1.25; }
+.menu-nav { display: flex; flex-direction: column; padding-top: .75rem; }
+.menu-nav a { display: flex; align-items: center; justify-content: space-between; gap: 1rem; min-height: 64px; border-bottom: 1px solid var(--line); text-decoration: none; color: inherit; font: 420 1.55rem/1.15 var(--serif); letter-spacing: -.01em; }
+.menu-nav a svg { flex: none; color: var(--gold-text); }
+.menu-contact { margin-top: auto; padding-top: 2.5rem; display: flex; flex-direction: column; gap: .35rem; }
+.menu-contact .eyebrow { margin-bottom: .5rem; }
+.menu-contact-row { display: flex; align-items: flex-start; gap: .85rem; min-height: 44px; padding-block: .55rem; text-decoration: none; color: inherit; font-size: 1rem; line-height: 1.45; }
+.menu-contact-row svg { flex: none; margin-top: .15rem; color: var(--gold-text); }
+.menu-contact-row small { display: block; font-size: .72rem; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin-bottom: .1rem; }
+.menu-contact-row.pending { color: var(--muted); font-style: italic; }
+/* Hover colours only on devices with a pointer, so a tap never leaves a link gold. */
+@media (hover: hover) and (max-width: 640px) {
+  .menu-toggle:hover, .menu-nav a:hover, a.menu-contact-row:hover { color: var(--gold-text); }
+  .site-header.overlay:not(.scrolled) .menu-toggle:hover { color: #e3d4b1; }
+}
+@media (prefers-reduced-motion: reduce) { .menu-drawer[open], .menu-drawer::backdrop { animation: none; } }
+@media (min-width: 641px) { .menu-drawer { display: none; } }
