@@ -12,7 +12,8 @@ export function Icon({name='eye',size=24}){const paths={eye:<><path d="M2 12s4-7
 export function Logo(){return <Link href="/" className="logo" aria-label="Eyecon Optometry home"><span>EYECON<svg className="logo-mark" viewBox="0 0 30 20" aria-hidden="true" focusable="false"><rect x="1" y="1" width="28" height="18" fill="none" stroke="currentColor" strokeWidth="2"/></svg></span><small>Optometry</small></Link>;}
 export function Button({children,href,secondary=false,className='',...props}){const classes=`button ${secondary?'secondary':''} ${className}`;return href?<Link className={classes} href={href} {...props}>{children}</Link>:<button className={classes} {...props}>{children}</button>;}
 // Phones (640px and narrower) get a cleaner bar, like a fashion house: a menu button on the left, the logo with its mark
-// centred, and search and a shopping bag (to Shop Frames) on the right. Book, Shop Frames, the phone number and the
+// centred, and search and a shopping bag (to Shop Frames) on the right. Tablets and desktops show Search, Shop Frames, the
+// phone and Book in a row on the right; Search opens the same panel everywhere. Book, Shop Frames, the phone number and the
 // location move into the menu drawer, which sits outside the header so the white overlay header never tints it. Wider screens keep the row of actions on the right. shopHref carries an
 // affiliate's referral into both.
 function MobileMenu({open,onClose,bookingHref,bookingLabel,shopHref}){
@@ -39,7 +40,7 @@ function MobileMenu({open,onClose,bookingHref,bookingLabel,shopHref}){
       </div>
     </div>
   </dialog>;}
-// Phone search: a panel that drops from the top with the field focused. It searches the houses, frames, services and a
+// Site search, on every screen size: a panel that drops from the top with the field focused. It searches the houses, frames, services and a
 // few pages (lib/search.js); before anything is typed it suggests the most visited places.
 function SiteSearch({open,onClose,bookingHref,shopHref}){
   const ref=useRef(null),input=useRef(null),router=useRouter();
@@ -47,7 +48,6 @@ function SiteSearch({open,onClose,bookingHref,shopHref}){
   const affiliate=(()=>{try{return new URL(shopHref,'https://eyecon.local').searchParams.get('affiliate');}catch{return null;}})();
   const options={bookingHref,shopHref,affiliate};
   useEffect(()=>{const d=ref.current;if(!d)return;if(open&&!d.open){setQuery('');d.showModal();requestAnimationFrame(()=>input.current?.focus());}if(!open&&d.open)d.close();},[open]);
-  useEffect(()=>{if(!open)return;const mq=window.matchMedia('(min-width: 641px)');const on=()=>{if(mq.matches)onClose();};mq.addEventListener('change',on);return()=>mq.removeEventListener('change',on);},[open,onClose]);
   const results=searchSite(query,options);
   const entries=searchEntries(options),suggestions=['Book an appointment','Shop all frames','Cartier','Find my booking'].map(t=>entries.find(e=>e.title===t)).filter(Boolean);
   const list=query.trim()?results:suggestions;
@@ -56,7 +56,7 @@ function SiteSearch({open,onClose,bookingHref,shopHref}){
       <form className="search-bar" role="search" onSubmit={e=>{e.preventDefault();if(results[0]){onClose();router.push(results[0].href);}}}>
         <Icon name="search" size={20}/>
         <label htmlFor="site-search-input" className="sr-only">Search frames, houses and services</label>
-        <input ref={input} id="site-search-input" type="search" enterKeyHint="search" autoComplete="off" placeholder="Search frames, houses, services" value={query} onChange={e=>setQuery(e.target.value)}/>
+        <input ref={input} id="site-search-input" type="search" enterKeyHint="search" autoComplete="off" placeholder="Search frames, houses, services" value={query} onChange={e=>setQuery(e.target.value)} onKeyDown={e=>{if(e.key==='Escape'){e.preventDefault();onClose();}}}/>
         <button type="button" className="menu-close" onClick={onClose} aria-label="Close search"><Icon name="close" size={22}/></button>
       </form>
       <p className="eyebrow search-label" aria-live="polite">{query.trim()?(results.length?results.length+(results.length===1?' result':' results'):'No results'):'Popular'}</p>
@@ -72,6 +72,7 @@ export function Header({bookingHref='/booking',bookingLabel='Book appointment',b
   return <><header className={`site-header ${overlay?'overlay':''} ${scrolled?'scrolled':''}`}><div className="header-inner">
     <button type="button" className="menu-toggle" aria-label="Open menu" aria-haspopup="dialog" aria-expanded={menu} aria-controls="site-menu" onClick={()=>setMenu(true)}><Icon name="menu" size={24}/></button>
     <Logo/><div className="header-actions">
+    <button type="button" className="call-link search-link" aria-label="Search" aria-haspopup="dialog" aria-expanded={find} aria-controls="site-search" onClick={()=>setFind(true)}><Icon name="search" size={18}/><span>Search</span></button>
     <Link className="call-link shop-link" href={shopHref} aria-label="Shop Frames"><Icon name="bag" size={18}/><span className="shop-long">Shop Frames</span><span className="shop-short" aria-hidden="true">Frames</span></Link>
     {clinic.phone
       ?<a className="call-link" href={clinic.phoneHref} aria-label={'Call Eyecon at '+clinic.phone}><Icon name="phone" size={18}/><span>{clinic.phone}</span></a>

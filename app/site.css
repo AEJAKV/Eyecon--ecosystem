@@ -1128,4 +1128,18 @@ html:has(.search-panel[open]) { overflow: hidden; }
 .search-results strong { display: block; font: 420 1.2rem/1.25 var(--serif); }
 .search-results em { display: block; font-style: normal; font-size: .9rem; color: var(--muted); margin-top: .15rem; }
 @media (prefers-reduced-motion: reduce) { .menu-drawer[open], .menu-drawer::backdrop, .search-panel[open], .search-panel::backdrop { animation: none; } }
-@media (min-width: 641px) { .menu-drawer, .search-panel { display: none; } }
+@media (min-width: 641px) { .menu-drawer { display: none; } }
+/* Tablets and desktops: Search sits first in the header row, styled like Shop Frames (icon and word; icon only below
+   860px). The panel's content is centred in a column with a larger field. */
+.search-link { padding: 0; border: 0; background: none; color: inherit; font: inherit; font-size: .95rem; font-weight: 500; cursor: pointer; }
+@media (max-width: 860px) {
+  .header-actions .search-link { width: auto; height: 44px; border: 0; border-radius: 0; }
+}
+@media (min-width: 641px) {
+  .search-inner { max-width: 760px; margin: 0 auto; padding: 1.75rem 2rem 2.5rem; }
+  .search-bar input:not([type=checkbox]):not([type=radio]) { min-height: 64px; font-size: 1.35rem; }
+  .search-bar > svg { width: 24px; height: 24px; }
+  .search-results { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 2.5rem; }
+  .search-results strong { font-size: 1.3rem; }
+}
+@media (hover: hover) and (min-width: 641px) { .search-results a:hover strong { color: var(--gold-text); } }

@@ -123,12 +123,24 @@ test('on phones the right of the header has search and a shopping bag that goes 
   for(const part of ['aria-label="Search"','aria-controls="site-search"','<Link className="icon-link" href={shopHref} aria-label="Shop Frames"><Icon name="bag"','<SiteSearch'])assert.ok(header.includes(part),part);
   assert.ok(css.includes('.menu-toggle, .menu-spacer, .header-icons { display: none; }'),'wider screens never show the phone icons');
   assert.ok(css.includes('grid-template-columns: 84px 1fr 84px;'),'equal outer columns keep the logo centred');
-  assert.ok(css.includes('@media (min-width: 641px) { .menu-drawer, .search-panel { display: none; } }'));
 });
 test('on phones the hero line under the buttons is fine print',()=>{
   const read=f=>readFileSync(new URL(f,import.meta.url),'utf8');
   assert.ok(read('../components/landing.js').includes('<p className="hero-rating hero-fineprint">Book online in under a minute.</p>'));
   assert.ok(read('../app/site.css').includes('  .hero-fineprint { font-size: .74rem; font-weight: 300; letter-spacing: .06em; line-height: 1.4; color: rgba(255, 255, 255, .62); }'));
+});
+test('tablets and desktops have Search first in the header row, opening the same panel, and Escape closes it',()=>{
+  const read=f=>readFileSync(new URL(f,import.meta.url),'utf8');
+  const ui=read('../components/ui.js'),css=read('../app/site.css');
+  const header=ui.slice(ui.indexOf('export function Header'),ui.indexOf('export function PreviewBar'));
+  const actions=header.slice(header.indexOf('className="header-actions"'));
+  assert.ok(actions.indexOf('search-link')<actions.indexOf('shop-link'),'Search sits before Shop Frames');
+  assert.ok(actions.includes('<Icon name="search" size={18}/><span>Search</span>'));
+  const search=ui.slice(ui.indexOf('function SiteSearch'),ui.indexOf('export function Header'));
+  assert.ok(!search.includes('min-width: 641px'),'the panel is not limited to phones');
+  assert.ok(search.includes("if(e.key==='Escape'){e.preventDefault();onClose();}"));
+  assert.ok(css.includes('@media (min-width: 641px) { .menu-drawer { display: none; } }'));
+  assert.ok(css.includes('.search-inner { max-width: 760px; margin: 0 auto;'));
 });
 test('site search finds houses, frames, services and pages, ignoring case and accents, and keeps the referral',async()=>{
   const { searchSite }=await import('../lib/search.js');
