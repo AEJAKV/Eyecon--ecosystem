@@ -1054,19 +1054,23 @@ button.review-text { padding: 0; border: 0; background: none; color: inherit; fo
 @media (min-width: 641px) { .shop-banner :focus-visible { outline-color: #fff; } }
 
 /* ---------- Phone header and menu drawer (640px and narrower only) ---------- */
-/* Like a fashion house: the menu button on the left, the logo with its mark centred, and an empty slot on the right the
-   same width as the menu button so the logo sits in the true centre. Book, Shop Frames, the phone and the location move
-   into the drawer; the hero already carries the booking button. Wider screens are unchanged. */
-.menu-toggle, .menu-spacer { display: none; }
+/* Like a fashion house: the menu button on the left, the logo with its mark centred, and search and the shopping bag
+   (Shop Frames) on the right. The two outer columns are the same width so the logo sits in the true centre. Book, Shop
+   Frames, the phone and the location are in the drawer; the hero already carries the booking button. Wider screens are
+   unchanged. */
+.menu-toggle, .menu-spacer, .header-icons { display: none; }
 @media (max-width: 640px) {
-  .site-header .header-inner { display: grid; grid-template-columns: 44px 1fr 44px; align-items: center; gap: .5rem; }
+  .site-header .header-inner { display: grid; grid-template-columns: 84px 1fr 84px; align-items: center; gap: .25rem; }
   .site-header .header-actions { display: none; }
-  .menu-spacer { display: block; width: 44px; height: 44px; }
-  .menu-toggle { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; margin-left: -10px; padding: 0; border: 0; background: none; color: inherit; cursor: pointer; }
-  .menu-toggle svg { stroke-width: 1.25; }
+  .header-icons { display: flex; justify-content: flex-end; margin-right: -8px; }
+  .icon-link { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; padding: 0; border: 0; background: none; color: inherit; cursor: pointer; }
+  .icon-link svg, .menu-toggle svg { stroke-width: 1.25; }
+  .site-header.overlay:not(.scrolled) .icon-link { filter: drop-shadow(0 1px 8px rgba(20, 24, 29, .45)); }
+  .menu-toggle { justify-self: start; display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; margin-left: -10px; padding: 0; border: 0; background: none; color: inherit; cursor: pointer; }
   .site-header.overlay:not(.scrolled) .menu-toggle { filter: drop-shadow(0 1px 8px rgba(20, 24, 29, .45)); }
-  .site-header .logo { justify-self: center; --word: 1.3rem; }
+  .site-header .logo { justify-self: center; --word: 1.2rem; }
 }
+@media (max-width: 374px) { .site-header .logo { --word: 1.05rem; } }
 /* The drawer slides in from the left over a dimmed page; tapping the dimmed page, the close button or Escape closes it. */
 .menu-drawer { position: fixed; inset: 0 auto 0 0; width: min(88vw, 380px); max-width: none; height: 100dvh; max-height: none; margin: 0; padding: 0; border: 0; background: var(--paper); color: var(--ink); overflow-y: auto; overscroll-behavior: contain; }
 .menu-drawer[open] { animation: menu-in .42s var(--ease); }
@@ -1092,8 +1096,30 @@ html:has(.menu-drawer[open]) { overflow: hidden; }
 .menu-contact-row.pending { color: var(--muted); font-style: italic; }
 /* Hover colours only on devices with a pointer, so a tap never leaves a link gold. */
 @media (hover: hover) and (max-width: 640px) {
-  .menu-toggle:hover, .menu-nav a:hover, a.menu-contact-row:hover { color: var(--gold-text); }
-  .site-header.overlay:not(.scrolled) .menu-toggle:hover { color: #e3d4b1; }
+  .menu-toggle:hover, .icon-link:hover, .menu-nav a:hover, a.menu-contact-row:hover, .search-results a:hover strong { color: var(--gold-text); }
+  .site-header.overlay:not(.scrolled) .menu-toggle:hover, .site-header.overlay:not(.scrolled) .icon-link:hover { color: #e3d4b1; }
 }
-@media (prefers-reduced-motion: reduce) { .menu-drawer[open], .menu-drawer::backdrop { animation: none; } }
-@media (min-width: 641px) { .menu-drawer { display: none; } }
+/* Search drops from the top: the field, then results grouped by a small label (house, frame, service or page). */
+.search-panel { position: fixed; inset: 0 0 auto 0; width: 100%; max-width: none; max-height: 100dvh; margin: 0; padding: 0; border: 0; background: var(--paper); color: var(--ink); overflow-y: auto; overscroll-behavior: contain; }
+.search-panel[open] { animation: search-in .36s var(--ease); }
+.search-panel::backdrop { background: rgba(20, 24, 29, .45); animation: menu-fade .36s ease; }
+@keyframes search-in { from { transform: translateY(-24px); opacity: 0; } }
+html:has(.search-panel[open]) { overflow: hidden; }
+.search-inner { padding: 1rem 1.25rem 1.75rem; }
+.search-bar { display: flex; align-items: center; gap: .6rem; border-bottom: 1px solid var(--ink); }
+.search-bar > svg { flex: none; stroke-width: 1.25; }
+/* The field is a bare line of text on the underline, not the boxed form field used elsewhere; the underline turns gold
+   while it has focus. */
+.search-bar input:not([type=checkbox]):not([type=radio]) { flex: 1; width: auto; min-width: 0; min-height: 52px; padding: 0; border: 0; border-radius: 0; background: none; color: inherit; font: 400 1.1rem/1.3 var(--sans); outline: none; -webkit-appearance: none; appearance: none; }
+.search-bar:focus-within { border-bottom-color: var(--gold-text); box-shadow: 0 1px 0 var(--gold-text); }
+.search-bar input::-webkit-search-cancel-button { display: none; }
+.search-bar .menu-close { margin: 0 -10px 0 0; }
+.search-label { margin: 1.5rem 0 .25rem; }
+.search-empty { color: var(--muted); font-size: .95rem; margin: .5rem 0 0; }
+.search-results { list-style: none; margin: 0; padding: 0; }
+.search-results a { display: block; padding: .8rem 0; border-bottom: 1px solid var(--line); text-decoration: none; color: inherit; }
+.search-results small { display: block; font-size: .68rem; letter-spacing: .14em; text-transform: uppercase; color: var(--gold-text); }
+.search-results strong { display: block; font: 420 1.2rem/1.25 var(--serif); }
+.search-results em { display: block; font-style: normal; font-size: .9rem; color: var(--muted); margin-top: .15rem; }
+@media (prefers-reduced-motion: reduce) { .menu-drawer[open], .menu-drawer::backdrop, .search-panel[open], .search-panel::backdrop { animation: none; } }
+@media (min-width: 641px) { .menu-drawer, .search-panel { display: none; } }

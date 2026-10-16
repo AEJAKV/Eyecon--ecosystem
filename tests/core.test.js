@@ -111,10 +111,35 @@ test('on phones the header is a menu button and a centred logo, and the drawer h
   const header=ui.slice(ui.indexOf('export function Header'),ui.indexOf('export function PreviewBar'));
   assert.ok(header.indexOf('className="menu-toggle"')<header.indexOf('<Logo/>'),'menu button sits left of the logo');
   assert.ok(header.indexOf('</header>')<header.indexOf('<MobileMenu'),'drawer sits outside the header so the overlay never tints it');
-  assert.ok(css.includes('.menu-toggle, .menu-spacer { display: none; }'),'wider screens never show the menu button');
-  assert.match(css,/@media \(max-width: 640px\) \{\s*\.site-header \.header-inner \{ display: grid; grid-template-columns: 44px 1fr 44px;[^}]*\}\s*\.site-header \.header-actions \{ display: none; \}/);
+  assert.match(css,/@media \(max-width: 640px\) \{\s*\.site-header \.header-inner \{ display: grid; grid-template-columns: 84px 1fr 84px;[^}]*\}\s*\.site-header \.header-actions \{ display: none; \}/);
   assert.ok(css.includes('.site-header .logo { justify-self: center;'));
   assert.ok(ui.includes(',pin:<>'),'location pin icon');
+});
+test('on phones the right of the header has search and a shopping bag that goes to Shop Frames',()=>{
+  const read=f=>readFileSync(new URL(f,import.meta.url),'utf8');
+  const ui=read('../components/ui.js'),css=read('../app/site.css');
+  const header=ui.slice(ui.indexOf('export function Header'),ui.indexOf('export function PreviewBar'));
+  assert.ok(header.indexOf('<Logo/>')<header.indexOf('className="header-icons"'),'icons sit right of the logo');
+  for(const part of ['aria-label="Search"','aria-controls="site-search"','<Link className="icon-link" href={shopHref} aria-label="Shop Frames"><Icon name="bag"','<SiteSearch'])assert.ok(header.includes(part),part);
+  assert.ok(css.includes('.menu-toggle, .menu-spacer, .header-icons { display: none; }'),'wider screens never show the phone icons');
+  assert.ok(css.includes('grid-template-columns: 84px 1fr 84px;'),'equal outer columns keep the logo centred');
+  assert.ok(css.includes('@media (min-width: 641px) { .menu-drawer, .search-panel { display: none; } }'));
+});
+test('site search finds houses, frames, services and pages, ignoring case and accents, and keeps the referral',async()=>{
+  const { searchSite }=await import('../lib/search.js');
+  assert.deepEqual(searchSite('  '),[]);
+  const cartier=searchSite('CARTIER');
+  assert.equal(cartier[0].title,'Cartier');assert.equal(cartier[0].group,'Houses');assert.equal(cartier[0].href,'/shop/cartier');
+  assert.ok(cartier.some(r=>r.group==='Frames'&&r.title==='Cartier Santos'&&r.href==='/shop/cartier'));
+  const exam=searchSite('eye exam');
+  assert.equal(exam[0].href,'/booking?service=eye-exam');
+  assert.ok(searchSite('CHILDRÉN').some(r=>r.title==='Children’s eye exam'),'accents and case are ignored');
+  assert.equal(searchSite('exam',{bookingHref:'/booking?affiliate=alex'})[0].href,'/booking?affiliate=alex&service=eye-exam');
+  assert.equal(searchSite('cartier',{affiliate:'alex'})[0].href,'/shop/cartier?affiliate=alex');
+  assert.equal(searchSite('cartier',{affiliate:'not a slug'})[0].href,'/shop/cartier');
+  assert.deepEqual(searchSite('zzzz-nothing'),[]);
+  assert.ok(searchSite('find booking').some(r=>r.href==='/my-booking'));
+  for(const r of searchSite('frames'))assert.deepEqual(Object.keys(r).sort(),['group','href','sub','title']);
 });
 // Shop Frames page
 test('Shop frames points at the /shop page by default, from the header and under the carousel',()=>{

@@ -86,6 +86,7 @@ eyecon-module-1/
 │   ├── notifications.js
 │   ├── performance.js
 │   ├── reviews.js
+│   ├── search.js
 │   ├── server.js
 │   ├── shop.js
 │   ├── supabase.js
@@ -1933,19 +1934,23 @@ button.review-text { padding: 0; border: 0; background: none; color: inherit; fo
 @media (min-width: 641px) { .shop-banner :focus-visible { outline-color: #fff; } }
 
 /* ---------- Phone header and menu drawer (640px and narrower only) ---------- */
-/* Like a fashion house: the menu button on the left, the logo with its mark centred, and an empty slot on the right the
-   same width as the menu button so the logo sits in the true centre. Book, Shop Frames, the phone and the location move
-   into the drawer; the hero already carries the booking button. Wider screens are unchanged. */
-.menu-toggle, .menu-spacer { display: none; }
+/* Like a fashion house: the menu button on the left, the logo with its mark centred, and search and the shopping bag
+   (Shop Frames) on the right. The two outer columns are the same width so the logo sits in the true centre. Book, Shop
+   Frames, the phone and the location are in the drawer; the hero already carries the booking button. Wider screens are
+   unchanged. */
+.menu-toggle, .menu-spacer, .header-icons { display: none; }
 @media (max-width: 640px) {
-  .site-header .header-inner { display: grid; grid-template-columns: 44px 1fr 44px; align-items: center; gap: .5rem; }
+  .site-header .header-inner { display: grid; grid-template-columns: 84px 1fr 84px; align-items: center; gap: .25rem; }
   .site-header .header-actions { display: none; }
-  .menu-spacer { display: block; width: 44px; height: 44px; }
-  .menu-toggle { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; margin-left: -10px; padding: 0; border: 0; background: none; color: inherit; cursor: pointer; }
-  .menu-toggle svg { stroke-width: 1.25; }
+  .header-icons { display: flex; justify-content: flex-end; margin-right: -8px; }
+  .icon-link { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; padding: 0; border: 0; background: none; color: inherit; cursor: pointer; }
+  .icon-link svg, .menu-toggle svg { stroke-width: 1.25; }
+  .site-header.overlay:not(.scrolled) .icon-link { filter: drop-shadow(0 1px 8px rgba(20, 24, 29, .45)); }
+  .menu-toggle { justify-self: start; display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; margin-left: -10px; padding: 0; border: 0; background: none; color: inherit; cursor: pointer; }
   .site-header.overlay:not(.scrolled) .menu-toggle { filter: drop-shadow(0 1px 8px rgba(20, 24, 29, .45)); }
-  .site-header .logo { justify-self: center; --word: 1.3rem; }
+  .site-header .logo { justify-self: center; --word: 1.2rem; }
 }
+@media (max-width: 374px) { .site-header .logo { --word: 1.05rem; } }
 /* The drawer slides in from the left over a dimmed page; tapping the dimmed page, the close button or Escape closes it. */
 .menu-drawer { position: fixed; inset: 0 auto 0 0; width: min(88vw, 380px); max-width: none; height: 100dvh; max-height: none; margin: 0; padding: 0; border: 0; background: var(--paper); color: var(--ink); overflow-y: auto; overscroll-behavior: contain; }
 .menu-drawer[open] { animation: menu-in .42s var(--ease); }
@@ -1971,11 +1976,33 @@ html:has(.menu-drawer[open]) { overflow: hidden; }
 .menu-contact-row.pending { color: var(--muted); font-style: italic; }
 /* Hover colours only on devices with a pointer, so a tap never leaves a link gold. */
 @media (hover: hover) and (max-width: 640px) {
-  .menu-toggle:hover, .menu-nav a:hover, a.menu-contact-row:hover { color: var(--gold-text); }
-  .site-header.overlay:not(.scrolled) .menu-toggle:hover { color: #e3d4b1; }
+  .menu-toggle:hover, .icon-link:hover, .menu-nav a:hover, a.menu-contact-row:hover, .search-results a:hover strong { color: var(--gold-text); }
+  .site-header.overlay:not(.scrolled) .menu-toggle:hover, .site-header.overlay:not(.scrolled) .icon-link:hover { color: #e3d4b1; }
 }
-@media (prefers-reduced-motion: reduce) { .menu-drawer[open], .menu-drawer::backdrop { animation: none; } }
-@media (min-width: 641px) { .menu-drawer { display: none; } }
+/* Search drops from the top: the field, then results grouped by a small label (house, frame, service or page). */
+.search-panel { position: fixed; inset: 0 0 auto 0; width: 100%; max-width: none; max-height: 100dvh; margin: 0; padding: 0; border: 0; background: var(--paper); color: var(--ink); overflow-y: auto; overscroll-behavior: contain; }
+.search-panel[open] { animation: search-in .36s var(--ease); }
+.search-panel::backdrop { background: rgba(20, 24, 29, .45); animation: menu-fade .36s ease; }
+@keyframes search-in { from { transform: translateY(-24px); opacity: 0; } }
+html:has(.search-panel[open]) { overflow: hidden; }
+.search-inner { padding: 1rem 1.25rem 1.75rem; }
+.search-bar { display: flex; align-items: center; gap: .6rem; border-bottom: 1px solid var(--ink); }
+.search-bar > svg { flex: none; stroke-width: 1.25; }
+/* The field is a bare line of text on the underline, not the boxed form field used elsewhere; the underline turns gold
+   while it has focus. */
+.search-bar input:not([type=checkbox]):not([type=radio]) { flex: 1; width: auto; min-width: 0; min-height: 52px; padding: 0; border: 0; border-radius: 0; background: none; color: inherit; font: 400 1.1rem/1.3 var(--sans); outline: none; -webkit-appearance: none; appearance: none; }
+.search-bar:focus-within { border-bottom-color: var(--gold-text); box-shadow: 0 1px 0 var(--gold-text); }
+.search-bar input::-webkit-search-cancel-button { display: none; }
+.search-bar .menu-close { margin: 0 -10px 0 0; }
+.search-label { margin: 1.5rem 0 .25rem; }
+.search-empty { color: var(--muted); font-size: .95rem; margin: .5rem 0 0; }
+.search-results { list-style: none; margin: 0; padding: 0; }
+.search-results a { display: block; padding: .8rem 0; border-bottom: 1px solid var(--line); text-decoration: none; color: inherit; }
+.search-results small { display: block; font-size: .68rem; letter-spacing: .14em; text-transform: uppercase; color: var(--gold-text); }
+.search-results strong { display: block; font: 420 1.2rem/1.25 var(--serif); }
+.search-results em { display: block; font-style: normal; font-size: .9rem; color: var(--muted); margin-top: .15rem; }
+@media (prefers-reduced-motion: reduce) { .menu-drawer[open], .menu-drawer::backdrop, .search-panel[open], .search-panel::backdrop { animation: none; } }
+@media (min-width: 641px) { .menu-drawer, .search-panel { display: none; } }
 ```
 
 ## CLAUDE.md
@@ -3994,16 +4021,18 @@ export default function SkinTechnologies({ value = '', onChange, hrefFor }) {
 'use client';
 import Link from 'next/link';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import { useEffect,useRef,useState } from 'react';
 import { clinic,DEMO,GIFT_CARD_DAYS,formatDate,shopUrl } from '@/lib/config';
 import { giftCode,HIDDEN_SERIAL } from '@/lib/gift';
-export function Icon({name='eye',size=24}){const paths={eye:<><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></>,circle:<><circle cx="12" cy="12" r="8"/><path d="m5 18 13-13"/></>,drop:<path d="M12 2S5 10 5 15a7 7 0 0 0 14 0c0-5-7-13-7-13Z"/>,people:<><circle cx="8" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M2 21v-3a6 6 0 0 1 12 0v3m2-7a5 5 0 0 1 6 5v2"/></>,scan:<><path d="M3 8V3h5m8 0h5v5M3 16v5h5m8 0h5v-5M6 12h12"/><circle cx="12" cy="12" r="3"/></>,glasses:<><circle cx="6" cy="14" r="4"/><circle cx="18" cy="14" r="4"/><path d="M10 14h4M2 14l2-7m18 7-2-7"/></>,phone:<path d="M5 3h4l2 5-3 2a16 16 0 0 0 6 6l2-3 5 2v4c0 2-3 3-5 2A22 22 0 0 1 3 8c-1-2 0-5 2-5Z"/>,gift:<><path d="M3 9h18v4H3zM5 13v8h14v-8M12 9v12"/><path d="M12 9C4 9 5 1 9 4l3 5c8 0 7-8 3-5l-3 5Z"/></>,check:<path d="m5 12 4 4L20 5"/>,menu:<path d="M3 6h18M3 12h18M3 18h18"/>,close:<path d="m6 6 12 12M6 18 18 6"/>,calendar:<><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4m10-4v4M3 11h18"/></>,skin:<><path d="M11 3C7 3 4.5 6 4.5 10.5c0 4.8 2.9 8.8 6.5 10.5 3.6-1.7 6.5-5.7 6.5-10.5"/><path d="M8.5 15c1.4 1 3.6 1 5 0"/><path d="M18.5 2.5v4m-2-2h4"/></>,bag:<><path d="M5 8h14l-1 13H6L5 8Z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></>,pin:<><path d="M12 21.5s-7-6.3-7-11.7a7 7 0 0 1 14 0c0 5.4-7 11.7-7 11.7Z"/><circle cx="12" cy="9.8" r="2.4"/></>,heart:<path d="M12 20.5S3.5 15.4 3.5 9.3A4.3 4.3 0 0 1 12 7.2a4.3 4.3 0 0 1 8.5 2.1c0 6.1-8.5 11.2-8.5 11.2Z"/>};return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]||paths.eye}</svg>;}
+import { searchEntries,searchSite } from '@/lib/search';
+export function Icon({name='eye',size=24}){const paths={eye:<><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></>,circle:<><circle cx="12" cy="12" r="8"/><path d="m5 18 13-13"/></>,drop:<path d="M12 2S5 10 5 15a7 7 0 0 0 14 0c0-5-7-13-7-13Z"/>,people:<><circle cx="8" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M2 21v-3a6 6 0 0 1 12 0v3m2-7a5 5 0 0 1 6 5v2"/></>,scan:<><path d="M3 8V3h5m8 0h5v5M3 16v5h5m8 0h5v-5M6 12h12"/><circle cx="12" cy="12" r="3"/></>,glasses:<><circle cx="6" cy="14" r="4"/><circle cx="18" cy="14" r="4"/><path d="M10 14h4M2 14l2-7m18 7-2-7"/></>,phone:<path d="M5 3h4l2 5-3 2a16 16 0 0 0 6 6l2-3 5 2v4c0 2-3 3-5 2A22 22 0 0 1 3 8c-1-2 0-5 2-5Z"/>,gift:<><path d="M3 9h18v4H3zM5 13v8h14v-8M12 9v12"/><path d="M12 9C4 9 5 1 9 4l3 5c8 0 7-8 3-5l-3 5Z"/></>,check:<path d="m5 12 4 4L20 5"/>,menu:<path d="M3 6h18M3 12h18M3 18h18"/>,close:<path d="m6 6 12 12M6 18 18 6"/>,calendar:<><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4m10-4v4M3 11h18"/></>,skin:<><path d="M11 3C7 3 4.5 6 4.5 10.5c0 4.8 2.9 8.8 6.5 10.5 3.6-1.7 6.5-5.7 6.5-10.5"/><path d="M8.5 15c1.4 1 3.6 1 5 0"/><path d="M18.5 2.5v4m-2-2h4"/></>,bag:<><path d="M5 8h14l-1 13H6L5 8Z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></>,search:<><circle cx="10.5" cy="10.5" r="6.5"/><path d="m20 20-4.9-4.9"/></>,pin:<><path d="M12 21.5s-7-6.3-7-11.7a7 7 0 0 1 14 0c0 5.4-7 11.7-7 11.7Z"/><circle cx="12" cy="9.8" r="2.4"/></>,heart:<path d="M12 20.5S3.5 15.4 3.5 9.3A4.3 4.3 0 0 1 12 7.2a4.3 4.3 0 0 1 8.5 2.1c0 6.1-8.5 11.2-8.5 11.2Z"/>};return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]||paths.eye}</svg>;}
 // The wordmark with Eyecon's mark: a thin gold outlined rectangle, 3:2, to the right of EYECON. It is drawn inline so it
 // stays sharp at any size, sits on the baseline at the height of the capitals, and is decorative (the link is labelled).
 export function Logo(){return <Link href="/" className="logo" aria-label="Eyecon Optometry home"><span>EYECON<svg className="logo-mark" viewBox="0 0 30 20" aria-hidden="true" focusable="false"><rect x="1" y="1" width="28" height="18" fill="none" stroke="currentColor" strokeWidth="2"/></svg></span><small>Optometry</small></Link>;}
 export function Button({children,href,secondary=false,className='',...props}){const classes=`button ${secondary?'secondary':''} ${className}`;return href?<Link className={classes} href={href} {...props}>{children}</Link>:<button className={classes} {...props}>{children}</button>;}
 // Phones (640px and narrower) get a cleaner bar, like a fashion house: a menu button on the left, the logo with its mark
-// centred, and an empty slot on the right that balances the menu button. Book, Shop Frames, the phone number and the
+// centred, and search and a shopping bag (to Shop Frames) on the right. Book, Shop Frames, the phone number and the
 // location move into the menu drawer, which sits outside the header so the white overlay header never tints it. Wider screens keep the row of actions on the right. shopHref carries an
 // affiliate's referral into both.
 function MobileMenu({open,onClose,bookingHref,bookingLabel,shopHref}){
@@ -4030,9 +4059,35 @@ function MobileMenu({open,onClose,bookingHref,bookingLabel,shopHref}){
       </div>
     </div>
   </dialog>;}
+// Phone search: a panel that drops from the top with the field focused. It searches the houses, frames, services and a
+// few pages (lib/search.js); before anything is typed it suggests the most visited places.
+function SiteSearch({open,onClose,bookingHref,shopHref}){
+  const ref=useRef(null),input=useRef(null),router=useRouter();
+  const [query,setQuery]=useState('');
+  const affiliate=(()=>{try{return new URL(shopHref,'https://eyecon.local').searchParams.get('affiliate');}catch{return null;}})();
+  const options={bookingHref,shopHref,affiliate};
+  useEffect(()=>{const d=ref.current;if(!d)return;if(open&&!d.open){setQuery('');d.showModal();requestAnimationFrame(()=>input.current?.focus());}if(!open&&d.open)d.close();},[open]);
+  useEffect(()=>{if(!open)return;const mq=window.matchMedia('(min-width: 641px)');const on=()=>{if(mq.matches)onClose();};mq.addEventListener('change',on);return()=>mq.removeEventListener('change',on);},[open,onClose]);
+  const results=searchSite(query,options);
+  const entries=searchEntries(options),suggestions=['Book an appointment','Shop all frames','Cartier','Find my booking'].map(t=>entries.find(e=>e.title===t)).filter(Boolean);
+  const list=query.trim()?results:suggestions;
+  return <dialog ref={ref} id="site-search" className="search-panel" aria-label="Search" onCancel={onClose} onClose={onClose} onClick={e=>{if(e.target===ref.current)onClose();}}>
+    <div className="search-inner">
+      <form className="search-bar" role="search" onSubmit={e=>{e.preventDefault();if(results[0]){onClose();router.push(results[0].href);}}}>
+        <Icon name="search" size={20}/>
+        <label htmlFor="site-search-input" className="sr-only">Search frames, houses and services</label>
+        <input ref={input} id="site-search-input" type="search" enterKeyHint="search" autoComplete="off" placeholder="Search frames, houses, services" value={query} onChange={e=>setQuery(e.target.value)}/>
+        <button type="button" className="menu-close" onClick={onClose} aria-label="Close search"><Icon name="close" size={22}/></button>
+      </form>
+      <p className="eyebrow search-label" aria-live="polite">{query.trim()?(results.length?results.length+(results.length===1?' result':' results'):'No results'):'Popular'}</p>
+      {query.trim()&&!results.length&&<p className="search-empty">Nothing matches “{query.trim()}”. Try a house such as Cartier, or a service such as eye exam.</p>}
+      <ul className="search-results">{list.map(r=><li key={r.group+r.title+r.href}><Link href={r.href} onClick={onClose}><span><small>{r.group}</small><strong>{r.title}</strong>{r.sub&&<em>{r.sub}</em>}</span></Link></li>)}</ul>
+    </div>
+  </dialog>;}
 export function Header({bookingHref='/booking',bookingLabel='Book appointment',bookingShort='Book',shopHref=shopUrl,overlay=false}){
   const [scrolled,setScrolled]=useState(false);
   const [menu,setMenu]=useState(false);
+  const [find,setFind]=useState(false);
   useEffect(()=>{const on=()=>setScrolled(window.scrollY>(overlay?40:24));on();window.addEventListener('scroll',on,{passive:true});return()=>window.removeEventListener('scroll',on);},[overlay]);
   return <><header className={`site-header ${overlay?'overlay':''} ${scrolled?'scrolled':''}`}><div className="header-inner">
     <button type="button" className="menu-toggle" aria-label="Open menu" aria-haspopup="dialog" aria-expanded={menu} aria-controls="site-menu" onClick={()=>setMenu(true)}><Icon name="menu" size={24}/></button>
@@ -4042,8 +4097,12 @@ export function Header({bookingHref='/booking',bookingLabel='Book appointment',b
       ?<a className="call-link" href={clinic.phoneHref} aria-label={'Call Eyecon at '+clinic.phone}><Icon name="phone" size={18}/><span>{clinic.phone}</span></a>
       :<span className="call-link pending" title="The clinic phone number will be added before launch"><Icon name="phone" size={18}/><span>Clinic phone</span></span>}
     <Button href={bookingHref} aria-label={bookingLabel}><span className="label-long">{bookingLabel}</span><span className="label-short" aria-hidden="true">{bookingShort}</span></Button></div>
-    <span className="menu-spacer" aria-hidden="true"/></div></header>
-    <MobileMenu open={menu} onClose={()=>setMenu(false)} bookingHref={bookingHref} bookingLabel={bookingLabel} shopHref={shopHref}/></>;}
+    <div className="header-icons">
+      <button type="button" className="icon-link" aria-label="Search" aria-haspopup="dialog" aria-expanded={find} aria-controls="site-search" onClick={()=>setFind(true)}><Icon name="search" size={22}/></button>
+      <Link className="icon-link" href={shopHref} aria-label="Shop Frames"><Icon name="bag" size={22}/></Link>
+    </div></div></header>
+    <MobileMenu open={menu} onClose={()=>setMenu(false)} bookingHref={bookingHref} bookingLabel={bookingLabel} shopHref={shopHref}/>
+    <SiteSearch open={find} onClose={()=>setFind(false)} bookingHref={bookingHref} shopHref={shopHref}/></>;}
 export function PreviewBar(){return DEMO?<div className="preview-bar">Design preview · Use fictional patient details.<Link href="/login">Explore workspaces</Link></div>:null;}
 export function Referral({affiliate}){return affiliate?<div className="referral"><img src={affiliate.photo||'/images/affiliate.webp'} width="56" height="56" alt=""/><div><small>Introduced by</small><strong>{affiliate.name}</strong></div></div>:null;}
 // The $50 gift pill. Before booking it shows the affiliate's card number with the serial hidden; once the booking has
@@ -4764,6 +4823,49 @@ export function excerpt(text, max = EXCERPT_LENGTH) {
   if (text.length <= max) return text;
   const cut = text.slice(0, max - 1), space = cut.lastIndexOf(' ');
   return (space > max * 0.6 ? cut.slice(0, space) : cut).replace(/[\s,;:.\-—]+$/, '') + '…';
+}
+```
+
+## lib/search.js
+
+```javascript
+import { collections, frames, services } from './config.js';
+import { withAffiliate } from './affiliate.js';
+
+// Site search for the phone header. It searches what the site already has: the houses (brands), the sample frames,
+// the services and a few pages. Every word typed must appear somewhere in an entry (accents and case are ignored).
+// Houses and frames open the brand's page under /shop; services open the booking page with that service chosen.
+// bookingHref and affiliate keep an affiliate's referral on every result.
+const fold = text => String(text || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+const join = (href, key, value) => href + (href.split('#')[0].includes('?') ? '&' : '?') + key + '=' + encodeURIComponent(value);
+
+export function searchEntries({ bookingHref = '/booking', shopHref = '/shop', affiliate } = {}) {
+  const brandName = slug => collections.find(c => c.slug === slug)?.name || '';
+  return [
+    ...collections.map(c => ({ group: 'Houses', title: c.name, sub: c.tagline, href: withAffiliate('/shop/' + c.slug, affiliate), words: [c.name, c.line, c.tagline, 'frames glasses eyewear brand'] })),
+    ...frames.map(f => ({ group: 'Frames', title: brandName(f.brand) + ' ' + f.model, sub: f.material, href: withAffiliate('/shop/' + f.brand, affiliate), words: [brandName(f.brand), f.model, f.material, 'frame glasses eyewear'] })),
+    ...services.map(s => ({ group: 'Services', title: s.name, sub: s.description, href: join(bookingHref, 'service', s.id), words: [s.name, s.short, s.description, 'book appointment'] })),
+    { group: 'Pages', title: 'Shop all frames', sub: 'The houses we carry and featured frames', href: shopHref, words: ['shop frames glasses eyewear boutique collections brands'] },
+    { group: 'Pages', title: 'Book an appointment', sub: 'Choose a service, a doctor and a time', href: bookingHref, words: ['book booking appointment schedule exam doctor optometrist'] },
+    { group: 'Pages', title: 'Find my booking', sub: 'See your appointment details', href: '/my-booking', words: ['find my booking lookup appointment reference change'] },
+  ];
+}
+
+export function searchSite(query, options) {
+  const terms = fold(query).split(/\s+/).filter(Boolean);
+  if (!terms.length) return [];
+  return searchEntries(options)
+    .map(entry => {
+      const title = fold(entry.title), text = fold([entry.title, entry.sub, ...entry.words].join(' '));
+      if (!terms.every(t => text.includes(t))) return null;
+      // Matches at the start of the title rank first, then anywhere in the title, then elsewhere.
+      const score = terms.reduce((n, t) => n + (title.startsWith(t) ? 3 : title.includes(t) ? 2 : 1), 0);
+      return { ...entry, score };
+    })
+    .filter(Boolean)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 12)
+    .map(({ words, score, ...result }) => result);
 }
 ```
 
@@ -7168,10 +7270,35 @@ test('on phones the header is a menu button and a centred logo, and the drawer h
   const header=ui.slice(ui.indexOf('export function Header'),ui.indexOf('export function PreviewBar'));
   assert.ok(header.indexOf('className="menu-toggle"')<header.indexOf('<Logo/>'),'menu button sits left of the logo');
   assert.ok(header.indexOf('</header>')<header.indexOf('<MobileMenu'),'drawer sits outside the header so the overlay never tints it');
-  assert.ok(css.includes('.menu-toggle, .menu-spacer { display: none; }'),'wider screens never show the menu button');
-  assert.match(css,/@media \(max-width: 640px\) \{\s*\.site-header \.header-inner \{ display: grid; grid-template-columns: 44px 1fr 44px;[^}]*\}\s*\.site-header \.header-actions \{ display: none; \}/);
+  assert.match(css,/@media \(max-width: 640px\) \{\s*\.site-header \.header-inner \{ display: grid; grid-template-columns: 84px 1fr 84px;[^}]*\}\s*\.site-header \.header-actions \{ display: none; \}/);
   assert.ok(css.includes('.site-header .logo { justify-self: center;'));
   assert.ok(ui.includes(',pin:<>'),'location pin icon');
+});
+test('on phones the right of the header has search and a shopping bag that goes to Shop Frames',()=>{
+  const read=f=>readFileSync(new URL(f,import.meta.url),'utf8');
+  const ui=read('../components/ui.js'),css=read('../app/site.css');
+  const header=ui.slice(ui.indexOf('export function Header'),ui.indexOf('export function PreviewBar'));
+  assert.ok(header.indexOf('<Logo/>')<header.indexOf('className="header-icons"'),'icons sit right of the logo');
+  for(const part of ['aria-label="Search"','aria-controls="site-search"','<Link className="icon-link" href={shopHref} aria-label="Shop Frames"><Icon name="bag"','<SiteSearch'])assert.ok(header.includes(part),part);
+  assert.ok(css.includes('.menu-toggle, .menu-spacer, .header-icons { display: none; }'),'wider screens never show the phone icons');
+  assert.ok(css.includes('grid-template-columns: 84px 1fr 84px;'),'equal outer columns keep the logo centred');
+  assert.ok(css.includes('@media (min-width: 641px) { .menu-drawer, .search-panel { display: none; } }'));
+});
+test('site search finds houses, frames, services and pages, ignoring case and accents, and keeps the referral',async()=>{
+  const { searchSite }=await import('../lib/search.js');
+  assert.deepEqual(searchSite('  '),[]);
+  const cartier=searchSite('CARTIER');
+  assert.equal(cartier[0].title,'Cartier');assert.equal(cartier[0].group,'Houses');assert.equal(cartier[0].href,'/shop/cartier');
+  assert.ok(cartier.some(r=>r.group==='Frames'&&r.title==='Cartier Santos'&&r.href==='/shop/cartier'));
+  const exam=searchSite('eye exam');
+  assert.equal(exam[0].href,'/booking?service=eye-exam');
+  assert.ok(searchSite('CHILDRÉN').some(r=>r.title==='Children’s eye exam'),'accents and case are ignored');
+  assert.equal(searchSite('exam',{bookingHref:'/booking?affiliate=alex'})[0].href,'/booking?affiliate=alex&service=eye-exam');
+  assert.equal(searchSite('cartier',{affiliate:'alex'})[0].href,'/shop/cartier?affiliate=alex');
+  assert.equal(searchSite('cartier',{affiliate:'not a slug'})[0].href,'/shop/cartier');
+  assert.deepEqual(searchSite('zzzz-nothing'),[]);
+  assert.ok(searchSite('find booking').some(r=>r.href==='/my-booking'));
+  for(const r of searchSite('frames'))assert.deepEqual(Object.keys(r).sort(),['group','href','sub','title']);
 });
 // Shop Frames page
 test('Shop frames points at the /shop page by default, from the header and under the carousel',()=>{
@@ -7444,7 +7571,7 @@ A complete Next.js project for the affiliate referral and appointment-booking ex
 ## What is included
 
 - Premium public landing page and personalised affiliate landing pages, with “Shop Frames” in the header on tablets and desktops, the appointments section and a “Shop all frames →” link under the collections carousel. They go to `shopUrl` in `lib/config.js` (or `NEXT_PUBLIC_SHOP_URL`), which is `/shop` by default.
-- On phones (640px and narrower) the site header is a menu button on the left and the Eyecon logo with its mark centred; the menu opens a drawer from the left with Book appointment, Shop Frames, the clinic phone (tap to call) and the address (opens Google Maps). Tablets and desktops keep Shop Frames, the phone and Book appointment in the header.
+- On phones (640px and narrower) the site header is a menu button on the left, the Eyecon logo with its mark centred, and search and a shopping bag (to Shop Frames) on the right. Search (`lib/search.js`) drops a panel from the top and finds the houses, sample frames, services and pages as you type, suggesting popular places before you type; services open booking with that service chosen and every result keeps an affiliate's referral. the menu opens a drawer from the left with Book appointment, Shop Frames, the clinic phone (tap to call) and the address (opens Google Maps). Tablets and desktops keep Shop Frames, the phone and Book appointment in the header.
 - Shop Frames page at `/shop`, a boutique page for the houses Eyecon carries and featured frames. It opens with a photo header (`public/images/shop/hero-desktop.webp`, and `hero-mobile.webp` on phones): white words in the left third over a dark panel with the photograph on the right two-thirds, under the white overlay site header; on phones the words sit above the 4:5 photograph. If the photograph is missing the plain centred heading shows instead. Then comes a “Featured this week” row: a scroll-snap row of frame cards (4 with the next peeking on desktop, 1½ on phones), arrows and arrow keys, a “New” tag, a heart that saves the frame in this browser, and “Reserve to try”, which books a styling visit with the brand chosen. Photographs go in `public/images/shop/frames/[slug].webp`; until then each card shows “Photograph to follow”, and demo mode labels the row “Sample selection”. Below it come the houses, in `collections` order: each `banner` brand is a full-width photograph (`public/images/shop/banners/[slug]-desktop.webp`; phones use the brand photograph `public/images/brands/[slug].webp`) with its tagline and “Shop the collection”, and consecutive `tile` brands form rows of three (`public/images/brands/[slug].webp`, the carousel photograph) with “Discover”; both fall back to the carousel photograph. On phones banners put their words below a 4:5 photograph and tile rows swipe with a “1 / 3” counter. Short tile rows are filled by, and the page always ends with, “Book a styling visit” and “Visit the boutique” (Get directions opens Google Maps once the clinic address is set). Each brand has its own page at `/shop/[slug]` (built ahead for every brand; it reads `?affiliate=` in the browser so the pages stay static) with “← All frames”, the banner, the blurb, a grid of that brand’s frames (4 columns, 2 on tablets and phones; “New pieces arriving soon” while it has none) and “Want to try [Brand] in person?”. the brands (`collections`, with a tagline, blurb and banner or tile layout each) and six sample frames (`frames`, to replace with frames Eyecon stocks; a price shows only once filled in) are in `lib/config.js`. Opened with `?affiliate=SLUG`, every booking link on the page carries the same affiliate (`withAffiliate` in `lib/affiliate.js`), and an affiliate landing page passes its referral on to the shop links.
 - Non-Invasive Skin Tightening as a service, with its technologies (`skinTechnologies` in `lib/config.js`, bracketed placeholders until the clinic supplies them) shown as a swipeable, keyboard-friendly row of cards in the home page panel and booking step 1. Choosing a technology is optional and is saved with the booking.
 - “In their words” on the home page and the booking page’s left column show Eyecon’s real Google reviews (in `lib/config.js`, word for word, featured ones first). Long featured reviews show an excerpt with “Read full review”; review cards clamp to four lines and open on click. Until the clinic sets its real Google rating and review count, demo mode shows a sample rating labelled “Sample rating”; live mode shows none.
