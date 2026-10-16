@@ -125,6 +125,11 @@ test('on phones the right of the header has search and a shopping bag that goes 
   assert.ok(css.includes('grid-template-columns: 84px 1fr 84px;'),'equal outer columns keep the logo centred');
   assert.ok(css.includes('@media (min-width: 641px) { .menu-drawer, .search-panel { display: none; } }'));
 });
+test('on phones the hero line under the buttons is fine print',()=>{
+  const read=f=>readFileSync(new URL(f,import.meta.url),'utf8');
+  assert.ok(read('../components/landing.js').includes('<p className="hero-rating hero-fineprint">Book online in under a minute.</p>'));
+  assert.ok(read('../app/site.css').includes('  .hero-fineprint { font-size: .74rem; font-weight: 300; letter-spacing: .06em; line-height: 1.4; color: rgba(255, 255, 255, .62); }'));
+});
 test('site search finds houses, frames, services and pages, ignoring case and accents, and keeps the referral',async()=>{
   const { searchSite }=await import('../lib/search.js');
   assert.deepEqual(searchSite('  '),[]);

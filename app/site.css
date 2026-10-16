@@ -1099,6 +1099,12 @@ html:has(.menu-drawer[open]) { overflow: hidden; }
   .menu-toggle:hover, .icon-link:hover, .menu-nav a:hover, a.menu-contact-row:hover, .search-results a:hover strong { color: var(--gold-text); }
   .site-header.overlay:not(.scrolled) .menu-toggle:hover, .site-header.overlay:not(.scrolled) .icon-link:hover { color: #e3d4b1; }
 }
+/* Phones: "Book online in under a minute." under the hero buttons is fine print, smaller, lighter and at 62% white (the
+   hero entrance animation owns opacity, so the fade is in the colour), so the
+   two buttons stay the focus. The Google rating line, once it is set, keeps its normal size. */
+@media (max-width: 640px) {
+  .hero-fineprint { font-size: .74rem; font-weight: 300; letter-spacing: .06em; line-height: 1.4; color: rgba(255, 255, 255, .62); }
+}
 /* Search drops from the top: the field, then results grouped by a small label (house, frame, service or page). */
 .search-panel { position: fixed; inset: 0 0 auto 0; width: 100%; max-width: none; max-height: 100dvh; margin: 0; padding: 0; border: 0; background: var(--paper); color: var(--ink); overflow-y: auto; overscroll-behavior: contain; }
 .search-panel[open] { animation: search-in .36s var(--ease); }

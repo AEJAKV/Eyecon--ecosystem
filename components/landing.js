@@ -696,7 +696,7 @@ export default function Landing({ slug }) {
             </div>
             {clinic.rating
               ? <a className="hero-rating" href={clinic.reviews || '#reviews'} target={clinic.reviews ? '_blank' : undefined} rel="noopener noreferrer"><Stars value={clinic.rating} /><span><strong>{clinic.rating.toFixed(1)}</strong> on Google{clinic.reviewCount ? ` from ${clinic.reviewCount} reviews` : ''}</span></a>
-              : <p className="hero-rating">Book online in under a minute.</p>}
+              : <p className="hero-rating hero-fineprint">Book online in under a minute.</p>}
           </div>
         </div>
       </Hero>
