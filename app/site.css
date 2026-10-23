@@ -81,13 +81,15 @@ h3 { font-weight: 500; }
 .referral small, .referral strong { display: block; }
 .referral small { color: var(--muted); font-size: .82rem; letter-spacing: .03em; }
 .referral strong { font-size: 1.1rem; font-weight: 500; }
-.gift { display: flex; align-items: center; gap: 1.2rem; max-width: 34rem; padding: 1rem 1.25rem 1rem 1rem; border: 1px solid #d8c9a6; background: linear-gradient(105deg, #f3ecdc, #faf7f0 60%, #f1e8d4); border-radius: var(--radius); }
+.gift { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; column-gap: 1.2rem; row-gap: .45rem; max-width: 34rem; padding: 1rem 1.25rem 1rem 1rem; border: 1px solid #d8c9a6; background: linear-gradient(105deg, #f3ecdc, #faf7f0 60%, #f1e8d4); border-radius: var(--radius); }
 .gift-value { font-family: var(--serif); font-size: 2.3rem; line-height: 1; color: var(--gold-text); padding-right: 1.1rem; border-right: 1px solid #d8c9a6; }
 .gift strong { display: block; font-weight: 500; }
 .gift small { display: block; font-size: .8rem; line-height: 1.5; color: #6a5a39; margin-top: 2px; }
 /* The card number line: each part stays whole and the line wraps between parts */
 .gift small > span { white-space: nowrap; }
-.gift-serial { font-family: ui-monospace, 'SF Mono', 'Cascadia Mono', Menlo, Consolas, monospace; font-size: .95em; letter-spacing: .08em; }
+.gift-left[data-state='last'] { font-weight: 500; color: var(--ink); }
+/* The full card number sits on its own line at the lower right of the pill */
+.gift-number { grid-column: 1 / -1; justify-self: end; margin: 0; font-family: ui-monospace, 'SF Mono', 'Cascadia Mono', Menlo, Consolas, monospace; font-size: .95rem; line-height: 1.2; letter-spacing: .08em; color: var(--gold-text); white-space: nowrap; }
 .gift-terms { color: var(--gold-text); text-decoration: underline; text-underline-offset: 3px; }
 .gift-terms:hover { color: var(--ink); }
 .gift.compact { padding: .8rem 1rem .8rem .8rem; }
@@ -149,6 +151,7 @@ h3 { font-weight: 500; }
 .hero .gift-value { color: #e3d4b1; border-right-color: rgba(180, 154, 103, .55); }
 .hero .gift small { color: rgba(255, 255, 255, .8); }
 .hero .gift-terms { color: #e3d4b1; }
+.hero .gift-number, .hero .gift-left[data-state='last'] { color: #e3d4b1; }
 .hero .gift-terms:hover { color: #fff; }
 
 /* Page-load sequence: the one orchestrated moment on the page */

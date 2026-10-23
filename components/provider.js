@@ -1,11 +1,14 @@
 'use client';
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { DEMO, placeholderDoctors, setDoctorDirectory } from '@/lib/config';
-import { seedDemo, applyDemo, demoLookup } from '@/lib/demo';
+import { seedDemo, applyDemo, demoLookup, demoReleaseGift } from '@/lib/demo';
 import { browserClient, passwordLinkType, onPasswordForm, passwordFormPath } from '@/lib/supabase';
+import { clearStoredGifts } from '@/lib/gift-browser';
 const Context=createContext(null);
 export function Provider({children}){
   const [data,setData]=useState({affiliates:[],bookings:[],templates:[],slots:[],jobs:[]}),[user,setUser]=useState(null),[ready,setReady]=useState(false),[error,setError]=useState('');
+  // The demo functions read the latest data through a ref so a card released while another update is pending is not lost.
+  const latest=useRef(data);latest.current=data;
   // Optometrists (migration 010). Live: the website's list from /api/doctors, or every optometrist (hidden ones too)
   // once a workspace has loaded. Demo: this browser's demo data. setDoctorDirectory makes doctorName, findDoctor and
   // validateDoctor use the same list everywhere.
@@ -34,6 +37,8 @@ export function Provider({children}){
     const response=await fetch('/api/workspace',{method:'POST',headers:{...await headers(),'Content-Type':'application/json'},body:JSON.stringify({action,payload})});const result=await response.json();if(!response.ok)throw new Error(result.error);await reload();return result;
   }
   async function book(payload){if(DEMO)return action('booking',payload);const response=await fetch('/api/bookings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const result=await response.json();if(!response.ok)throw new Error(result.error);return result;}
+  // Opening an affiliate's link releases a gift card to the visitor ({ serial, releasedAt, expiresAt, token }); the 180 days start now.
+  async function releaseGift(slug){if(DEMO){const {data:next,card}=demoReleaseGift(latest.current,slug);latest.current=next;setData(next);return card;}const response=await fetch('/api/gift',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({slug})});const result=await response.json();if(!response.ok)throw new Error(result.error);return result;}
   async function photo(file,affiliateId){if(DEMO){const result=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=reject;reader.readAsDataURL(file);});const a=data.affiliates.find(a=>a.id===affiliateId);return action('profile',{...a,photo:result});}const form=new FormData();form.set('file',file);form.set('affiliateId',affiliateId);const res=await fetch('/api/workspace',{method:'POST',headers:await headers(),body:form});const result=await res.json();if(!res.ok)throw new Error(result.error);await reload();}
   // "Complete your file". files are [{file,kind}]. In the demo only each file's name, size and type are kept, never its contents.
   async function documentsLinkValid(token){if(DEMO){const b=data.bookings.find(b=>token&&b.documentsToken===token);return !!b&&!b.documentsUsedAt&&new Date(b.documentsExpiresAt)>new Date();}const res=await fetch('/api/documents',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token})});const result=await res.json();if(!res.ok)throw new Error(result.error);return result.valid;}
@@ -56,7 +61,7 @@ export function Provider({children}){
   async function lookupBooking(payload){if(DEMO)return {booking:demoLookup(data,payload)};const res=await fetch('/api/lookup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const result=await res.json();if(!res.ok)throw new Error(result.error);return result;}
   function demoSignIn(role){const u={role,affiliateId:role==='affiliate'?'demo-alex':null};setUser(u);sessionStorage.setItem('eyecon-demo-user',JSON.stringify(u));}
   async function signOut(){if(DEMO)sessionStorage.removeItem('eyecon-demo-user');else await browserClient().auth.signOut();setUser(null);}
-  function reset(){setData(seedDemo());sessionStorage.removeItem('eyecon-demo-user');setUser(null);}
+  function reset(){clearStoredGifts();setData(seedDemo());sessionStorage.removeItem('eyecon-demo-user');setUser(null);}
   // Staff admin > Doctors. Live: /api/doctors (staff only), then the workspace reloads. Demo: the same rules in lib/demo.js.
   async function doctorAction(name,payload){
     if(DEMO)return action(name,payload);
@@ -66,6 +71,6 @@ export function Provider({children}){
     if(DEMO){const url=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=reject;reader.readAsDataURL(file);});const d=doctors.find(d=>d.slug===doctor);return action('doctor',{...d,photo:url});}
     const form=new FormData();form.set('file',file);form.set('doctor',doctor);const response=await fetch('/api/doctors',{method:'POST',headers:await headers(),body:form});const result=await response.json();if(!response.ok)throw new Error(result.error);await reload();return result;
   }
-  return <Context.Provider value={{data,user,ready,error,reload,action,book,photo,documentsLinkValid,submitDocuments,lookupBooking,demoSignIn,signOut,reset,doctors,doctorsReady,doctorAction,doctorPhoto}}>{children}</Context.Provider>;
+  return <Context.Provider value={{data,user,ready,error,reload,action,book,releaseGift,photo,documentsLinkValid,submitDocuments,lookupBooking,demoSignIn,signOut,reset,doctors,doctorsReady,doctorAction,doctorPhoto}}>{children}</Context.Provider>;
 }
 export function useApp(){return useContext(Context);}

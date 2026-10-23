@@ -401,9 +401,9 @@ test('/shop opens with a photo header, the overlay site header, and the plain he
   assert.match(css,/@media \(max-width: 640px\) \{[^}]*\}[\s\S]*?\.shop-hero-photo \{ order: 1;[^}]*aspect-ratio: 4 \/ 5;/,'phones: words above the 4:5 photo');
 });
 
-test('the hero “Meet our optometrists” button scrolls to the doctors section',()=>{
+test('the hero “Pick your optometrist” button scrolls to the doctors section',()=>{
   const landing=readFileSync(new URL('../components/landing.js',import.meta.url),'utf8');
-  assert.ok(landing.includes('<a className="button outline" href="#doctors">Meet our optometrists</a>'));
+  assert.ok(landing.includes('<a className="button outline" href="#doctors">Pick your optometrist</a>'));
   assert.ok(/<section className="doctors" id="doctors" aria-labelledby="doctors-title"[ >]/.test(landing));
   assert.equal((landing.match(/id="doctors"/g)||[]).length,1,'one #doctors target');
   assert.ok(!landing.includes('See appointment types'));
@@ -568,4 +568,119 @@ test('the sign-in form has a show/hide password button and a Caps Lock warning',
   assert.match(form,/type=\{show\?'text':'password'\}/);assert.match(form,/aria-label=\{show\?'Hide password':'Show password'\}/);
   assert.match(form,/getModifierState\?\.\('CapsLock'\)/);assert.match(form,/Caps Lock is on/);
   assert.ok(!/id="password" type="password"/.test(form),'the old plain password box is gone');
+});
+
+// Gift cards released when a visitor opens an affiliate's link (Stage 3)
+import { releaseGiftCard,giftCountdown,giftDaysLeft,giftExpired,checkGiftClaim } from '../lib/gift.js';
+import { demoReleaseGift } from '../lib/demo.js';
+const GIFT_TZ='Pacific/Honolulu'; // UTC-10 all year, so these edge days do not depend on the clock-change rules in the machine's time zone data
+const released=(data=seedDemo(),slug='alex-morgan',now=new Date())=>demoReleaseGift(data,slug,now);
+const bookWith=(data,token,affiliateId='demo-alex',slot=data.slots[2])=>applyDemo(data,'booking',{...at(slot),affiliateId,giftToken:token},null);
+test('a released card starts its 180 days at release, with a six-character serial and no booking',()=>{
+  const now=new Date('2026-10-09T15:00:00.000Z'),c=releaseGiftCard(()=>false,now);
+  assert.match(c.serial,/^[2-9A-HJ-NP-Z]{6}$/);assert.equal(c.status,'Released');assert.equal(c.releasedAt,now.toISOString());
+  assert.equal(c.expiresAt,new Date(now.getTime()+180*86400000).toISOString());
+  const {data,card}=released(seedDemo(),'alex-morgan',now);
+  assert.deepEqual(Object.keys(card).sort(),['expiresAt','releasedAt','serial','token']);assert.ok(card.token.length>=64);
+  assert.equal(data.giftCards.length,1);assert.equal(data.giftCards[0].status,'Released');assert.equal(data.giftCards[0].bookingId,null);
+});
+test('a card is released only for a known, active affiliate, and never repeats a serial in use',()=>{
+  assert.throws(()=>released(seedDemo(),'nobody'),/unavailable/);
+  const off=seedDemo();off.affiliates[0].active=false;assert.throws(()=>released(off),/unavailable/);
+  const data=seedDemo(),used=data.bookings.find(b=>b.giftCard).giftCard.serial;
+  for(let i=0;i<200;i++)assert.notEqual(released(data).card.serial,used);
+});
+test('booking with the token claims the card: same serial, release and expiry dates, status Claimed',()=>{
+  const {data,card}=released(seedDemo(),'alex-morgan',new Date(Date.now()-5*86400000));
+  const next=bookWith(data,card.token),b=next.bookings[0];
+  assert.equal(b.giftCard.serial,card.serial);assert.equal(b.giftCard.issuedAt,card.releasedAt);assert.equal(b.giftCard.expiresAt,card.expiresAt);assert.equal(b.giftCard.status,'Claimed');
+  assert.equal(next.giftCards[0].status,'Claimed');assert.equal(next.giftCards[0].bookingId,b.id);
+  assert.ok(!('giftToken' in b),'the token is not stored on the booking');
+});
+test('an expired card books normally without a gift card',()=>{
+  const {data,card}=released(seedDemo(),'alex-morgan',new Date(Date.now()-181*86400000));
+  const next=bookWith(data,card.token);assert.equal(next.bookings.length,data.bookings.length+1);
+  assert.ok(!('giftCard' in next.bookings[0]));assert.equal(next.giftCards[0].status,'Released');
+});
+test('a card cannot be claimed for another affiliate or for a direct booking',()=>{
+  const seeded=seedDemo();seeded.affiliates.push({...seeded.affiliates[0],id:'demo-sam',slug:'sam-lee',name:'Sam Lee'});
+  const {data,card}=released(seeded,'alex-morgan');
+  assert.ok(!('giftCard' in bookWith(data,card.token,'demo-sam').bookings[0]));
+  assert.ok(!('giftCard' in applyDemo(data,'booking',{...at(data.slots[2]),giftToken:card.token},null).bookings[0]));
+  assert.ok(!('giftCard' in bookWith(data,'not-a-real-token').bookings[0]));
+  assert.equal(bookWith(data,card.token,'demo-sam').giftCards[0].status,'Released');
+});
+test('a card can be claimed only once',()=>{
+  const {data,card}=released();const first=bookWith(data,card.token);
+  assert.equal(first.bookings[0].giftCard.status,'Claimed');
+  const second=bookWith(first,card.token,'demo-alex',first.slots[3]);
+  assert.ok(!('giftCard' in second.bookings[0]));assert.equal(second.giftCards[0].bookingId,first.bookings[0].id);
+});
+test('without a token (browser storage unavailable) the card is issued at booking, as before',()=>{
+  const data=seedDemo(),b=applyDemo(data,'booking',{...at(data.slots[2]),affiliateId:'demo-alex'},null).bookings[0];
+  assert.equal(b.giftCard.status,'Issued');assert.match(b.giftCard.serial,/^[2-9A-HJ-NP-Z]{6}$/);
+});
+test('the claim rule names why a card is refused',()=>{
+  const ok={affiliateId:'a',expiresAt:new Date(Date.now()+86400000).toISOString(),status:'Released',bookingId:null};
+  assert.equal(checkGiftClaim(ok,'a').ok,true);
+  assert.equal(checkGiftClaim(null,'a').reason,'unknown');assert.equal(checkGiftClaim(ok,'b').reason,'wrong-affiliate');assert.equal(checkGiftClaim(ok,null).reason,'wrong-affiliate');
+  assert.equal(checkGiftClaim({...ok,status:'Claimed',bookingId:'x'},'a').reason,'claimed');assert.equal(checkGiftClaim({...ok,status:'Void'},'a').reason,'void');
+  assert.equal(checkGiftClaim({...ok,expiresAt:new Date(Date.now()-2*86400000).toISOString()},'a').reason,'expired');
+});
+test('the countdown counts calendar days in clinic time, with Last day and Expired at the edges',()=>{
+  const expires='2026-12-31T23:00:00Z'; // 1 pm on 31 December in Honolulu
+  const label=iso=>giftCountdown(expires,new Date(iso),GIFT_TZ).label;
+  assert.equal(label('2026-12-29T18:00:00Z'),'2 days left');
+  assert.equal(label('2026-12-30T18:00:00Z'),'1 day left');
+  assert.equal(label('2026-12-31T10:00:00Z'),'Last day'); // 00:00 on the day, clinic time
+  assert.equal(label('2027-01-01T05:00:00Z'),'Last day'); // 7 pm, after the 1 pm expiry time: the day is not over
+  assert.equal(label('2027-01-01T09:59:00Z'),'Last day'); // 23:59 on the day
+  assert.equal(label('2027-01-01T10:00:00Z'),'Expired'); // midnight ends it
+  assert.equal(label('2026-12-31T05:00:00Z'),'1 day left'); // 7 pm on 30 Dec in Honolulu, already 31 Dec in UTC
+  const state=iso=>giftCountdown(expires,new Date(iso),GIFT_TZ).state;
+  assert.deepEqual([state('2026-12-31T15:00:00Z'),state('2027-01-05T12:00:00Z'),state('2026-06-01T12:00:00Z')],['last','expired','days']);
+  assert.equal(giftDaysLeft(expires,new Date('2027-01-03T12:00:00Z'),GIFT_TZ),-3);
+  assert.equal(giftExpired(expires,new Date('2027-01-01T05:00:00Z'),GIFT_TZ),false);assert.equal(giftExpired(expires,new Date('2027-01-01T10:00:00Z'),GIFT_TZ),true);
+  const now=new Date('2026-10-09T15:00:00Z');assert.equal(giftCountdown(releaseGiftCard(()=>false,now).expiresAt,now,GIFT_TZ).label,'180 days left');
+});
+test('the release API, claim and migration follow the rules',()=>{
+  const read=p=>readFileSync(new URL(p,import.meta.url),'utf8');
+  const route=read('../app/api/gift/route.js');assert.ok(route.includes('sameOrigin(request)')&&route.includes('requestHash(request)')&&route.includes('releaseGift'));
+  const server=read('../lib/server.js');assert.ok(server.includes('hashToken(token)')&&server.includes("rpc('release_gift_card'")&&server.includes('checkGiftClaim')&&server.includes(".eq('status','Released')"));
+  assert.ok(read('../app/api/bookings/route.js').includes('claimGift(db,row,raw.giftToken)'));
+  const sql=read('../supabase/migrations/011_released_gift_cards.sql');
+  assert.ok(sql.startsWith('--')&&sql.includes('after 010')&&sql.includes('create table public.gift_cards')&&sql.includes("'^[2-9A-HJ-NP-Z]{6}$'")&&sql.includes('token_hash text not null')&&sql.includes('enable row level security')&&sql.includes('revoke all on public.gift_cards'));
+  assert.ok(sql.includes("('Released','Claimed','Redeemed','Expired','Void')")&&sql.includes('gift_cards_serial_unique')&&sql.includes('bookings_gift_serial_guard'));
+  assert.ok(read('../components/use-gift.js').includes('resolveGift')&&read('../lib/gift-browser.js').includes('giftStorageWorks')&&read('../lib/gift-browser.js').includes('try {'));
+  const ui=read('../components/ui.js');assert.ok(ui.includes('setNow(new Date())')&&ui.includes('gift-number'));
+  assert.ok(read('../app/gift-card-terms/page.js').includes('from the day the card is received')&&read('../lib/notifications.js').includes('from the day you received it'));
+});
+
+// If releasing a card fails for any reason, the visitor still gets a card, issued at booking
+import { resolveGift,GIFT_FALLBACK } from '../lib/gift-browser.js';
+const goodCard=()=>({serial:'7K2M9Q',releasedAt:'2026-10-09T15:00:00.000Z',expiresAt:'2027-04-07T15:00:00.000Z',token:'t'.repeat(64)});
+const opts=over=>({release:async()=>goodCard(),read:()=>null,write:()=>true,storageWorks:()=>true,...over});
+test('a visitor with a stored card gets the same card and no new request is made',async()=>{
+  let calls=0;const stored=goodCard();
+  const r=await resolveGift('alex-morgan',opts({read:()=>stored,release:async()=>{calls++;return goodCard();}}));
+  assert.equal(r.status,'ready');assert.equal(r.card,stored);assert.equal(calls,0);
+});
+test('a card is requested, saved and returned the first time',async()=>{
+  let saved=null;const r=await resolveGift('alex-morgan',opts({write:(slug,card)=>{saved={slug,card};return true;}}));
+  assert.equal(r.status,'ready');assert.equal(r.card.serial,'7K2M9Q');assert.equal(saved.slug,'alex-morgan');
+});
+test('unavailable storage falls back without asking the server for a card',async()=>{
+  let calls=0;const r=await resolveGift('alex-morgan',opts({storageWorks:()=>false,release:async()=>{calls++;return goodCard();}}));
+  assert.equal(r,GIFT_FALLBACK);assert.equal(calls,0);
+});
+test('a rate limit, network error, server error or unusable reply falls back to a card issued at booking',async()=>{
+  const failures=[async()=>{throw new Error('Too many requests. Please try again later.');},async()=>{throw new TypeError('Failed to fetch');},async()=>{throw new Error('Your gift card could not be prepared. You can still book.');},async()=>({}),async()=>null,async()=>({...goodCard(),serial:'••••••'})];
+  for(const release of failures){const r=await resolveGift('alex-morgan',opts({release}));assert.deepEqual(r,{status:'fallback',card:null});}
+  assert.equal((await resolveGift('alex-morgan',opts({write:()=>false}))).status,'fallback','a card that cannot be saved is not used');
+  // The fallback sends no token, so the server issues the card at booking, as it did before cards were released.
+  const data=seedDemo(),giftToken=GIFT_FALLBACK.card?.token;
+  const b=applyDemo(data,'booking',{...at(data.slots[2]),affiliateId:'demo-alex',giftToken},null).bookings[0];
+  assert.equal(b.giftCard.status,'Issued');assert.match(b.giftCard.serial,/^[2-9A-HJ-NP-Z]{6}$/);
+  const route=readFileSync(new URL('../app/api/bookings/route.js',import.meta.url),'utf8');
+  assert.ok(route.includes('raw.giftToken?await claimGift(db,row,raw.giftToken):await issueGift(db,row)'));
 });
