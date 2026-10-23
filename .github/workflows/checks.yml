@@ -1,0 +1,38 @@
+# Runs on every push and every pull request. A red X on a commit or pull request means do not merge or deploy:
+# open the failed step to see why. Vercel builds the site but never runs these checks, so this is the safety net.
+# Runs in demo mode (no keys or secrets needed), the same way the tests and build run on a developer's machine.
+name: Checks
+
+on:
+  push:
+  pull_request:
+
+concurrency:
+  group: checks-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    name: Lint, tests and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      NEXT_TELEMETRY_DISABLED: 1
+      NEXT_PUBLIC_DEMO_MODE: 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install
+        run: npm ci
+      - name: Lint (names used but never imported, and similar real bugs)
+        run: npm run lint
+      - name: Tests
+        run: npm test
+      - name: Production build
+        run: npm run build

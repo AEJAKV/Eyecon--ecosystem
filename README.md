@@ -113,12 +113,15 @@ Leave that terminal running. Press **Ctrl+C** when you want to stop it.
 Other useful commands, run after stopping the development server:
 
 ```bash
+npm run lint
 npm test
 npm run build
 npm run start
 ```
 
-`npm test` checks booking validation, per-optometrist booking and overlap protection, affiliate data filtering, payout guards, CSV handling and calendars. `npm run build` prepares and checks the production build. `npm run start` runs that production build locally. To reproduce the pinned installation later, use `npm ci` in place of `npm install`.
+`npm run lint` catches real bugs such as a name used but never imported, which would otherwise pass the build and fail only on the live site. `npm test` checks booking validation, per-optometrist booking and overlap protection, affiliate data filtering, payout guards, CSV handling and calendars. `npm run build` prepares and checks the production build. `npm run start` runs that production build locally. To reproduce the pinned installation later, use `npm ci` in place of `npm install`.
+
+**Automatic checks.** GitHub runs `npm run lint`, `npm test` and `npm run build` on every push and pull request (`.github/workflows/checks.yml`). Vercel builds the site but never runs the tests, so check for the green tick on a commit or pull request before merging into `main`; a red X means open the failed step and fix it first.
 
 ## 3. Preview and explore locally
 
