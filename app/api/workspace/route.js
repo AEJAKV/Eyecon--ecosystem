@@ -1,6 +1,6 @@
 import { identity, requireStaff, sameOrigin, fail, mapBooking, mapAffiliate, mapPricing, encryptPolicy, audit, issueGift, issueDocumentToken, loadDoctorDirectory, loadSchedules } from '@/lib/server';
 import { publicDoctor } from '@/lib/schedule';
-import { clean, validateStatus, validateSlug, validateBooking, safePhoto, validateGiftCode, validateDoctor } from '@/lib/validation';
+import { clean, validateStatus, validateSlug, validateBooking, safePhoto, validateGiftCode, validateDoctor, inviteErrorMessage } from '@/lib/validation';
 import { claimAndSend } from '@/lib/notifications';
 import { clinic, documentsLink, services } from '@/lib/config';
 import { validateCompletion, validatePricing } from '@/lib/commission';
@@ -64,7 +64,7 @@ export async function POST(request){
       }else if(action==='affiliate'){
         const name=clean(p.name,120),email=clean(p.email,254);if(name.length<2||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))throw new Error('Enter a name and valid email.');const slug=validateSlug(p.slug);const rate=Number(p.commissionRate||0);if(!Number.isFinite(rate)||rate<0||rate>100)throw new Error('Commission rate must be between 0 and 100.');const giftCode=validateGiftCode(p.code);
         const {data:exists}=await db.from('affiliates').select('id').eq('slug',slug).maybeSingle();if(exists)throw new Error('That referral page name already exists.');
-        const {data:invite,error:inviteError}=await db.auth.admin.inviteUserByEmail(email,{redirectTo:clinic.site+'/login?set-password=1'});if(inviteError)throw new Error('Could not invite this email. Check whether it already has an account.');
+        const {data:invite,error:inviteError}=await db.auth.admin.inviteUserByEmail(email,{redirectTo:clinic.site+'/login?set-password=1'});if(inviteError){console.error('Affiliate invite failed:',inviteError.code||inviteError.status);throw new Error(inviteErrorMessage(inviteError));}
         const {data:a,error:ae}=await db.from('affiliates').insert({name,email,slug,bio:clean(p.bio,500),photo:safePhoto(p.photo),commission_rate:rate,commission_note:clean(p.commissionNote,300),...(giftCode?{gift_code:giftCode}:{})}).select('id').single();
         if(ae)throw new Error('The invitation was sent, but the affiliate record could not be created. Staff must review this account in Supabase.');
         const {error:pe}=await db.from('profiles').insert({id:invite.user.id,role:'affiliate',affiliate_id:a.id});if(pe){await db.from('affiliates').update({active:false}).eq('id',a.id);throw new Error('The invitation was sent, but workspace access could not be created. Staff must review this inactive account in Supabase.');}

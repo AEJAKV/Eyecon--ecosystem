@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { validateBooking,csv,slotTaken,validateDocuments,fileSignatureOk,fileComplete,checkUploadedFile } from '../lib/validation.js';
+import { validateBooking,csv,slotTaken,validateDocuments,fileSignatureOk,fileComplete,checkUploadedFile,inviteErrorMessage } from '../lib/validation.js';
 import { seedDemo,applyDemo,affiliateRows } from '../lib/demo.js';
 import { calendarFile } from '../lib/calendar.js';
 import { readFileSync } from 'node:fs';
@@ -536,4 +536,17 @@ test('migration 010 is server-only, keeps booked and hand-added slots, and hides
   assert.match(sql,/from doctor_time_off t where t\.doctor = s\.doctor/);
   const route=readFileSync(new URL('../app/api/doctors/route.js',import.meta.url),'utf8');
   assert.match(route,/requireStaff\(u\)/);assert.match(route,/publicDoctor/);assert.ok(!/delete\(\)\.eq\('slug'/.test(route),'optometrists are never deleted');
+});
+
+test('affiliate invitation errors are explained in plain words (email limit, existing account, other)',()=>{
+  assert.match(inviteErrorMessage({code:'over_email_send_rate_limit',status:429,message:'email rate limit exceeded'}),/email limit/);
+  assert.match(inviteErrorMessage({status:429}),/wait about an hour/);
+  assert.match(inviteErrorMessage({code:'email_exists',status:422}),/already has an account/);
+  assert.match(inviteErrorMessage({message:'A user with this email address has already been registered'}),/already has an account/);
+  assert.match(inviteErrorMessage({status:500,message:'boom'}),/could not be sent/);
+  const route=readFileSync(new URL('../app/api/workspace/route.js',import.meta.url),'utf8');assert.match(route,/inviteErrorMessage\(inviteError\)/);
+});
+test('staff see the clinic time zone as Alberta Time, not its technical name',()=>{
+  if(!process.env.NEXT_PUBLIC_CLINIC_TIMEZONE)assert.equal(clinic.timezoneLabel,'Alberta Time (UTC−6)');
+  const ws=readFileSync(new URL('../components/workspace.js',import.meta.url),'utf8');assert.ok(ws.includes('Times in {clinic.timezoneLabel}'));
 });
