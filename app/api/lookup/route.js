@@ -1,7 +1,7 @@
 import { DEMO } from '@/lib/config';
 import { validateLookup, lookupView, needsDocumentsLink, LOOKUP_NOT_FOUND } from '@/lib/lookup';
 import { emrAdapter } from '@/lib/emr';
-import { adminClient, mapBooking, sameOrigin, fail, verifyTurnstile, requestHash, issueDocumentToken } from '@/lib/server';
+import { adminClient, mapBooking, sameOrigin, fail, verifyTurnstile, requestHash, issueDocumentToken, loadDoctorDirectory } from '@/lib/server';
 export const dynamic='force-dynamic';
 // /my-booking: find a booking by its reference and the email it was made with. Turnstile, a honeypot and a limit of
 // 10 attempts per IP per hour (counted in the database, like bookings) stop guessing. "Not found" and "wrong email"
@@ -17,7 +17,7 @@ export async function POST(request){
     const {data,error}=await db.rpc('lookup_booking',{p_reference:reference,p_email:email,p_request_hash:requestHash(request)});
     if(error)throw new Error(error.message.includes('rate limit')?'Too many attempts. Please try again in an hour, or call the clinic.':'Booking lookup is temporarily unavailable. Please call the clinic.');
     if(!data?.length)return fail(new Error(LOOKUP_NOT_FOUND),404);
-    const row=data[0],b=mapBooking(row);
+    const row=data[0],b=mapBooking(row);await loadDoctorDirectory(db);
     const [affiliate,id]=await Promise.all([
       b.giftCard&&b.affiliateId?db.from('affiliates').select('name,gift_code').eq('id',b.affiliateId).maybeSingle():{data:null},
       db.from('booking_documents').select('id').eq('booking_id',b.id).eq('kind','government-id').limit(1)

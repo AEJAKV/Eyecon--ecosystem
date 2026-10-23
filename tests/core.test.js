@@ -404,7 +404,7 @@ test('/shop opens with a photo header, the overlay site header, and the plain he
 test('the hero “Meet our optometrists” button scrolls to the doctors section',()=>{
   const landing=readFileSync(new URL('../components/landing.js',import.meta.url),'utf8');
   assert.ok(landing.includes('<a className="button outline" href="#doctors">Meet our optometrists</a>'));
-  assert.ok(landing.includes('<section className="doctors" id="doctors" aria-labelledby="doctors-title">'));
+  assert.ok(/<section className="doctors" id="doctors" aria-labelledby="doctors-title"[ >]/.test(landing));
   assert.equal((landing.match(/id="doctors"/g)||[]).length,1,'one #doctors target');
   assert.ok(!landing.includes('See appointment types'));
 });
@@ -431,4 +431,109 @@ test('documents never pass through the website: the route takes JSON only and th
   assert.ok(!/form\.append\('file'/.test(provider),'files are not posted to /api/documents');
   const migration=readFileSync(new URL('../supabase/migrations/009_direct_uploads.sql',import.meta.url),'utf8');
   assert.ok(migration.includes('revoke all on public.booking_document_uploads from anon, authenticated'));
+});
+
+// ---- Optometrist profiles and schedules (migration 010, lib/schedule.js) ----
+import { clinicTime, clinicDate, validateWeeklyHours, validateTimeOff, validateExtraHours, validateDoctorProfile, doctorSlugFrom, planSlots, mergeGeneratedSlots, bookingsInTimeOff, offersService, websiteList, publicDoctor, inTimeOff } from '../lib/schedule.js';
+import { placeholderDoctors, setDoctorDirectory } from '../lib/config.js';
+const TZ = 'Etc/GMT+6';
+test('the clinic keeps UTC−6 all year (Alberta Time), so winter times are not an hour off',()=>{
+  assert.equal(clinic.timezone,process.env.NEXT_PUBLIC_CLINIC_TIMEZONE||'Etc/GMT+6');
+  assert.equal(clinicTime('2026-07-06','09:00',TZ),'2026-07-06T15:00:00.000Z');
+  assert.equal(clinicTime('2026-12-07','09:00',TZ),'2026-12-07T15:00:00.000Z');
+  // A zone with daylight saving is still converted correctly on both sides of the change.
+  assert.equal(clinicTime('2026-07-06','09:00','America/Denver'),'2026-07-06T15:00:00.000Z');
+  assert.equal(clinicTime('2026-12-07','09:00','America/Denver'),'2026-12-07T16:00:00.000Z');
+  assert.equal(clinicDate('2026-12-08T03:00:00.000Z',TZ),'2026-12-07');
+  const env=readFileSync(new URL('../.env.example',import.meta.url),'utf8');assert.match(env,/NEXT_PUBLIC_CLINIC_TIMEZONE=Etc\/GMT\+6/);
+});
+test('weekly hours: days 1–7, end after start, rows on one day may not overlap; a gap is a break',()=>{
+  assert.deepEqual(validateWeeklyHours([{weekday:1,start:'13:00',end:'17:00'},{weekday:1,start:'09:00',end:'12:00'}]).map(h=>h.start),['09:00','13:00']);
+  assert.throws(()=>validateWeeklyHours([{weekday:2,start:'12:00',end:'09:00'}]),/end time must be after/);
+  assert.throws(()=>validateWeeklyHours([{weekday:3,start:'09:00',end:'12:00'},{weekday:3,start:'11:30',end:'15:00'}]),/overlap/);
+  assert.throws(()=>validateWeeklyHours([{weekday:8,start:'09:00',end:'10:00'}]),/day/);
+  assert.throws(()=>validateWeeklyHours([{weekday:1,start:'9am',end:'10:00'}]),/HH:MM/);
+  assert.deepEqual(validateWeeklyHours([]),[]);
+});
+test('time off: whole days run midnight to midnight in clinic time; part days use the times given',()=>{
+  assert.deepEqual(validateTimeOff({from:'2026-12-07',reason:'Vacation'},TZ),{startsAt:'2026-12-07T06:00:00.000Z',endsAt:'2026-12-08T06:00:00.000Z',reason:'Vacation'});
+  assert.equal(validateTimeOff({from:'2026-12-07',to:'2026-12-11'},TZ).endsAt,'2026-12-12T06:00:00.000Z');
+  assert.deepEqual(validateTimeOff({from:'2026-12-07',fromTime:'13:00',toTime:'17:00'},TZ),{startsAt:'2026-12-07T19:00:00.000Z',endsAt:'2026-12-07T23:00:00.000Z',reason:''});
+  assert.throws(()=>validateTimeOff({from:'2026-12-08',to:'2026-12-07'},TZ),/end after/);
+  assert.throws(()=>validateTimeOff({from:''},TZ),/dates/);
+  assert.throws(()=>validateExtraHours({day:'2026-12-12',start:'15:00',end:'10:00'}),/after the start/);
+});
+test('doctor profiles: names required, page name from the name, length from the list, all services stored as null',()=>{
+  assert.equal(doctorSlugFrom('Zoë','Ngô-Smith'),'dr-zoe-ngo-smith');
+  const d=validateDoctorProfile({first:'Jane',last:'Example',services:['eye-exam'],slotMinutes:45});
+  assert.equal(d.slug,'dr-jane-example');assert.deepEqual(d.services,['eye-exam']);assert.equal(d.slotMinutes,45);assert.equal(d.visible,true);
+  assert.equal(validateDoctorProfile({first:'A',last:'B',services:services.map(s=>s.id)}).services,null);
+  assert.throws(()=>validateDoctorProfile({first:'',last:'B'}),/first and last/);
+  assert.throws(()=>validateDoctorProfile({first:'A',last:'B',slotMinutes:20}),/appointment length/);
+  assert.throws(()=>validateDoctorProfile({first:'A',last:'B',services:['surgery']}),/services/);
+  assert.ok(offersService({services:null},'contacts'));assert.ok(!offersService({services:['eye-exam']},'contacts'));assert.ok(offersService({services:['eye-exam']},'eye-exam'));
+  const pub=publicDoctor({...placeholderDoctors[0],slotMinutes:30,visible:false});assert.ok(!('slotMinutes' in pub));
+  assert.deepEqual(websiteList([{slug:'b',order:2},{slug:'a',order:1},{slug:'c',order:0,visible:false}]).map(d=>d.slug),['a','b']);
+});
+test('planSlots: slots of the doctor’s length inside their hours and extra days, skipping breaks, time off and hidden doctors',()=>{
+  const now=new Date('2026-12-06T12:00:00.000Z'); // a Sunday
+  const doctors=[{slug:'a',slotMinutes:30,visible:true},{slug:'b',slotMinutes:60,visible:false}];
+  const weeklyHours=[{doctor:'a',weekday:1,start:'09:00',end:'10:00'},{doctor:'a',weekday:1,start:'11:00',end:'12:00'},{doctor:'b',weekday:1,start:'09:00',end:'12:00'}];
+  const plan=planSlots({doctors,weeklyHours,extraHours:[{doctor:'a',day:'2026-12-12',start:'10:00',end:'11:00'}],timeOff:[{doctor:'a',startsAt:'2026-12-14T06:00:00.000Z',endsAt:'2026-12-15T06:00:00.000Z'}],timeZone:TZ,now,days:8});
+  assert.deepEqual(plan.map(s=>s.start),['2026-12-07T15:00:00.000Z','2026-12-07T15:30:00.000Z','2026-12-07T17:00:00.000Z','2026-12-07T17:30:00.000Z','2026-12-12T16:00:00.000Z','2026-12-12T16:30:00.000Z'],'Monday 7th with a break, the extra Saturday, and no slots on Monday 14th (time off)');
+  assert.ok(plan.every(s=>s.doctor==='a'&&s.duration===30&&s.generated));
+});
+test('mergeGeneratedSlots keeps past, hand-added and booked slots, and replaces the rest with the plan',()=>{
+  const now=new Date('2026-12-01T00:00:00.000Z');
+  const slots=[{doctor:'a',start:'2026-11-30T15:00:00.000Z',duration:30,generated:true},{doctor:'a',start:'2026-12-02T15:00:00.000Z',duration:30,generated:true},{doctor:'a',start:'2026-12-02T16:00:00.000Z',duration:30,generated:true},{doctor:'a',start:'2026-12-03T15:00:00.000Z',duration:30},{doctor:'b',start:'2026-12-02T15:00:00.000Z',duration:30,generated:true}];
+  const bookings=[{doctor:'a',start:'2026-12-02T16:00:00.000Z'}];
+  const planned=[{doctor:'a',start:'2026-12-04T15:00:00.000Z',duration:30,generated:true}];
+  const merged=mergeGeneratedSlots(slots,planned,bookings,{doctor:'a',now}).map(s=>s.doctor+s.start.slice(5,13));
+  assert.deepEqual(merged,['a11-30T15','b12-02T15','a12-02T16','a12-03T15','a12-04T15']);
+});
+test('new time off lists the booked patients to rebook and never cancels them',()=>{
+  const off={startsAt:'2026-12-07T06:00:00.000Z',endsAt:'2026-12-08T06:00:00.000Z'};
+  const bookings=[{name:'In',doctor:'a',status:'Booked',start:'2026-12-07T15:00:00.000Z',duration:30},{name:'Other doctor',doctor:'b',status:'Booked',start:'2026-12-07T15:00:00.000Z'},{name:'Cancelled',doctor:'a',status:'Cancelled',start:'2026-12-07T15:00:00.000Z'},{name:'Next day',doctor:'a',status:'Booked',start:'2026-12-08T15:00:00.000Z'}];
+  assert.deepEqual(bookingsInTimeOff(bookings,'a',off),[{name:'In',start:'2026-12-07T15:00:00.000Z'}]);
+  assert.ok(inTimeOff({doctor:'a',start:'2026-12-07T15:00:00.000Z',duration:30},[{doctor:'a',...off}]));
+  assert.ok(!inTimeOff({doctor:'b',start:'2026-12-07T15:00:00.000Z',duration:30},[{doctor:'a',...off}]));
+});
+test('demo staff manage optometrists and schedules; patients can only book shown optometrists for their services',()=>{
+  const staff={role:'staff'};let data=seedDemo();
+  assert.equal(data.doctors.length,2);assert.ok(data.weeklyHours.length&&data.slots.every(s=>s.generated));
+  data=applyDemo(data,'doctor',{isNew:true,first:'Jane',last:'Example',services:['eye-exam']},staff);
+  assert.throws(()=>applyDemo(data,'doctor',{isNew:true,first:'Jane',last:'Example'},staff),/already exists/);
+  assert.ok(!data.slots.some(s=>s.doctor==='dr-jane-example'),'no hours yet, no times');
+  data=applyDemo(data,'doctor-hours',{doctor:'dr-jane-example',slotMinutes:60,hours:[{weekday:2,start:'09:00',end:'12:00'}]},staff);
+  const jane=data.slots.filter(s=>s.doctor==='dr-jane-example');assert.ok(jane.length>=36&&jane.every(s=>s.duration===60));
+  setDoctorDirectory(data.doctors);
+  try{
+    const slot=jane[0],booking={name:'Sample patient',email:'p@example.com',phone:'+14165550100',doctor:'dr-jane-example',start:slot.start,service:'contacts',firstVisit:true};
+    assert.throws(()=>applyDemo(data,'booking',booking,null),/another optometrist/,'Jane does not fit contact lenses');
+    const booked=applyDemo(data,'booking',{...booking,service:'eye-exam'},null);
+    // Time off on a booked day keeps the booking and its slot; the other times that day go.
+    const day=clinicDate(slot.start,clinic.timezone);
+    const off=applyDemo(booked,'time-off-add',{doctor:'dr-jane-example',from:day},staff);
+    assert.ok(off.slots.some(s=>s.doctor==='dr-jane-example'&&s.start===slot.start));
+    assert.equal(off.slots.filter(s=>s.doctor==='dr-jane-example'&&clinicDate(s.start,clinic.timezone)===day).length,1);
+    assert.equal(off.bookings.filter(b=>b.doctor==='dr-jane-example').length,1);
+    // Hiding removes her open times and online booking, but keeps her name for the booking.
+    const hidden=applyDemo(off,'doctor',{...off.doctors.find(d=>d.slug==='dr-jane-example'),visible:false},staff);setDoctorDirectory(hidden.doctors);
+    assert.deepEqual(hidden.slots.filter(s=>s.doctor==='dr-jane-example').map(s=>s.start),[slot.start]);
+    assert.equal(doctorName('dr-jane-example'),'Dr. Jane Example');
+    assert.throws(()=>applyDemo(hidden,'doctor-hours',{doctor:'dr-jane-example',slotMinutes:20,hours:[]},staff),/appointment length/);
+    assert.throws(()=>applyDemo(hidden,'doctor',{isNew:true,first:'X',last:'Y'},{role:'affiliate'}),/Staff/);
+  }finally{setDoctorDirectory(placeholderDoctors);}
+});
+test('migration 010 is server-only, keeps booked and hand-added slots, and hides time off and hidden doctors from open times',()=>{
+  const sql=readFileSync(new URL('../supabase/migrations/010_doctors_and_schedules.sql',import.meta.url),'utf8');
+  assert.match(sql,/after 009_direct_uploads\.sql/);
+  assert.match(sql,/revoke all on public\.doctors, public\.doctor_weekly_hours, public\.doctor_time_off, public\.doctor_extra_hours from anon, authenticated/);
+  for(const f of ['planned_doctor_slots','generate_doctor_slots','save_doctor_hours'])assert.match(sql,new RegExp(`grant execute on function public\\.${f}\\([^)]*\\) to service_role`));
+  assert.match(sql,/s\.generated and s\.start > now\(\)/,'only future generated slots are removed');
+  assert.match(sql,/not exists \(select 1 from bookings b where b\.doctor = s\.doctor and b\.start = s\.start\)/,'booked slots are never removed');
+  assert.match(sql,/join doctors d on d\.slug = s\.doctor and d\.visible/);
+  assert.match(sql,/from doctor_time_off t where t\.doctor = s\.doctor/);
+  const route=readFileSync(new URL('../app/api/doctors/route.js',import.meta.url),'utf8');
+  assert.match(route,/requireStaff\(u\)/);assert.match(route,/publicDoctor/);assert.ok(!/delete\(\)\.eq\('slug'/.test(route),'optometrists are never deleted');
 });

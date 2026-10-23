@@ -1,4 +1,5 @@
-import { identity, requireStaff, sameOrigin, fail, mapBooking, mapAffiliate, mapPricing, encryptPolicy, audit, issueGift, issueDocumentToken } from '@/lib/server';
+import { identity, requireStaff, sameOrigin, fail, mapBooking, mapAffiliate, mapPricing, encryptPolicy, audit, issueGift, issueDocumentToken, loadDoctorDirectory, loadSchedules } from '@/lib/server';
+import { publicDoctor } from '@/lib/schedule';
 import { clean, validateStatus, validateSlug, validateBooking, safePhoto, validateGiftCode, validateDoctor } from '@/lib/validation';
 import { claimAndSend } from '@/lib/notifications';
 import { clinic, documentsLink, services } from '@/lib/config';
@@ -6,13 +7,13 @@ import { validateCompletion, validatePricing } from '@/lib/commission';
 import { AFFILIATE_COLUMNS, restrictAffiliateRow } from '@/lib/affiliate';
 export const dynamic='force-dynamic';
 export async function GET(request){
-  try{const u=await identity(request);const db=u.db;
+  try{const u=await identity(request);const db=u.db;const doctors=await loadDoctorDirectory(db);
     // Affiliates get only their own referrals, as the restricted rows in lib/affiliate.js (id, name, status, start,
     // commission, payout, paid_at): never contact details, service, insurance, documents or procedure amounts.
     if(u.role==='affiliate'){
       const [a,b]=await Promise.all([db.from('affiliates').select('*').eq('id',u.affiliateId).single(),db.from('bookings').select(AFFILIATE_COLUMNS).eq('affiliate_id',u.affiliateId).order('start',{ascending:false})]);
       if(a.error||b.error)throw new Error('Unable to load your referrals.');
-      return Response.json({user:{role:u.role,affiliateId:u.affiliateId},affiliates:[mapAffiliate(a.data)],bookings:b.data.map(restrictAffiliateRow),templates:[],slots:[]},{headers:{'Cache-Control':'no-store'}});
+      return Response.json({user:{role:u.role,affiliateId:u.affiliateId},affiliates:[mapAffiliate(a.data)],bookings:b.data.map(restrictAffiliateRow),templates:[],slots:[],doctors:doctors.map(d=>({...publicDoctor(d),visible:d.visible}))},{headers:{'Cache-Control':'no-store'}});
     }
     requireStaff(u);
     const [a,b,t,s,j]=await Promise.all([db.from('affiliates').select('*').order('created_at'),db.from('bookings').select('*').order('start',{ascending:false}).limit(2000),db.from('message_templates').select('*').order('id'),db.rpc('available_slots'),db.from('notification_jobs').select('booking_id,kind,status,result,created_at').order('created_at',{ascending:false}).limit(100)]);
@@ -24,11 +25,13 @@ export async function GET(request){
     const docs=new Map();for(const r of d.data||[])docs.set(r.booking_id,[...(docs.get(r.booking_id)||[]),r]);
     // Procedure prices (migration 007). Missing before it has run: the workspace still loads, with no prices.
     const pr=await db.from('procedure_costs').select('*');if(pr.error)console.error('Pricing not loaded:',pr.error.code);
-    return Response.json({user:{role:'staff'},procedureCosts:(pr.data||[]).map(mapPricing),affiliates:a.data.map(mapAffiliate),bookings:b.data.map(r=>mapBooking(r,docs.get(r.id))),templates:t.data,slots:s.data,jobs:j.data},{headers:{'Cache-Control':'no-store'}});
+    // Optometrists with their schedules (migration 010), for Staff admin > Doctors.
+    const schedules=await loadSchedules(db);
+    return Response.json({user:{role:'staff'},procedureCosts:(pr.data||[]).map(mapPricing),affiliates:a.data.map(mapAffiliate),bookings:b.data.map(r=>mapBooking(r,docs.get(r.id))),templates:t.data,slots:s.data,jobs:j.data,doctors,...schedules},{headers:{'Cache-Control':'no-store'}});
   }catch(e){return fail(e,401);}
 }
 export async function POST(request){
-  try{sameOrigin(request);const u=await identity(request),db=u.db;
+  try{sameOrigin(request);const u=await identity(request),db=u.db;await loadDoctorDirectory(db);
     if(request.headers.get('content-type')?.includes('multipart/form-data')){
       const form=await request.formData(),file=form.get('file'),id=u.role==='affiliate'?u.affiliateId:String(form.get('affiliateId'));
       if(!file || typeof file.arrayBuffer!=='function' || file.size>2*1024*1024 || !['image/jpeg','image/png','image/webp'].includes(file.type))throw new Error('Upload a JPG, PNG or WebP image smaller than 2 MB.');

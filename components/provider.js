@@ -1,21 +1,30 @@
 'use client';
 import { createContext, useContext, useEffect, useState } from 'react';
-import { DEMO } from '@/lib/config';
+import { DEMO, placeholderDoctors, setDoctorDirectory } from '@/lib/config';
 import { seedDemo, applyDemo, demoLookup } from '@/lib/demo';
 import { browserClient } from '@/lib/supabase';
 const Context=createContext(null);
 export function Provider({children}){
   const [data,setData]=useState({affiliates:[],bookings:[],templates:[],slots:[],jobs:[]}),[user,setUser]=useState(null),[ready,setReady]=useState(false),[error,setError]=useState('');
+  // Optometrists (migration 010). Live: the website's list from /api/doctors, or every optometrist (hidden ones too)
+  // once a workspace has loaded. Demo: this browser's demo data. setDoctorDirectory makes doctorName, findDoctor and
+  // validateDoctor use the same list everywhere.
+  const [publicDoctors,setPublicDoctors]=useState(null);
+  const doctors=DEMO?(data.doctors||placeholderDoctors):(data.doctors?.length?data.doctors:(publicDoctors||placeholderDoctors));
+  setDoctorDirectory(doctors);
+  const doctorsReady=DEMO?ready:!!(publicDoctors||data.doctors?.length);
   async function headers(){const {data:{session}}=await browserClient().auth.getSession();return {Authorization:'Bearer '+(session?.access_token||'')};}
   async function reload(){const response=await fetch('/api/workspace',{headers:await headers(),cache:'no-store'});const result=await response.json();if(!response.ok)throw new Error(result.error);setData(result);setUser(result.user);return result;}
-  // Demo data is saved under v4 (v2 added doctors, v3 references, v4 pricing and commission amounts); older saved data is not loaded.
+  // Demo data is saved under v5 (v2 added doctors, v3 references, v4 pricing and commission amounts, v5 doctor profiles
+  // and schedules); older saved data is not loaded.
   useEffect(()=>{
-    if(DEMO){try{const saved=JSON.parse(localStorage.getItem('eyecon-demo-v4')||'null');setData(saved?.affiliates&&saved?.bookings?saved:seedDemo());const u=JSON.parse(sessionStorage.getItem('eyecon-demo-user')||'null');if(u&&['staff','affiliate'].includes(u.role))setUser(u);}catch{setData(seedDemo());}setReady(true);return;}
+    if(DEMO){try{const saved=JSON.parse(localStorage.getItem('eyecon-demo-v5')||'null');setData(saved?.affiliates&&saved?.bookings&&saved?.doctors?saved:seedDemo());const u=JSON.parse(sessionStorage.getItem('eyecon-demo-user')||'null');if(u&&['staff','affiliate'].includes(u.role))setUser(u);}catch{setData(seedDemo());}setReady(true);return;}
     let active=true,subscription;
     try{const client=browserClient();client.auth.getSession().then(async({data:{session}})=>{if(session)try{await reload();}catch(e){if(active)setError(e.message);}if(active)setReady(true);});subscription=client.auth.onAuthStateChange((event,session)=>{if(event==='SIGNED_OUT'){setUser(null);setData({affiliates:[],bookings:[],templates:[],slots:[]});}}).data.subscription;}catch(e){setError(e.message);setReady(true);}
     return()=>{active=false;subscription?.unsubscribe();};
   },[]);
-  useEffect(()=>{if(DEMO&&ready)try{localStorage.setItem('eyecon-demo-v4',JSON.stringify(data));}catch{setError('This browser could not save demo changes. Keep this tab open or reset the demo.');}},[data,ready]);
+  useEffect(()=>{if(DEMO&&ready)try{localStorage.setItem('eyecon-demo-v5',JSON.stringify(data));}catch{setError('This browser could not save demo changes. Keep this tab open or reset the demo.');}},[data,ready]);
+  useEffect(()=>{if(DEMO)return;let active=true;fetch('/api/doctors').then(r=>r.ok?r.json():Promise.reject()).then(r=>{if(active)setPublicDoctors(r.doctors);}).catch(()=>{if(active)setPublicDoctors([]);});return()=>{active=false;};},[]);
   async function action(action,payload){
     if(DEMO){let next=applyDemo(data,action,payload,user);setData(next);return action==='booking'?{booking:next.bookings[0],notifications:{email:'demo',sms:'demo'}}:{ok:true};}
     const response=await fetch('/api/workspace',{method:'POST',headers:{...await headers(),'Content-Type':'application/json'},body:JSON.stringify({action,payload})});const result=await response.json();if(!response.ok)throw new Error(result.error);await reload();return result;
@@ -44,6 +53,15 @@ export function Provider({children}){
   function demoSignIn(role){const u={role,affiliateId:role==='affiliate'?'demo-alex':null};setUser(u);sessionStorage.setItem('eyecon-demo-user',JSON.stringify(u));}
   async function signOut(){if(DEMO)sessionStorage.removeItem('eyecon-demo-user');else await browserClient().auth.signOut();setUser(null);}
   function reset(){setData(seedDemo());sessionStorage.removeItem('eyecon-demo-user');setUser(null);}
-  return <Context.Provider value={{data,user,ready,error,reload,action,book,photo,documentsLinkValid,submitDocuments,lookupBooking,demoSignIn,signOut,reset}}>{children}</Context.Provider>;
+  // Staff admin > Doctors. Live: /api/doctors (staff only), then the workspace reloads. Demo: the same rules in lib/demo.js.
+  async function doctorAction(name,payload){
+    if(DEMO)return action(name,payload);
+    const response=await fetch('/api/doctors',{method:'POST',headers:{...await headers(),'Content-Type':'application/json'},body:JSON.stringify({action:name,payload})});const result=await response.json();if(!response.ok)throw new Error(result.error);await reload();return result;
+  }
+  async function doctorPhoto(file,doctor){
+    if(DEMO){const url=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=reject;reader.readAsDataURL(file);});const d=doctors.find(d=>d.slug===doctor);return action('doctor',{...d,photo:url});}
+    const form=new FormData();form.set('file',file);form.set('doctor',doctor);const response=await fetch('/api/doctors',{method:'POST',headers:await headers(),body:form});const result=await response.json();if(!response.ok)throw new Error(result.error);await reload();return result;
+  }
+  return <Context.Provider value={{data,user,ready,error,reload,action,book,photo,documentsLinkValid,submitDocuments,lookupBooking,demoSignIn,signOut,reset,doctors,doctorsReady,doctorAction,doctorPhoto}}>{children}</Context.Provider>;
 }
 export function useApp(){return useContext(Context);}

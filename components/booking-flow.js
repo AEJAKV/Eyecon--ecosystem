@@ -7,7 +7,8 @@ import DocumentsForm from './documents-form';
 import Captcha from './captcha';
 import CalendarCard from './calendar-card';
 import Image from 'next/image';
-import { DEMO, clinic, services, brands, brandFromParam, doctors, doctorName, findDoctor, formatDate, instructions, serviceOptions, serviceOptionName } from '@/lib/config';
+import { DEMO, clinic, services, brands, brandFromParam, doctorName, findDoctor, formatDate, instructions, serviceOptions, serviceOptionName } from '@/lib/config';
+import { websiteList, offersService, inTimeOff } from '@/lib/schedule';
 import SkinTechnologies from './skin-technologies';
 import { BookingReviews } from './reviews';
 import { validateBooking, slotTaken } from '@/lib/validation';
@@ -42,7 +43,7 @@ function ranges() {
 }
 
 export default function BookingFlow() {
-  const params = useSearchParams(), slug = params.get('affiliate'), { data, ready, book } = useApp();
+  const params = useSearchParams(), slug = params.get('affiliate'), { data, ready, book, doctors: allDoctors, doctorsReady } = useApp();
   const [affiliate, setAffiliate] = useState(null);
   const [slots, setSlots] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -66,9 +67,16 @@ export default function BookingFlow() {
   // Every appointment is with one optometrist. Patients either pick the optometrist first ("doctor" mode) or the time
   // first ("time" mode). An optometrist passed in the link (from their card on the home page) opens doctor mode with
   // them already chosen; unknown slugs are ignored.
-  const linkedDoctor = findDoctor(params.get('doctor'))?.slug || '';
+  // The live list of optometrists arrives after the first render, so the slug is checked once it has loaded.
+  const linkedDoctor = params.get('doctor') || '';
   const [mode, setMode] = useState(linkedDoctor ? 'doctor' : 'time');
   const [doctor, setDoctor] = useState(linkedDoctor);
+  // Optometrists patients can book online: shown on the website and performing the chosen service.
+  const bookable = useMemo(() => websiteList(allDoctors).filter(d => offersService(d, service)), [allDoctors, service]);
+  useEffect(() => {
+    if (!doctorsReady || !doctor || bookable.some(d => d.slug === doctor)) return;
+    setDoctor(''); setDay(''); setStart(''); setMode('time');
+  }, [doctorsReady, bookable]);
   const titleRef = useRef(null), firstRender = useRef(true);
 
   useEffect(() => {
@@ -77,7 +85,7 @@ export default function BookingFlow() {
       const a = slug ? data.affiliates.find(a => a.slug === slug && a.active) : null;
       if (slug && !a) { setLoadError('This referral is unavailable. You can book directly instead.'); setLoading(false); return; }
       setAffiliate(a);
-      setSlots(data.slots.filter(s => new Date(s.start) > new Date() && findDoctor(s.doctor) && !slotTaken(s, data.bookings)));
+      setSlots(data.slots.filter(s => new Date(s.start) > new Date() && findDoctor(s.doctor) && !slotTaken(s, data.bookings) && !inTimeOff(s, data.timeOff)));
       setLoading(false);
     } else {
       fetch('/api/availability' + (slug ? '?affiliate=' + encodeURIComponent(slug) : ''))
@@ -93,8 +101,10 @@ export default function BookingFlow() {
 
   const dayKey = iso => new Intl.DateTimeFormat('en-CA', { timeZone: clinic.timezone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(iso));
   // The times on offer: one optometrist's in doctor mode, everyone's in time mode.
-  const pool = useMemo(() => mode === 'doctor' ? slots.filter(s => s.doctor === doctor) : slots, [slots, mode, doctor]);
-  const openCount = useMemo(() => Object.fromEntries(doctors.map(d => [d.slug, slots.filter(s => s.doctor === d.slug).length])), [slots]);
+  // Only times with an optometrist who is shown online and performs the chosen service.
+  const offered = useMemo(() => slots.filter(s => bookable.some(d => d.slug === s.doctor)), [slots, bookable]);
+  const pool = useMemo(() => mode === 'doctor' ? offered.filter(s => s.doctor === doctor) : offered, [offered, mode, doctor]);
+  const openCount = useMemo(() => Object.fromEntries(bookable.map(d => [d.slug, offered.filter(s => s.doctor === d.slug).length])), [offered, bookable]);
   const days = useMemo(() => [...new Map(pool.map(s => [dayKey(s.start), s.start])).entries()], [pool]);
   // Each start time on the chosen day, with the optometrists free at that moment.
   const times = useMemo(() => { const m = new Map(); for (const s of pool) if (dayKey(s.start) === day) m.set(s.start, [...(m.get(s.start) || []), s.doctor]); return [...m.entries()]; }, [pool, day]);
@@ -104,7 +114,7 @@ export default function BookingFlow() {
   const inRange = (iso, r) => { const d = (new Date(iso) - today) / 86400000; return d >= r.from && d < r.to; };
   const visibleDays = days.filter(([, iso]) => inRange(iso, rangeList[range]));
   const chosenService = services.find(s => s.id === service);
-  const chosen = !!(start && doctor && slots.some(s => s.doctor === doctor && s.start === start));
+  const chosen = !!(start && doctor && offered.some(s => s.doctor === doctor && s.start === start));
 
   // Open on the first range that has times, so nobody lands on an empty week.
   useEffect(() => {
@@ -138,7 +148,7 @@ export default function BookingFlow() {
     finally { setBusy(false); }
   }
 
-  if (loading) return <Loading />;
+  if (loading || !doctorsReady) return <Loading />;
   if (loadError) return <><Header /><main className="container empty-page" id="main-content"><h1>Arrange your visit</h1><Notice error>{loadError}</Notice>{slug ? <Button href="/booking">Book directly</Button> : <Button onClick={() => window.location.reload()}>Try again</Button>}</main><Footer /></>;
 
   const optionName = serviceOptionName(service, serviceOption);
@@ -190,7 +200,7 @@ export default function BookingFlow() {
           {!slots.length ? <Notice>No online times are available right now. Please call the clinic or check back later.</Notice> : <>
             {mode === 'doctor' && <>
               <p className="time-label">Your optometrist</p>
-              <DoctorChoices name="doctor" label="Optometrist" list={doctors} value={doctor} counts={openCount} onChange={pickDoctor} />
+              <DoctorChoices name="doctor" label="Optometrist" list={bookable} value={doctor} counts={openCount} onChange={pickDoctor} />
               {!doctor && <p className="quiet">Pick an optometrist to see the days they are available.</p>}
             </>}
             {(mode === 'time' || doctor) && (pool.length ? <>
@@ -225,7 +235,7 @@ export default function BookingFlow() {
               {!day && visibleDays.length > 0 && <p className="quiet">Pick a day to see the times.</p>}
               {mode === 'time' && start && freeAtStart.length > 1 && <div className="doctor-pick">
                 <p className="time-label">Who would you like to see? {freeAtStart.length} optometrists are free at {timeText(start)}</p>
-                <DoctorChoices name="doctor-at-time" label={'Optometrist at ' + timeText(start)} list={doctors.filter(d => freeAtStart.includes(d.slug))} value={doctor} onChange={slug => { setError(''); setDoctor(slug); }} />
+                <DoctorChoices name="doctor-at-time" label={'Optometrist at ' + timeText(start)} list={bookable.filter(d => freeAtStart.includes(d.slug))} value={doctor} onChange={slug => { setError(''); setDoctor(slug); }} />
               </div>}
               {chosen && summary()}
             </> : <p className="empty-range">{doctorName(doctor)} has no online times right now. Choose another optometrist, or switch to “Choose a time”.</p>)}

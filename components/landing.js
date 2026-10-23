@@ -4,7 +4,8 @@ import Image, { getImageProps } from 'next/image';
 import Link from 'next/link';
 import { useApp } from './provider';
 import { Header, Footer, Button, Icon, Gift, Referral, Loading, Notice, Stars } from './ui';
-import { DEMO, services, collections, doctors, instructions, clinic, shopUrl } from '@/lib/config';
+import { DEMO, services, collections, instructions, clinic, shopUrl } from '@/lib/config';
+import { websiteList } from '@/lib/schedule';
 import { content, orderedReviews, RatingSeal, ReviewCard } from './reviews';
 import { excerpt } from '@/lib/reviews';
 import SkinTechnologies from './skin-technologies';
@@ -203,6 +204,8 @@ function DoctorIntro({ doctor, href, onClose }) {
 const SWIPE_TO_CLOSE = 90;
 
 function Doctors({ serviceHref }) {
+  // The optometrists shown on the website, managed in Staff admin > Doctors.
+  const { doctors: all, doctorsReady } = useApp(), doctors = websiteList(all);
   const [open, setOpen] = useState(null), [dot, setDot] = useState(0);
   const panels = useRef({}), pills = useRef({}), sheet = useRef(null), track = useRef(null), frame = useRef(0), drag = useRef(null);
   // The sheet keeps showing the last doctor while it slides away.
@@ -256,13 +259,15 @@ function Doctors({ serviceHref }) {
     requestAnimationFrame(() => { if (sheet.current) { sheet.current.style.transition = ''; sheet.current.style.transform = ''; } });
   }
 
-  const person = shown.current, personName = `${person.title} ${person.first} ${person.last}`;
+  // Until the list has loaded (or if no optometrist is shown) the section keeps its heading and shows no cards.
+  const person = shown.current || doctors[0], personName = person ? `${person.title} ${person.first} ${person.last}` : '';
   return (
-    <section className="doctors" id="doctors" aria-labelledby="doctors-title">
+    <section className="doctors" id="doctors" aria-labelledby="doctors-title" aria-busy={!doctorsReady || undefined}>
       <div className="doctors-intro">
         <h2 id="doctors-title">The people behind your exam</h2>
         <p>Every visit is unhurried, personal and led by a licensed optometrist.</p>
       </div>
+      {person && <>
       {/* Two per row for two or four doctors, three per row for three, five or six. On phones, one swipeable row. */}
       <div className="doctor-grid" ref={track} data-count={doctors.length} style={{ '--per-row': doctors.length === 1 ? 1 : doctors.length === 2 || doctors.length === 4 ? 2 : 3 }} onScroll={follow}>
         {doctors.map(d => {
@@ -289,6 +294,7 @@ function Doctors({ serviceHref }) {
         <span className="doctor-sheet-handle" aria-hidden="true" />
         <DoctorIntro doctor={person} href={href(person)} onClose={close} />
       </div>
+      </>}
     </section>
   );
 }

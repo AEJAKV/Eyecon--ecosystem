@@ -16,6 +16,7 @@ A complete Next.js project for the affiliate referral and appointment-booking ex
 - Referral identity throughout booking; the $50 gift appears only with an active affiliate referral.
 - Google, Apple `.ics` and Outlook calendar options. The event, the confirmation card and the confirmation email (template field `{doctor}`) name the optometrist.
 - Affiliate dashboard (completed referrals this month and all time, upcoming bookings as a count that “counts once completed”, commission earned and paid), referrals, referral link/QR, earnings, profile editing and photo upload. A referral counts, and earns commission, only once its appointment is completed (Attended).
+- Staff-managed optometrists (Staff admin › Doctors): profiles, portraits, services, weekly hours, time off and extra days, with bookable times generated automatically 90 days ahead. See “Optometrist profiles and schedules” below.
 - Staff booking list/calendar showing each booking's optometrist, patient details, attendance status, manual bookings (free times grouped by optometrist), availability per optometrist, affiliate performance dashboard (per-affiliate bookings, completed, upcoming, billed and commission, sortable; a page per affiliate with every appointment amount, inline commission calculator, date and status filters, staff CSV, and “Preview as affiliate”; “Top affiliates this month” on the overview), leads, procedure pricing, calculated commission, payout recording and message templates.
 - Supabase database schema, authentication and server-side role checks for live mode.
 - Turnstile booking verification, optional Resend email, Twilio SMS with opt-in, and an authenticated reminder endpoint.
@@ -29,58 +30,22 @@ The grayscale photography is concept imagery from the design mockup. Doctor pane
 
 Demo data is stored in the current browser and is neither secure nor shared between users. Use fictional details only. Live mode uses Supabase and must be configured and verified with your own services before collecting real patient information. This delivery does not certify privacy compliance, WCAG conformance, production security or a PageSpeed score. No live service credentials were available during development.
 
-## Planned: Optometrist profiles and schedules (staff-managed)
+## Optometrist profiles and schedules (staff-managed)
 
-Not built yet. Goal: staff add and edit doctors and their working hours in the staff workspace. The website's “The people behind your exam” section and the booking form's “Choose your doctor” date and time step both read from this, so they are always correct.
+Staff manage the optometrists in **Staff admin › Doctors** (`/admin/doctors`). The website's “The people behind your exam” section and the booking form's “Choose a doctor” step both read from this list, so they are always correct.
 
-Today the two placeholder doctors are written in `lib/config.js` (changing them needs a developer), and staff add bookable times one slot at a time in Staff admin › Bookings › Add available time.
+- **Profile:** title, first and last name, short line, introduction, areas of focus, languages, the frames they wear, portrait (JPG/PNG/WebP up to 2 MB, into the public `doctor-photos` bucket), the services they perform, and “Show on the website and allow online booking”. Patients only see an optometrist for services they perform. Optometrists are hidden, never deleted, so past bookings keep their name. “Move up / Move down” sets the website order.
+- **Weekly hours** in clinic time, with several rows per day (a lunch break is a gap) and one appointment length per optometrist (15/30/45/60/90 minutes).
+- **Time off:** whole days or part of a day, with an optional staff-only reason. If it covers appointments that are already booked, staff see the patients to rebook; nothing is cancelled automatically.
+- **Extra days:** one-off hours outside the weekly pattern.
+- **Bookable times are generated automatically**, 90 days ahead: weekly hours, minus time off, plus extra days. They are regenerated whenever staff save a schedule and every hour by the existing `/api/reminders` scheduler. A slot with a booking is never removed, and times added by hand in Staff admin › Bookings › Add available time are kept (time off still hides them).
+- Database: `supabase/migrations/010_doctors_and_schedules.sql` (tables, the `doctor-photos` bucket and the `planned_doctor_slots`, `generate_doctor_slots` and `save_doctor_hours` functions). The two bracketed placeholder doctors are copied in, so the website looks the same until staff fill in real details. Rules shared by the API, demo and tests are in `lib/schedule.js`; staff changes go through `/api/doctors`. The demo keeps the same features in the browser.
 
-### Backend needed (extends the existing Supabase + Next.js API; no new service)
+Still open with the clinic: whether some services need a different appointment length than the optometrist's usual one; which optometrists perform skin tightening; whether each optometrist will later manage their own schedule; and whether schedules will later come from the EMR / MyVisionExpress.
 
-**Database: new migration `supabase/migrations/010_doctors_and_schedules.sql`**
-- `doctors` table: slug, title, first name, last name, short line, intro, focus, languages, frames they wear, photo, services they perform, show on website (yes/no), display order.
-- `doctor_weekly_hours` table: doctor, weekday, start time, end time (several rows per day allowed, so a lunch break is just a gap).
-- One appointment length per doctor (15/30/45/60/90 min).
-- `doctor_time_off` table: doctor, from, to, reason (vacation, half day, blocked hour).
-- `doctor_extra_hours` table: doctor, date, start, end (one-off extra days).
-- Moves today's two placeholder doctors from `lib/config.js` into the table.
-- Existing bookings and the double-booking protection stay exactly as they are.
+### Clinic time zone (Alberta Time)
 
-**Photo storage**
-- A Supabase storage bucket for doctor photos (public, images only, size-limited).
-
-**Automatic time slots**
-- A database function turns weekly hours, minus time off, plus extra hours, into bookable slots, always 90 days ahead.
-- Runs whenever staff save a schedule, and once a day through the existing hourly scheduler that already calls `/api/reminders` (no new scheduler needed).
-- Never removes a slot that already has a booking.
-
-**Server API (`app/api/workspace`, staff only)**
-- Add, edit, hide and reorder a doctor; upload a photo.
-- Save weekly hours and slot length; add or remove time off and extra hours.
-- Warn staff when new time off overlaps confirmed appointments, listing the patients to rebook.
-- A doctor with upcoming appointments can be hidden but not deleted.
-
-**Public read**
-- The home page and booking form load the shown doctors (name, photo, bio, services) from the database instead of the code. No patient data is involved.
-
-**Demo mode**
-- Sample doctors and schedules in `lib/demo.js`, so the preview keeps working with no keys.
-
-### Setup steps once it is built
-1. Run `010_doctors_and_schedules.sql` once in the Supabase SQL editor.
-2. Confirm the doctor-photos storage bucket exists (the migration creates it).
-3. No new environment variables or accounts are needed.
-
-### Open questions
-- One appointment length per doctor, or different lengths per service?
-- Do all doctors perform every service (for example skin tightening)?
-- Does the front desk manage schedules, or does each doctor sign in to manage their own?
-- Will schedules later come from the EMR / MyVisionExpress?
-
-### Build order
-1. Doctor profiles in the staff workspace, feeding the website.
-2. Weekly hours and time off generating the booking slots.
-3. A week calendar view per doctor (open, booked and blocked times; click to block a time).
+From November 1, 2026 Alberta stays on UTC−6 all year (“Alberta Time”, formerly Mountain Daylight Time) and no longer turns clocks back. Many servers, computers and phones still have time zone data in which `America/Edmonton` falls back to UTC−7 in winter, which would show every winter appointment an hour early. The project therefore uses the fixed zone **`Etc/GMT+6`** (it means UTC−6 with no daylight saving; the sign is reversed by convention) for `NEXT_PUBLIC_CLINIC_TIMEZONE`, and passes the same value to the database. Keep that value unless Alberta's rules change again.
 
 ## Pages / sitemap
 
@@ -104,6 +69,7 @@ Today the two placeholder doctors are written in `lib/config.js` (changing them 
 | `/affiliate/earnings` | Commission per completed appointment and its payout status |
 | `/affiliate/profile` | Display name, introduction and portrait |
 | `/admin` | Staff bookings, availability, calendar and “Top affiliates this month” |
+| `/admin/doctors` | Optometrist profiles, portraits, services, weekly hours, appointment length, time off and extra days |
 | `/admin/affiliates` | Affiliate performance table (cards on phones), sortable by completed and commission; add, activate/deactivate and photograph affiliates |
 | `/admin/affiliates/[slug]` | One affiliate: stats, appointments with gross, discount, operation cost, net and commission, inline calculator, filters, CSV, and “Preview as affiliate” (read-only) |
 | `/admin/leads` | Search/filter/export bookings |
@@ -208,7 +174,7 @@ These are deployment steps, not required for exploring the demo.
 
 1. Create a new Supabase project. Choose a region and service agreements appropriate for the clinic's privacy/data-residency decisions.
 2. Open **SQL Editor**. Paste the complete `supabase/schema.sql` and run it **once on an empty project**. It creates tables, access rules, booking/payout functions and the affiliate-photo bucket. Running it again will produce "already exists" errors; use reviewed migrations for later changes.
-   Then run each file in `supabase/migrations/` once, in number order. `004_doctor_availability.sql` makes slots and bookings per optometrist; it assigns any existing slots to `doctor-1`, so staff should review them afterwards. `005_documents.sql` adds “Complete your file”: the residency status, the document records, hashed upload tokens and the **private** `booking-documents` storage bucket. Do not add storage policies to that bucket. `006_booking_lookup.sql` gives every booking a unique reference (existing bookings included) and adds the rate-limited lookup. `008_services.sql` adds the skin tightening service and the optional `service_option` column. `007_commission.sql` adds procedure pricing and calculates commission in the database (`complete_appointment`); after running it, set each affiliate’s real commission rate. `009_direct_uploads.sql` lets “Complete your file” upload straight to storage (required on Vercel).
+   Then run each file in `supabase/migrations/` once, in number order. `004_doctor_availability.sql` makes slots and bookings per optometrist; it assigns any existing slots to `doctor-1`, so staff should review them afterwards. `005_documents.sql` adds “Complete your file”: the residency status, the document records, hashed upload tokens and the **private** `booking-documents` storage bucket. Do not add storage policies to that bucket. `006_booking_lookup.sql` gives every booking a unique reference (existing bookings included) and adds the rate-limited lookup. `008_services.sql` adds the skin tightening service and the optional `service_option` column. `007_commission.sql` adds procedure pricing and calculates commission in the database (`complete_appointment`); after running it, set each affiliate’s real commission rate. `009_direct_uploads.sql` lets “Complete your file” upload straight to storage (required on Vercel). `010_doctors_and_schedules.sql` adds staff-managed optometrists and schedules and the public `doctor-photos` bucket; afterwards, fill in each optometrist in Staff admin › Doctors and save their weekly hours.
 3. In **Authentication**, create the initial staff user with a confirmed email and a strong password. Copy that user's UUID.
 4. In SQL Editor run the following, replacing the UUID with the actual user ID:
 
@@ -243,13 +209,13 @@ Set its full output as `INSURANCE_ENCRYPTION_KEY` in your private environment. K
 ### D. Activate and verify
 
 1. Set every confirmed clinic value, the live URL and service keys. Change **only the configured live environment** to `NEXT_PUBLIC_DEMO_MODE=false`, restart locally or redeploy.
-2. Sign in with the real staff account. Add appointment slots for each optometrist using **Add available time**. The input explicitly uses the staff browser's local timezone; patient displays use `NEXT_PUBLIC_CLINIC_TIMEZONE`. Confirm both before adding slots.
+2. Sign in with the real staff account. In **Doctors**, enter each optometrist's real profile, services and weekly hours; their bookable times are generated straight away. Use **Add available time** only for one-off times. All times are entered and shown in clinic time (`NEXT_PUBLIC_CLINIC_TIMEZONE`, `Etc/GMT+6`).
 3. Add an affiliate and complete the email invitation. Verify their photo, link, QR, active/inactive state and restricted workspace.
 4. Book a test appointment from that affiliate link. Verify database persistence, referral attribution, email/SMS, calendar timezone, staff status updates and the calculated commission.
 5. Try simultaneous bookings with the same optometrist for an overlapping interval and confirm only one succeeds; then book two different optometrists at the same time and confirm both succeed. Test both roles with separate accounts and verify anonymous requests cannot access patient data.
 6. Check notification failures, audit records, provider bills, backup/recovery and data retention with the team's deployment owner. Approve real copy, portrait rights, gift terms, privacy wording and clinical scheduling before accepting patients.
 
-Each optometrist has their own calendar of explicit staff-created slots. Durations are assigned to slots, not automatically determined by service. It does not sync MyVisionExpress, offer self-service rescheduling/cancellation, manage multiple locations or implement a rules-based commission engine. The staff API currently loads at most 2,000 bookings and 100 recent delivery jobs; add server pagination for larger use. Document files never pass through the website: `/api/documents` hands out signed upload links and checks the stored files afterwards, so Vercel's 4.5 MB request limit does not apply (each file is still limited to 10 MB by the bucket). Uploaded documents are not deleted automatically; set and apply a retention period. Staff have a shared staff role, not per-action permissions or MFA enforcement. Account deletion, data retention, consent withdrawal and retry workflows require the clinic's operational processes or later implementation. For a partial affiliate invitation failure, review the auth user and inactive/missing affiliate/profile in Supabase before retrying; the server does not delete auth accounts automatically.
+Each optometrist has their own calendar of slots, generated from their weekly hours (plus any times staff add by hand). The appointment length is set per optometrist, not per service. It does not sync MyVisionExpress, offer self-service rescheduling/cancellation, manage multiple locations or implement a rules-based commission engine. The staff API currently loads at most 2,000 bookings and 100 recent delivery jobs; add server pagination for larger use. Document files never pass through the website: `/api/documents` hands out signed upload links and checks the stored files afterwards, so Vercel's 4.5 MB request limit does not apply (each file is still limited to 10 MB by the bucket). Uploaded documents are not deleted automatically; set and apply a retention period. Staff have a shared staff role, not per-action permissions or MFA enforcement. Account deletion, data retention, consent withdrawal and retry workflows require the clinic's operational processes or later implementation. For a partial affiliate invitation failure, review the auth user and inactive/missing affiliate/profile in Supabase before retrying; the server does not delete auth accounts automatically.
 
 ## Editing the design
 
