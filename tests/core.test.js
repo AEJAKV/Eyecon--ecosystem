@@ -550,3 +550,22 @@ test('staff see the clinic time zone as Alberta Time, not its technical name',()
   if(!process.env.NEXT_PUBLIC_CLINIC_TIMEZONE)assert.equal(clinic.timezoneLabel,'Alberta Time (UTC−6)');
   const ws=readFileSync(new URL('../components/workspace.js',import.meta.url),'utf8');assert.ok(ws.includes('Times in {clinic.timezoneLabel}'));
 });
+
+test('password reset and invitation links always open the set-password form, wherever they land',async()=>{
+  const { passwordLinkType, onPasswordForm, passwordFormPath } = await import('../lib/supabase.js');
+  assert.equal(passwordLinkType({hash:'#access_token=x&type=recovery'}),'recovery');
+  assert.equal(passwordLinkType({hash:'#access_token=x&type=invite'}),'invite');
+  assert.equal(passwordLinkType({hash:'#access_token=x&type=magiclink'}),null);
+  assert.equal(passwordLinkType({hash:''}),null);
+  assert.equal(passwordFormPath('recovery'),'/login?mode=reset');assert.equal(passwordFormPath('invite'),'/login?set-password=1');
+  assert.ok(onPasswordForm({pathname:'/login',search:'?mode=reset'}));assert.ok(onPasswordForm({pathname:'/login',search:'?set-password=1'}));
+  assert.ok(!onPasswordForm({pathname:'/',search:''}));assert.ok(!onPasswordForm({pathname:'/login',search:''}));
+  const provider=readFileSync(new URL('../components/provider.js',import.meta.url),'utf8');
+  assert.match(provider,/PASSWORD_RECOVERY/);assert.match(provider,/passwordLinkType\(window\.location\)/);
+});
+test('the sign-in form has a show/hide password button and a Caps Lock warning',()=>{
+  const form=readFileSync(new URL('../components/login-form.js',import.meta.url),'utf8');
+  assert.match(form,/type=\{show\?'text':'password'\}/);assert.match(form,/aria-label=\{show\?'Hide password':'Show password'\}/);
+  assert.match(form,/getModifierState\?\.\('CapsLock'\)/);assert.match(form,/Caps Lock is on/);
+  assert.ok(!/id="password" type="password"/.test(form),'the old plain password box is gone');
+});

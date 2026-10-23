@@ -2,7 +2,7 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { DEMO, placeholderDoctors, setDoctorDirectory } from '@/lib/config';
 import { seedDemo, applyDemo, demoLookup } from '@/lib/demo';
-import { browserClient } from '@/lib/supabase';
+import { browserClient, passwordLinkType, onPasswordForm, passwordFormPath } from '@/lib/supabase';
 const Context=createContext(null);
 export function Provider({children}){
   const [data,setData]=useState({affiliates:[],bookings:[],templates:[],slots:[],jobs:[]}),[user,setUser]=useState(null),[ready,setReady]=useState(false),[error,setError]=useState('');
@@ -20,7 +20,11 @@ export function Provider({children}){
   useEffect(()=>{
     if(DEMO){try{const saved=JSON.parse(localStorage.getItem('eyecon-demo-v5')||'null');setData(saved?.affiliates&&saved?.bookings&&saved?.doctors?saved:seedDemo());const u=JSON.parse(sessionStorage.getItem('eyecon-demo-user')||'null');if(u&&['staff','affiliate'].includes(u.role))setUser(u);}catch{setData(seedDemo());}setReady(true);return;}
     let active=true,subscription;
-    try{const client=browserClient();client.auth.getSession().then(async({data:{session}})=>{if(session)try{await reload();}catch(e){if(active)setError(e.message);}if(active)setReady(true);});subscription=client.auth.onAuthStateChange((event,session)=>{if(event==='SIGNED_OUT'){setUser(null);setData({affiliates:[],bookings:[],templates:[],slots:[]});}}).data.subscription;}catch(e){setError(e.message);setReady(true);}
+    // A password-reset or invitation link signs the person in. Whatever page it lands on (a link sent from the Supabase
+    // dashboard lands on the home page), they are taken to the form that sets their password. Read before the client
+    // removes the link details from the address.
+    const linkType=passwordLinkType(window.location);
+    try{const client=browserClient();client.auth.getSession().then(async({data:{session}})=>{if(session&&linkType&&!onPasswordForm(window.location)){window.location.replace(passwordFormPath(linkType));return;}if(session)try{await reload();}catch(e){if(active)setError(e.message);}if(active)setReady(true);});subscription=client.auth.onAuthStateChange((event,session)=>{if(event==='PASSWORD_RECOVERY'&&!onPasswordForm(window.location)){window.location.replace(passwordFormPath('recovery'));return;}if(event==='SIGNED_OUT'){setUser(null);setData({affiliates:[],bookings:[],templates:[],slots:[]});}}).data.subscription;}catch(e){setError(e.message);setReady(true);}
     return()=>{active=false;subscription?.unsubscribe();};
   },[]);
   useEffect(()=>{if(DEMO&&ready)try{localStorage.setItem('eyecon-demo-v5',JSON.stringify(data));}catch{setError('This browser could not save demo changes. Keep this tab open or reset the demo.');}},[data,ready]);
