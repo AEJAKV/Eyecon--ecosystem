@@ -54,6 +54,7 @@ From November 1, 2026 Alberta stays on UTC−6 all year (“Alberta Time”, for
 | `/` | Direct visitor landing page |
 | `/book/alex-morgan` | Example affiliate landing page in demo mode |
 | `/book/[slug]` | Active affiliate's personalised landing page |
+| `/book/[slug]/opengraph-image` | The 1200×630 link preview for a shared affiliate link: their photo, name, the Eyecon wordmark and the $50 gift card line. An unknown or inactive slug gets a plain Eyecon card. Set `NEXT_PUBLIC_SITE_URL` to the public address so WhatsApp, Facebook and iMessage get absolute image URLs. |
 | `/booking?affiliate=alex-morgan` | Booking flow with affiliate referral |
 | `/booking` | Direct booking flow |
 | `/booking?service=eye-exam&doctor=doctor-1` | Booking flow opened on “Choose a doctor” with that optometrist selected (the “Book with” button on the home page’s optometrist cards) |

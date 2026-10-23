@@ -569,3 +569,43 @@ test('the sign-in form has a show/hide password button and a Caps Lock warning',
   assert.match(form,/getModifierState\?\.\('CapsLock'\)/);assert.match(form,/Caps Lock is on/);
   assert.ok(!/id="password" type="password"/.test(form),'the old plain password box is gone');
 });
+
+// Link previews for /book/[slug]
+import { previewAffiliate,previewTitle,previewDescription,previewMetadata,PREVIEW_FALLBACK_PHOTO,PREVIEW_SIZE } from '../lib/preview.js';
+const alex=()=>seedDemo().affiliates.find(a=>a.slug==='alex-morgan');
+test('a link preview names the active affiliate and carries only public fields',()=>{
+  const a=previewAffiliate({...alex(),email:'alex@example.com',commissionRate:10,commissionNote:'private'});
+  assert.deepEqual(Object.keys(a).sort(),['name','photo','slug']);
+  assert.equal(a.name,'Alex Morgan');assert.equal(previewTitle(a),'Alex Morgan invites you to Eyecon Optometry');
+  assert.ok(previewDescription(a).includes('$50 gift card on your first visit'));
+});
+test('an unknown slug gets the plain Eyecon preview',()=>{
+  const none=previewAffiliate(seedDemo().affiliates.find(x=>x.slug==='no-such-person'));
+  assert.equal(none,null);assert.equal(previewTitle(none),'Eyecon Optometry');assert.ok(!previewDescription(none).includes('invites'));
+});
+test('an inactive affiliate gets the plain Eyecon preview',()=>{
+  assert.equal(previewAffiliate({...alex(),active:false}),null);
+});
+test('a missing or unsafe photo falls back to the shared placeholder',()=>{
+  for(const photo of [undefined,null,'','http://example.com/a.jpg','javascript:alert(1)'])assert.equal(previewAffiliate({...alex(),photo}).photo,PREVIEW_FALLBACK_PHOTO);
+  assert.equal(previewAffiliate({...alex(),photo:'https://example.supabase.co/a.jpg'}).photo,'https://example.supabase.co/a.jpg');
+});
+test('preview metadata is noindex, uses the site URL as base and sets a large social card',()=>{
+  const m=previewMetadata(previewAffiliate(alex()),'https://eyecon-ecosystem.vercel.app');
+  assert.equal(m.metadataBase.href,'https://eyecon-ecosystem.vercel.app/');
+  assert.deepEqual(m.robots,{index:false,follow:false});
+  assert.equal(m.title.absolute,'Alex Morgan invites you to Eyecon Optometry');
+  assert.equal(m.openGraph.title,m.title.absolute);assert.equal(m.twitter.card,'summary_large_image');
+  assert.equal(previewMetadata(null,'https://example.com').title.absolute,'Eyecon Optometry');
+  assert.ok(!('metadataBase' in previewMetadata(null,'not a url')));
+  assert.deepEqual(PREVIEW_SIZE,{width:1200,height:630});
+});
+test('the referral page builds its metadata on the server from the affiliate',()=>{
+  const page=readFileSync(new URL('../app/book/[slug]/page.js',import.meta.url),'utf8');
+  assert.ok(page.includes('export async function generateMetadata')&&page.includes('loadPreviewAffiliate'));
+  assert.ok(!page.includes('export const metadata'));
+  const data=readFileSync(new URL('../lib/preview-data.js',import.meta.url),'utf8');
+  assert.ok(data.includes('publicAffiliate')&&data.includes(".eq('active', true)")&&data.includes('seedDemo'));
+  const image=readFileSync(new URL('../app/book/[slug]/opengraph-image.js',import.meta.url),'utf8');
+  assert.ok(image.includes('PREVIEW_GIFT_LINE')&&image.includes('previewPhotoUri')&&image.includes('size=PREVIEW_SIZE'.replace('=',' = ')));
+});
