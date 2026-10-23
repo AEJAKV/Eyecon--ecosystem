@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { validateBooking,csv,slotTaken,validateDocuments,fileSignatureOk,fileComplete } from '../lib/validation.js';
+import { validateBooking,csv,slotTaken,validateDocuments,fileSignatureOk,fileComplete,checkUploadedFile } from '../lib/validation.js';
 import { seedDemo,applyDemo,affiliateRows } from '../lib/demo.js';
 import { calendarFile } from '../lib/calendar.js';
 import { readFileSync } from 'node:fs';
@@ -407,4 +407,28 @@ test('the hero “Meet our optometrists” button scrolls to the doctors section
   assert.ok(landing.includes('<section className="doctors" id="doctors" aria-labelledby="doctors-title">'));
   assert.equal((landing.match(/id="doctors"/g)||[]).length,1,'one #doctors target');
   assert.ok(!landing.includes('See appointment types'));
+});
+
+// Direct uploads (migration 009): the server checks what reached storage against what the patient declared.
+test('checkUploadedFile accepts a matching stored file and refuses missing, resized, retyped or fake files',()=>{
+  const pdf={name:'id.pdf',size:2048,type:'application/pdf'},head=Buffer.from('%PDF-1.7\n');
+  assert.equal(checkUploadedFile(pdf,{size:2048,contentType:'application/pdf'},head),null);
+  assert.equal(checkUploadedFile(pdf,{size:2048,contentType:'application/pdf; charset=binary'},head),null);
+  assert.match(checkUploadedFile(pdf,null,null),/did not finish uploading/);
+  assert.match(checkUploadedFile(pdf,{size:9999,contentType:'application/pdf'},head),/did not finish uploading/);
+  assert.match(checkUploadedFile(pdf,{size:2048,contentType:'image/png'},head),/real PDF/);
+  assert.match(checkUploadedFile(pdf,{size:2048,contentType:'application/pdf'},Buffer.from('MZ\x90\x00')),/real PDF/);
+  const jpg={name:'diploma.jpg',size:10,type:'image/jpeg'};
+  assert.equal(checkUploadedFile(jpg,{size:10,contentType:'image/jpeg'},Buffer.from([0xff,0xd8,0xff,0xe0])),null);
+});
+test('documents never pass through the website: the route takes JSON only and the browser uploads with signed links',()=>{
+  const route=readFileSync(new URL('../app/api/documents/route.js',import.meta.url),'utf8');
+  const provider=readFileSync(new URL('../components/provider.js',import.meta.url),'utf8');
+  assert.ok(!route.includes('formData()'),'no multipart body is read');
+  assert.ok(route.includes('createSignedUploadUrl'));
+  assert.ok(route.includes('checkUploadedFile'),'stored files are checked before they are recorded');
+  assert.ok(provider.includes('uploadToSignedUrl'));
+  assert.ok(!/form\.append\('file'/.test(provider),'files are not posted to /api/documents');
+  const migration=readFileSync(new URL('../supabase/migrations/009_direct_uploads.sql',import.meta.url),'utf8');
+  assert.ok(migration.includes('revoke all on public.booking_document_uploads from anon, authenticated'));
 });

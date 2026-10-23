@@ -24,7 +24,21 @@ export function Provider({children}){
   async function photo(file,affiliateId){if(DEMO){const result=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=reject;reader.readAsDataURL(file);});const a=data.affiliates.find(a=>a.id===affiliateId);return action('profile',{...a,photo:result});}const form=new FormData();form.set('file',file);form.set('affiliateId',affiliateId);const res=await fetch('/api/workspace',{method:'POST',headers:await headers(),body:form});const result=await res.json();if(!res.ok)throw new Error(result.error);await reload();}
   // "Complete your file". files are [{file,kind}]. In the demo only each file's name, size and type are kept, never its contents.
   async function documentsLinkValid(token){if(DEMO){const b=data.bookings.find(b=>token&&b.documentsToken===token);return !!b&&!b.documentsUsedAt&&new Date(b.documentsExpiresAt)>new Date();}const res=await fetch('/api/documents',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token})});const result=await res.json();if(!res.ok)throw new Error(result.error);return result.valid;}
-  async function submitDocuments({token,residencyStatus,files}){if(DEMO)return action('documents',{token,residencyStatus,files:files.map(({file,kind})=>({name:file.name,size:file.size,type:file.type,kind}))});const form=new FormData();form.set('token',token);form.set('residencyStatus',residencyStatus);for(const {file,kind} of files){form.append('file',file);form.append('kind',kind);}const res=await fetch('/api/documents',{method:'POST',body:form});const result=await res.json().catch(()=>({error:'The upload was too large or the connection dropped. Please try again.'}));if(!res.ok)throw new Error(result.error);return result;}
+  // Live: each file goes straight to private storage with a one-time signed link (the website's host refuses requests
+  // over about 4.5 MB), then the server checks the stored files and records them. onProgress(done,total) reports each file.
+  async function submitDocuments({token,residencyStatus,files,onProgress}){
+    if(DEMO)return action('documents',{token,residencyStatus,files:files.map(({file,kind})=>({name:file.name,size:file.size,type:file.type,kind}))});
+    const post=async body=>{const res=await fetch('/api/documents',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const result=await res.json().catch(()=>({error:'The connection dropped. Please try again.'}));if(!res.ok)throw new Error(result.error);return result;};
+    const plan=await post({action:'start',token,residencyStatus,files:files.map(({file,kind})=>({name:file.name,size:file.size,type:file.type,kind}))});
+    const storage=browserClient().storage.from('booking-documents');
+    for(const [i,{file}] of files.entries()){
+      onProgress?.(i+1,files.length);
+      const u=plan.uploads[i];const {error}=await storage.uploadToSignedUrl(u.path,u.token,file,{contentType:file.type});
+      if(error)throw new Error(`“${file.name}” could not be uploaded. Please check your connection and try again.`);
+    }
+    onProgress?.(files.length,files.length);
+    return post({action:'finish',token,uploadId:plan.uploadId});
+  }
   // /my-booking. The demo searches this browser's demo data with the same checks and the same limited result.
   async function lookupBooking(payload){if(DEMO)return {booking:demoLookup(data,payload)};const res=await fetch('/api/lookup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const result=await res.json();if(!res.ok)throw new Error(result.error);return result;}
   function demoSignIn(role){const u={role,affiliateId:role==='affiliate'?'demo-alex':null};setUser(u);sessionStorage.setItem('eyecon-demo-user',JSON.stringify(u));}

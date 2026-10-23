@@ -21,6 +21,7 @@ export default function DocumentsForm({ token, canSkip = false }) {
   const [extras, setExtras] = useState([]);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [progress, setProgress] = useState(null);
   const idInput = useRef(null), extraInput = useRef(null), heading = useRef(null);
 
   useEffect(() => { if (!token) { setValid(false); return; } documentsLinkValid(token).then(setValid).catch(() => setValid(false)); }, [token]);
@@ -40,10 +41,10 @@ export default function DocumentsForm({ token, canSkip = false }) {
     try {
       validateDocuments({ residencyStatus: residency, files: files.map(({ file, kind }) => ({ name: file.name, size: file.size, type: file.type, kind })) });
       setBusy(true);
-      await submitDocuments({ token, residencyStatus: residency, files });
+      await submitDocuments({ token, residencyStatus: residency, files, onProgress: (done, count) => setProgress({ done, count }) });
       setState('done');
     } catch (err) { setError(err.message); }
-    finally { setBusy(false); }
+    finally { setBusy(false); setProgress(null); }
   }
 
   if (valid === null) return <section className="documents-card" aria-busy="true"><h3>Complete your file</h3><p className="quiet">Checking your link…</p></section>;
@@ -86,7 +87,7 @@ export default function DocumentsForm({ token, canSkip = false }) {
       <p className="privacy-note">Only authorised clinic staff can see these documents. They are never shared with affiliates. Read our <Link href="/privacy">privacy notice</Link>.</p>
       <div className="form-actions">
         {canSkip && <Button type="button" secondary onClick={() => { setError(''); setState('skipped'); }}>Skip for now</Button>}
-        <Button type="submit" disabled={busy}>{busy ? 'Uploading…' : 'Save my file'}</Button>
+        <Button type="submit" disabled={busy}>{busy ? (progress ? `Uploading ${progress.done} of ${progress.count}…` : 'Uploading…') : 'Save my file'}</Button>
       </div>
     </form>
   </section>;
