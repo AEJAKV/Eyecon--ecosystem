@@ -724,3 +724,35 @@ test('the referral page builds its metadata on the server from the affiliate',()
   const image=readFileSync(new URL('../app/book/[slug]/opengraph-image.js',import.meta.url),'utf8');
   assert.ok(image.includes('PREVIEW_GIFT_LINE')&&image.includes('previewPhotoUri')&&image.includes('size=PREVIEW_SIZE'.replace('=',' = ')));
 });
+
+// The live gift card code in lib/server.js actually runs (a missing import once made every release fail on the live
+// site while the tests above, which only read the source, still passed). It is loaded the way Next loads server code
+// (the react-server condition), in a child process, against a fake database.
+import { execFileSync } from 'node:child_process';
+test('the server releases and claims gift cards without errors',()=>{
+  const script=`
+    const { releaseGift, claimGift } = await import(${JSON.stringify(new URL('../lib/server.js',import.meta.url).href)});
+    const calls = [];
+    const db = {
+      rpc: async (name, args) => { calls.push([name, args.p_days, /^[2-9A-HJ-NP-Z]{6}$/.test(args.p_serial)]); return { data: [{ serial: args.p_serial, released_at: '2026-10-23T14:00:00Z', expires_at: '2027-04-21T14:00:00Z' }], error: null }; },
+      from: table => { const q = { select: () => q, eq: () => q, is: () => q,
+        maybeSingle: async () => ({ data: { id: 'c1', affiliate_id: 'a1', serial: '7K2M9Q', released_at: '2026-10-23T14:00:00Z', expires_at: '2999-01-01T00:00:00Z', status: 'Released', booking_id: null } }),
+        update: fields => { calls.push(['update', table, fields.status || fields.gift_status]); return { eq: () => ({ eq: () => ({ is: () => ({ select: async () => ({ data: [{ id: 'c1' }], error: null }) }) }), is: async () => ({ error: null }) }) }; } };
+        return q; }
+    };
+    const card = await releaseGift(db, 'a1', 'hash');
+    const booked = await claimGift(db, { id: 'b1', affiliate_id: 'a1' }, card.token);
+    console.log(JSON.stringify({ serialOk: /^[2-9A-HJ-NP-Z]{6}$/.test(card.serial), tokenLength: card.token.length, expiresAt: card.expiresAt, claimed: booked.gift_status, claimedSerial: booked.gift_serial, calls }));`;
+  const out=JSON.parse(execFileSync(process.execPath,['--conditions=react-server','--input-type=module','-e',script],{encoding:'utf8'}).trim().split('\n').pop());
+  assert.equal(out.serialOk,true);assert.equal(out.tokenLength,64);assert.equal(out.expiresAt,'2027-04-21T14:00:00Z');
+  assert.deepEqual(out.calls[0],['release_gift_card',180,true],'releases call the database with a valid serial and 180 days');
+  assert.equal(out.claimed,'Claimed');assert.equal(out.claimedSerial,'7K2M9Q');
+});
+test('the gift pill shows title, then the card number, then one small line, and never dots',()=>{
+  const ui=readFileSync(new URL('../components/ui.js',import.meta.url),'utf8');
+  assert.ok(ui.includes('Your gift card for your first visit')&&ui.includes('Card number issued when you book'));
+  assert.ok(!ui.includes('HIDDEN_SERIAL')&&!ui.includes('days from booking'),'no hidden-serial dots or booking-based wording in the pill');
+  assert.ok(ui.indexOf('your first visit</strong>')<ui.indexOf('className="gift-number"')&&ui.indexOf('className="gift-number"')<ui.indexOf('Valid until {until}'),'title, number, then validity');
+  const css=readFileSync(new URL('../app/site.css',import.meta.url),'utf8');
+  assert.ok(/\.gift \{ display: flex; align-items: center;/.test(css)&&!/\.gift-number \{[^}]*justify-self/.test(css));
+});

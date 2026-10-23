@@ -81,15 +81,17 @@ h3 { font-weight: 500; }
 .referral small, .referral strong { display: block; }
 .referral small { color: var(--muted); font-size: .82rem; letter-spacing: .03em; }
 .referral strong { font-size: 1.1rem; font-weight: 500; }
-.gift { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; column-gap: 1.2rem; row-gap: .45rem; max-width: 34rem; padding: 1rem 1.25rem 1rem 1rem; border: 1px solid #d8c9a6; background: linear-gradient(105deg, #f3ecdc, #faf7f0 60%, #f1e8d4); border-radius: var(--radius); }
+.gift { display: flex; align-items: center; gap: 1.2rem; max-width: 34rem; padding: 1rem 1.25rem 1rem 1rem; border: 1px solid #d8c9a6; background: linear-gradient(105deg, #f3ecdc, #faf7f0 60%, #f1e8d4); border-radius: var(--radius); }
 .gift-value { font-family: var(--serif); font-size: 2.3rem; line-height: 1; color: var(--gold-text); padding-right: 1.1rem; border-right: 1px solid #d8c9a6; }
 .gift strong { display: block; font-weight: 500; }
-.gift small { display: block; font-size: .8rem; line-height: 1.5; color: #6a5a39; margin-top: 2px; }
+/* Title, card number, then one small line: stacked and centred beside the $50 */
+.gift-body { display: flex; flex-direction: column; gap: .22rem; min-width: 0; }
+.gift small { display: block; font-size: .74rem; line-height: 1.45; color: #6a5a39; margin: 0; }
 /* The card number line: each part stays whole and the line wraps between parts */
 .gift small > span { white-space: nowrap; }
 .gift-left[data-state='last'] { font-weight: 500; color: var(--ink); }
-/* The full card number sits on its own line at the lower right of the pill */
-.gift-number { grid-column: 1 / -1; justify-self: end; margin: 0; font-family: ui-monospace, 'SF Mono', 'Cascadia Mono', Menlo, Consolas, monospace; font-size: .95rem; line-height: 1.2; letter-spacing: .08em; color: var(--gold-text); white-space: nowrap; }
+/* The card number sits under the title */
+.gift-number { margin: 0; font-family: ui-monospace, 'SF Mono', 'Cascadia Mono', Menlo, Consolas, monospace; font-size: .92rem; line-height: 1.3; letter-spacing: .12em; color: var(--gold-text); white-space: nowrap; }
 .gift-terms { color: var(--gold-text); text-decoration: underline; text-underline-offset: 3px; }
 .gift-terms:hover { color: var(--ink); }
 .gift.compact { padding: .8rem 1rem .8rem .8rem; }
@@ -147,9 +149,9 @@ h3 { font-weight: 500; }
 .hero .referral img { width: 40px; height: 40px; box-shadow: none; }
 .hero .referral small { color: rgba(255, 255, 255, .78); font-size: .74rem; line-height: 1.3; }
 .hero .referral strong { font-size: .98rem; line-height: 1.3; }
-.hero .gift { max-width: 32rem; margin: 0 0 1.2rem; padding: .6rem 1.7rem .6rem 1.4rem; border: 1px solid rgba(180, 154, 103, .75); border-radius: 999px; background: rgba(20, 24, 29, .55); backdrop-filter: blur(16px) saturate(1.2); -webkit-backdrop-filter: blur(16px) saturate(1.2); color: #fff; text-align: left; text-shadow: none; }
+.hero .gift { max-width: 32rem; margin: 0 0 1.2rem; padding: .8rem 1.9rem .8rem 1.6rem; border: 1px solid rgba(180, 154, 103, .75); border-radius: 999px; background: rgba(20, 24, 29, .55); backdrop-filter: blur(16px) saturate(1.2); -webkit-backdrop-filter: blur(16px) saturate(1.2); color: #fff; text-align: left; text-shadow: none; }
 .hero .gift-value { color: #e3d4b1; border-right-color: rgba(180, 154, 103, .55); }
-.hero .gift small { color: rgba(255, 255, 255, .8); }
+.hero .gift small { color: rgba(255, 255, 255, .7); }
 .hero .gift-terms { color: #e3d4b1; }
 .hero .gift-number, .hero .gift-left[data-state='last'] { color: #e3d4b1; }
 .hero .gift-terms:hover { color: #fff; }
@@ -627,9 +629,9 @@ details p { margin: 1rem 0 0; color: var(--muted); }
   .hero::after { background: linear-gradient(to bottom, rgba(20, 24, 29, .5), rgba(20, 24, 29, .24) 11%, rgba(20, 24, 29, 0) 22%), linear-gradient(to top, rgba(20, 24, 29, .5), rgba(20, 24, 29, .3) 45%, rgba(20, 24, 29, .12) 66%, rgba(20, 24, 29, 0) 88%); }
   .hero-text::before { inset: -30% -60%; }
   .hero-description { font-size: 1rem; line-height: 1.5; margin-bottom: .85rem; }
-  .hero .gift { border-radius: 1.75rem; padding: .5rem 1.1rem .5rem 1rem; margin-bottom: .85rem; }
+  .hero .gift { border-radius: 1.75rem; padding: .65rem 1.2rem .65rem 1.05rem; margin-bottom: .85rem; }
   .hero .gift-value { font-size: 1.7rem; }
-  .hero .gift small { font-size: .74rem; line-height: 1.4; }
+  .hero .gift small { font-size: .7rem; line-height: 1.4; }
   .hero .referral { margin-bottom: .7rem; }
   .hero .referral img { width: 34px; height: 34px; }
   .collections { padding: 3.25rem 0; }
