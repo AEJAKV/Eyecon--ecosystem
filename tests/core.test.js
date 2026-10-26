@@ -774,3 +774,54 @@ test('no gift card is released or shown before booking',()=>{
   assert.equal(b.giftCard.status,'Issued');assert.match(b.giftCard.serial,/^[2-9A-HJ-NP-Z]{6}$/);
   assert.equal(Math.round((new Date(b.giftCard.expiresAt)-new Date(b.giftCard.issuedAt))/86400000),180,'the 180 days start at booking');
 });
+
+// "Already have a prescription": a gift card claimed without booking, through an affiliate's link only.
+import { validateClaim } from '../lib/validation.js';
+const claimer={name:'Sample claimant',email:'Claim@Example.com',affiliateId:'demo-alex'};
+test('a prescription claim needs a name, an email and an affiliate; the health card is optional',()=>{
+  const c=validateClaim(claimer);assert.equal(c.email,'claim@example.com');assert.equal(c.healthCard,'');
+  assert.throws(()=>validateClaim({...claimer,name:'A'}),/full name/);
+  assert.throws(()=>validateClaim({...claimer,email:'nope'}),/valid email/);
+  assert.throws(()=>validateClaim({...claimer,affiliateId:''}),/referral link/);
+  assert.throws(()=>validateClaim({...claimer,healthCard:'12<script>'}),/health card/);
+  assert.equal(validateClaim({...claimer,healthCard:'12345-6789'}).healthCard,'12345-6789');
+});
+test('the demo issues one prescription gift card per email per affiliate, with no booking',()=>{
+  const data=seedDemo(),next=applyDemo(data,'claim',{...claimer,healthCard:'123456789',policy:'P-1'},null);
+  const g=next.giftClaims[0];
+  assert.equal(g.status,'Issued');assert.match(g.serial,/^[2-9A-HJ-NP-Z]{6}$/);assert.equal(g.affiliateId,'demo-alex');
+  assert.equal(Math.round((new Date(g.expiresAt)-new Date(g.issuedAt))/86400000),180);
+  assert.equal(next.bookings.length,data.bookings.length,'no booking is created');
+  assert.ok(!JSON.stringify(g).includes('123456789')&&!JSON.stringify(g).includes('P-1'),'the demo keeps no health card or policy number');
+  assert.throws(()=>applyDemo(next,'claim',{...claimer,email:'claim@example.com'},null),/already been sent/);
+  assert.throws(()=>applyDemo(data,'claim',{...claimer,affiliateId:'nobody'},null),/no longer available/);
+  assert.ok(!affiliateRows(next.bookings,'demo-alex').some(r=>r.email==='claim@example.com'),'claims never reach the affiliate view');
+});
+test('prescription claims: migration 012, route and booking page',()=>{
+  const sql=readFileSync(new URL('../supabase/migrations/012_prescription_gift_claims.sql',import.meta.url),'utf8');
+  assert.ok(sql.startsWith('--')&&sql.includes('after 011_released_gift_cards.sql')&&sql.includes('create table public.gift_claims'));
+  assert.ok(sql.includes('gift_claims_email_unique on public.gift_claims(affiliate_id, lower(email))')&&sql.includes("raise exception 'already claimed'"));
+  assert.ok(sql.includes('revoke all on public.gift_claims from anon, authenticated')&&sql.includes('to service_role')&&sql.includes('gift_claim_serial_guard'));
+  const route=readFileSync(new URL('../app/api/gift/claim/route.js',import.meta.url),'utf8');
+  assert.ok(route.includes('sameOrigin(request)')&&route.includes("verifyTurnstile(request,raw.captcha,'claim')")&&route.includes('requestHash(request)')&&route.includes('validateClaim(raw)'));
+  assert.ok(!/health|policy/i.test(route.split('Response.json(')[1]),'the reply carries no health card or policy number');
+  const flow=readFileSync(new URL('../components/booking-flow.js',import.meta.url),'utf8');
+  assert.ok(flow.includes("{affiliate && <label className={`service-choice prescription-choice")&&flow.includes('Already have a prescription</strong>'),'the choice is offered only with an affiliate');
+  assert.ok(flow.includes("params.get('claim') === 'prescription'")&&flow.includes('<Captcha key={captchaKey} action="claim"'));
+});
+test('the server issues a prescription gift card and writes its email without errors',()=>{
+  const script=`
+    const { claimPrescriptionGift } = await import(${JSON.stringify(new URL('../lib/server.js',import.meta.url).href)});
+    const { claimEmailText } = await import(${JSON.stringify(new URL('../lib/notifications.js',import.meta.url).href)});
+    const calls = [];
+    const ok = { rpc: async (name, a) => { calls.push([name, a.p_days, /^[2-9A-HJ-NP-Z]{6}$/.test(a.p_serial), a.p_health_card, a.p_policy]); return { data: [{ id: 'g1', name: a.p_name, email: a.p_email, serial: a.p_serial, issued_at: '2026-10-26T07:00:00Z', expires_at: '2027-04-24T07:00:00Z' }], error: null }; } };
+    const card = await claimPrescriptionGift(ok, { name: 'Sample claimant', email: 'claim@example.com', healthCard: '', insurance: '', policy: '', affiliateId: 'a1' }, 'hash');
+    let taken = ''; try { await claimPrescriptionGift({ rpc: async () => ({ data: null, error: { message: 'already claimed' } }) }, { name: 'Sample claimant', email: 'claim@example.com', healthCard: '', policy: '', affiliateId: 'a1' }, 'hash'); } catch (e) { taken = e.status + ' ' + e.message; }
+    const text = claimEmailText(card, { name: 'Alex Morgan', code: null });
+    console.log(JSON.stringify({ card, calls, taken, text }));`;
+  const out=JSON.parse(execFileSync(process.execPath,['--conditions=react-server','--input-type=module','-e',script],{encoding:'utf8'}).trim().split('\n').pop());
+  assert.deepEqual(out.calls[0],['claim_prescription_gift',180,true,null,null],'180 days, a valid serial, blank numbers stored as null');
+  assert.equal(out.card.id,'g1');assert.match(out.card.serial,/^[2-9A-HJ-NP-Z]{6}$/);
+  assert.match(out.taken,/^409 A gift card has already been sent/);
+  assert.ok(out.text.includes('EYC-AMO-'+out.card.serial)&&out.text.includes('Hi Sample,')&&out.text.includes('with your prescription'));
+});

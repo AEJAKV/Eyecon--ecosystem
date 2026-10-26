@@ -31,6 +31,9 @@ function DoctorChoices({ name, label, list, value, counts, onChange }) {
 
 const LABELS = ['Appointment', 'Date and time', 'Your details', 'Confirmed'];
 const TITLES = ['What would you like to book?', 'When works for you?', 'Your details', 'You’re booked'];
+// "Already have a prescription" (affiliate links only): no appointment, just the $50 card emailed to use in store.
+const CLAIM_LABELS = ['Choose', 'Your details', 'Gift card ready'];
+const CLAIM_TITLES = ['What would you like to book?', 'Claim your gift card', 'Your gift card is ready'];
 // Date ranges in days from today. "This week" ends on Sunday so it matches how people say it.
 function ranges() {
   const now = new Date(), toSunday = 7 - ((now.getDay() + 6) % 7 + 1) + 1;
@@ -43,12 +46,18 @@ function ranges() {
 }
 
 export default function BookingFlow() {
-  const params = useSearchParams(), slug = params.get('affiliate'), { data, ready, book, doctors: allDoctors, doctorsReady } = useApp();
+  const params = useSearchParams(), slug = params.get('affiliate'), { data, ready, book, claimGift, doctors: allDoctors, doctorsReady } = useApp();
   const [affiliate, setAffiliate] = useState(null);
   const [slots, setSlots] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
-  const [step, setStep] = useState(0);
+  // 'book' is the appointment booking. 'claim' is "Already have a prescription", offered only through an affiliate's
+  // link; the affiliate page's prescription link opens it directly on the details form.
+  const linkedClaim = params.get('claim') === 'prescription';
+  const [path, setPath] = useState(linkedClaim ? 'claim' : 'book');
+  const [step, setStep] = useState(linkedClaim ? 1 : 0);
+  const [claim, setClaim] = useState({ name: '', email: '', healthCard: '', insurance: '', policy: '', website: '' });
+  const [claimed, setClaimed] = useState(null);
   const [service, setService] = useState(params.get('service') || '');
   // An optional choice within the service, such as the skin tightening technology. One passed in the link (from a
   // technology card on the home page) arrives already chosen; unknown slugs are ignored.
@@ -93,6 +102,8 @@ export default function BookingFlow() {
         .catch(e => setLoadError(e.message)).finally(() => setLoading(false));
     }
   }, [ready, slug, data]);
+  // Without an active affiliate there is no gift card to claim, so the link falls back to booking.
+  useEffect(() => { if (!loading && !affiliate && path === 'claim') { setPath('book'); setStep(0); } }, [loading, affiliate]);
   useEffect(() => {
     if (firstRender.current) { firstRender.current = false; return; }
     titleRef.current?.focus({ preventScroll: true });
@@ -132,11 +143,22 @@ export default function BookingFlow() {
   function pickTime(iso, free) { setError(''); setStart(iso); if (mode === 'time') setDoctor(free.length === 1 ? free[0] : ''); }
   function next() {
     setError('');
-    if (step === 0 && !chosenService) { setError('Choose the care you need.'); return; }
+    if (step === 0 && path === 'book' && !chosenService) { setError('Choose the care you need.'); return; }
     if (step === 1 && !chosen) { setError(start && !doctor ? 'Choose which optometrist you would like to see.' : 'Choose an optometrist and an available time.'); return; }
     setStep(s => s + 1);
   }
   function back(to) { setError(''); setStep(to); }
+  function choose(next) { setError(''); setPath(next); if (next === 'claim') { setService(''); setServiceOption(''); } }
+  function changeClaim(key, value) { setClaim(c => ({ ...c, [key]: value })); }
+  async function submitClaim(e) {
+    e.preventDefault(); setError(''); setBusy(true);
+    try {
+      if (!DEMO && !captcha) throw new Error('Complete the verification before claiming.');
+      const result = await claimGift({ ...claim, affiliateId: affiliate?.id, captcha });
+      setClaimed(result); setStep(2);
+    } catch (e) { setError(e.message); setCaptcha(''); setCaptchaKey(k => k + 1); }
+    finally { setBusy(false); }
+  }
   async function submit(e) {
     e.preventDefault(); setError(''); setBusy(true);
     try {
@@ -153,6 +175,8 @@ export default function BookingFlow() {
 
   const optionName = serviceOptionName(service, serviceOption);
   const summary = (action = null) => <div className="selection-summary"><Icon name="calendar" /><div><strong>{chosenService?.name}{optionName && <> · {optionName}</>}</strong><small>With {doctorName(doctor)}</small><small>{formatDate(start, { dateStyle: 'full', timeStyle: 'short' })}</small></div>{action}</div>;
+  const labels = path === 'claim' ? CLAIM_LABELS : LABELS, titles = path === 'claim' ? CLAIM_TITLES : TITLES;
+  const done = step === labels.length - 1;
   const timeText = iso => formatDate(iso, { dateStyle: undefined, timeStyle: 'short' });
   const shortName = slug => { const d = findDoctor(slug); return d ? `${d.title} ${d.last}` : ''; };
   return <>
@@ -161,7 +185,7 @@ export default function BookingFlow() {
       <aside className="booking-aside">
         <h1>A little time, a clearer view.</h1>
         <p>Choose your appointment and a time that suits you. It takes about a minute.</p>
-        {affiliate && <><Referral affiliate={affiliate} />{step < 3 && <Gift compact affiliate={affiliate} />}</>}
+        {affiliate && <><Referral affiliate={affiliate} />{!done && <Gift compact affiliate={affiliate} />}</>}
         <div className="booking-help">
           <Icon name="phone" />
           <h3>Prefer to talk to us?</h3>
@@ -171,28 +195,33 @@ export default function BookingFlow() {
       </aside>
 
       <section className="booking-panel">
-        {affiliate && <p className="booking-ref"><img src={affiliate.photo || '/images/affiliate.webp'} alt="" width="32" height="32" /><span>Booking through <strong>{affiliate.name}</strong>{step < 3 && <>, with a $50 gift card</>}</span></p>}
-        <div className="progress" aria-label={`Step ${step + 1} of 4: ${LABELS[step]}`}>
-          <div className="progress-track"><div className="progress-fill" style={{ width: ((step + 1) / 4) * 100 + '%' }} /></div>
-          <ol className="stepper" aria-hidden="true">{LABELS.map((l, i) => <li key={l} className={i < step ? 'done' : ''} aria-current={i === step ? 'step' : undefined}><span className="num">{i + 1}</span>{l}</li>)}</ol>
+        {affiliate && <p className="booking-ref"><img src={affiliate.photo || '/images/affiliate.webp'} alt="" width="32" height="32" /><span>Booking through <strong>{affiliate.name}</strong>{!done && <>, with a $50 gift card</>}</span></p>}
+        <div className="progress" aria-label={`Step ${step + 1} of ${labels.length}: ${labels[step]}`}>
+          <div className="progress-track"><div className="progress-fill" style={{ width: ((step + 1) / labels.length) * 100 + '%' }} /></div>
+          <ol className={`stepper ${labels.length === 3 ? 'three' : ''}`} aria-hidden="true">{labels.map((l, i) => <li key={l} className={i < step ? 'done' : ''} aria-current={i === step ? 'step' : undefined}><span className="num">{i + 1}</span>{l}</li>)}</ol>
         </div>
-        <h2 ref={titleRef} tabIndex={-1}>{TITLES[step]}</h2>
+        <h2 ref={titleRef} tabIndex={-1}>{titles[step]}</h2>
         <Notice error>{error}</Notice>
 
         {step === 0 && <div className="step" key="s0">
           <div className="service-choices" role="radiogroup" aria-label="Appointment type">
-            {services.map(s => <label key={s.id} className={`service-choice ${service === s.id ? 'selected' : ''}`}>
-              <input type="radio" name="service" value={s.id} checked={service === s.id} onChange={() => { setService(s.id); if (!serviceOptions[s.id]) setServiceOption(''); }} />
+            {services.map(s => <label key={s.id} className={`service-choice ${path === 'book' && service === s.id ? 'selected' : ''}`}>
+              <input type="radio" name="service" value={s.id} checked={path === 'book' && service === s.id} onChange={() => { choose('book'); setService(s.id); if (!serviceOptions[s.id]) setServiceOption(''); }} />
               <Icon name={s.icon} />
               <span><strong>{s.name}</strong><small>{s.description}</small></span>
             </label>)}
+            {affiliate && <label className={`service-choice prescription-choice ${path === 'claim' ? 'selected' : ''}`}>
+              <input type="radio" name="service" value="prescription" checked={path === 'claim'} onChange={() => choose('claim')} />
+              <Icon name="gift" />
+              <span><strong>Already have a prescription</strong><small>Skip the exam. We’ll email your $50 gift card to use on eyewear in store.</small></span>
+            </label>}
           </div>
-          {service === 'skin-tightening' && <SkinTechnologies value={serviceOption} onChange={setServiceOption} />}
+          {path === 'book' && service === 'skin-tightening' && <SkinTechnologies value={serviceOption} onChange={setServiceOption} />}
           <p className="urgent-note">Urgent eye concern? {clinic.phone ? <a href={clinic.phoneHref}>Call the clinic</a> : 'Please call the clinic for guidance.'}</p>
-          <div className="form-actions"><Button onClick={next} disabled={!chosenService}>Continue</Button></div>
+          <div className="form-actions"><Button onClick={next} disabled={path === 'book' && !chosenService}>Continue</Button></div>
         </div>}
 
-        {step === 1 && <div className="step" key="s1">
+        {path === 'book' && step === 1 && <div className="step" key="s1">
           <p className="muted">{chosenService?.name}</p>
           <div className="mode-toggle" role="group" aria-label="How would you like to choose?">
             {[['doctor', 'Choose a doctor'], ['time', 'Choose a time']].map(([m, label]) => <button type="button" key={m} className={mode === m ? 'active' : ''} aria-pressed={mode === m} onClick={() => switchMode(m)}>{label}</button>)}
@@ -243,7 +272,7 @@ export default function BookingFlow() {
           <div className="form-actions"><Button secondary onClick={() => back(0)}>Back</Button><Button onClick={next} disabled={!chosen}>Continue</Button></div>
         </div>}
 
-        {step === 2 && <form onSubmit={submit} className="stack step" key="s2">
+        {path === 'book' && step === 2 && <form onSubmit={submit} className="stack step" key="s2">
           {summary(<button type="button" className="text-link" onClick={() => back(1)}>Change</button>)}
           <Field label="Full name" id="patient-name" autoComplete="name" required maxLength={120} value={details.name} onChange={e => change('name', e.target.value)} />
           <div className="form-grid">
@@ -273,7 +302,7 @@ export default function BookingFlow() {
           <div className="form-actions"><Button type="button" secondary onClick={() => back(1)}>Back</Button><Button disabled={busy} type="submit">{busy ? 'Booking…' : 'Confirm booking'}</Button></div>
         </form>}
 
-        {step === 3 && confirmation && <div className="confirmation step" key="s3">
+        {path === 'book' && step === 3 && confirmation && <div className="confirmation step" key="s3">
           <div className="success-mark"><Icon name="check" size={34} /></div>
           <p className="confirmation-lead">We look forward to seeing you, {confirmation.booking.name.split(' ')[0]}.</p>
           <div className="confirmation-card">
@@ -294,6 +323,33 @@ export default function BookingFlow() {
           <ul className="check-list">{instructions.map(t => <li key={t}><Icon name="check" size={18} />{t}</li>)}</ul>
           <Notice>{DEMO ? 'Demo booking saved in this browser. No email or SMS was sent.' : confirmation.notifications?.email === 'sent' ? 'Your confirmation email is on its way. Check your inbox.' : 'Your booking is saved. Keep your reference and add it to your calendar above.'}</Notice>
           <Button secondary href={affiliate ? '/book/' + affiliate.slug : '/'}>Return to Eyecon</Button>
+        </div>}
+        {path === 'claim' && step === 1 && <form onSubmit={submitClaim} className="stack step" key="c1">
+          <div className="selection-summary"><Icon name="gift" /><div><strong>Already have a prescription</strong><small>We’ll email your $50 gift card. Bring your prescription to the clinic and use the card on your eyewear.</small></div><button type="button" className="text-link" onClick={() => back(0)}>Change</button></div>
+          <Field label="Full name" id="claim-name" autoComplete="name" required maxLength={120} value={claim.name} onChange={e => changeClaim('name', e.target.value)} />
+          <Field label="Email address" id="claim-email" type="email" autoComplete="email" required value={claim.email} onChange={e => changeClaim('email', e.target.value)} hint="Your gift card is sent here." />
+          <details className="optional-fields"><summary>Health card or insurance <small>Optional</small></summary>
+            <div className="stack">
+              <Field label="Alberta health card number" id="claim-health-card" inputMode="numeric" maxLength={40} value={claim.healthCard} onChange={e => changeClaim('healthCard', e.target.value)} hint="Only clinic staff can see this." />
+              <Field label="Insurance company" id="claim-insurance" value={claim.insurance} maxLength={120} onChange={e => changeClaim('insurance', e.target.value)} list={clinic.insurers.length ? 'claim-insurer-options' : undefined} />
+              {clinic.insurers.length > 0 && <datalist id="claim-insurer-options">{clinic.insurers.map(i => <option key={i} value={i} />)}</datalist>}
+              <Field label="Policy number" id="claim-policy" value={claim.policy} maxLength={120} onChange={e => changeClaim('policy', e.target.value)} hint="Only clinic staff can see this. You can bring your insurance card instead." />
+            </div>
+          </details>
+          <p className="privacy-note">{affiliate?.name} is not told your details. One gift card per email address. Read our <Link href="/privacy">privacy notice</Link> and the <Link href="/gift-card-terms" target="_blank">gift card terms</Link>.</p>
+          <div className="honeypot" aria-hidden="true"><label htmlFor="claim-website">Leave this blank</label><input id="claim-website" value={claim.website} onChange={e => changeClaim('website', e.target.value)} tabIndex={-1} autoComplete="off" /></div>
+          {!DEMO && <Captcha key={captchaKey} action="claim" onToken={setCaptcha} />}
+          <div className="form-actions"><Button type="button" secondary onClick={() => back(0)}>Back</Button><Button disabled={busy} type="submit">{busy ? 'Sending…' : 'Send my gift card'}</Button></div>
+        </form>}
+
+        {path === 'claim' && step === 2 && claimed && <div className="confirmation step" key="c2">
+          <div className="success-mark"><Icon name="check" size={34} /></div>
+          <p className="confirmation-lead">Thank you, {claimed.card.name.split(' ')[0]}. Here is your $50 gift card.</p>
+          <Gift affiliate={affiliate} card={claimed.card} />
+          <h3 className="plain">How to use it</h3>
+          <ul className="check-list">{['Bring your prescription to the clinic.', 'Show this card number, or the email we sent you.', 'We apply the $50 to your eyewear.'].map(t => <li key={t}><Icon name="check" size={18} />{t}</li>)}</ul>
+          <Notice>{DEMO ? 'Demo gift card saved in this browser. No email was sent.' : claimed.notifications?.email === 'sent' ? 'Your gift card is on its way to your inbox.' : 'Your gift card is saved. Keep this card number to show at the clinic.'}</Notice>
+          <Button secondary href={'/book/' + affiliate.slug}>Return to Eyecon</Button>
         </div>}
       </section>
     </main>

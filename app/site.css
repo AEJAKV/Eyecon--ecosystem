@@ -456,6 +456,9 @@ details p { margin: 1rem 0 0; color: var(--muted); }
 .progress-track { height: 2px; background: var(--line); position: relative; overflow: hidden; }
 .progress-fill { position: absolute; inset: 0 auto 0 0; background: var(--ink); transition: width .6s var(--ease); }
 .stepper { list-style: none; display: grid; grid-template-columns: repeat(4, 1fr); padding: 0; margin: .85rem 0 0; }
+.stepper.three { grid-template-columns: repeat(3, 1fr); }
+/* "Already have a prescription": a full-width choice under the appointment types. */
+.service-choice.prescription-choice { grid-column: 1 / -1; margin-top: .9rem; }
 .stepper li { font-size: .82rem; color: var(--muted); letter-spacing: .02em; transition: color .3s; }
 .stepper li[aria-current] { color: var(--ink); font-weight: 500; }
 .stepper li.done { color: var(--ink); }
