@@ -1045,3 +1045,10 @@ test('the booking confirmation shows the gift card inside the booking tile, with
   const g=readFileSync(new URL('../components/booked-gift.js',import.meta.url),'utf8');
   assert.ok(g.includes('Download your gift card')&&g.includes("'Download gift card'")&&g.includes('<QR url={url}'));
 });
+test('the booking confirmation asks for the file first, until it is saved or skipped',()=>{
+  const flow=readFileSync(new URL('../components/booking-flow.js',import.meta.url),'utf8');
+  assert.ok(flow.indexOf('className="file-prompt"')<flow.indexOf('<div className="confirmation-card">'),'prompt above the booking tile');
+  assert.ok(flow.includes("confirmation.booking.documentsToken && fileState === 'form' &&")&&flow.includes('onState={setFileState}'));
+  const form=readFileSync(new URL('../components/documents-form.js',import.meta.url),'utf8');
+  assert.ok(form.includes('id="complete-file"')&&form.includes('onState?.(state)'));
+});

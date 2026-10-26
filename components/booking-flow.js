@@ -59,6 +59,7 @@ export default function BookingFlow() {
   const [step, setStep] = useState(linkedClaim ? 1 : 0);
   const [claim, setClaim] = useState({ name: '', email: '', healthCard: '', insurance: '', policy: '', website: '' });
   const [claimed, setClaimed] = useState(null);
+  const [fileState, setFileState] = useState('form');
   const [service, setService] = useState(params.get('service') || '');
   // An optional choice within the service, such as the skin tightening technology. One passed in the link (from a
   // technology card on the home page) arrives already chosen; unknown slugs are ignored.
@@ -306,6 +307,12 @@ export default function BookingFlow() {
         {path === 'book' && step === 3 && confirmation && <div className="confirmation step" key="s3">
           <div className="success-mark"><Icon name="check" size={34} /></div>
           <p className="confirmation-lead">We look forward to seeing you, {confirmation.booking.name.split(' ')[0]}.{affiliate && confirmation.booking.giftCard && <> Your $50 gift card is ready below.</>}</p>
+          {/* The file speeds up check-in, so it is the first thing asked for, right under the confirmation. */}
+          {confirmation.booking.documentsToken && fileState === 'form' && <a className="file-prompt" href="#complete-file" onClick={e => { e.preventDefault(); const el = document.getElementById('complete-file'); el?.scrollIntoView({ behavior: 'smooth', block: 'start' }); setTimeout(() => el?.querySelector('input')?.focus({ preventScroll: true }), 500); }}>
+            <span className="file-prompt-icon" aria-hidden="true"><Icon name="scan" size={22} /></span>
+            <span className="file-prompt-text"><strong>One more step: complete your file</strong><small>Add your government ID now and skip the paperwork at check-in. It takes about a minute.</small></span>
+            <span className="file-prompt-go">Complete my file <span aria-hidden="true">↓</span></span>
+          </a>}
           <div className="confirmation-card">
             <h3>{services.find(s => s.id === confirmation.booking.service)?.name}</h3>
             {serviceOptionName(confirmation.booking.service, confirmation.booking.serviceOption) && <p>{serviceOptionName(confirmation.booking.service, confirmation.booking.serviceOption)}</p>}
@@ -317,7 +324,7 @@ export default function BookingFlow() {
             {affiliate && confirmation.booking.giftCard && <BookedGift affiliate={affiliate} card={confirmation.booking.giftCard} />}
           </div>
 
-          <DocumentsForm token={confirmation.booking.documentsToken} canSkip />
+          <DocumentsForm token={confirmation.booking.documentsToken} canSkip onState={setFileState} />
 
           <h3 className="plain">Before your visit</h3>
           <ul className="check-list">{instructions.map(t => <li key={t}><Icon name="check" size={18} />{t}</li>)}</ul>

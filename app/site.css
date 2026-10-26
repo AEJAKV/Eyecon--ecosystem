@@ -1251,3 +1251,13 @@ html:has(.search-panel[open]) { overflow: hidden; }
   .confirmation-card .ref { grid-row: auto; text-align: left; }
 }
 @media (max-width: 640px) { .calendar-inline .button { width: 100%; } }
+
+/* "One more step: complete your file" under You're booked: jumps to the form; hidden once saved or skipped. */
+.file-prompt { display: flex; align-items: center; gap: 1rem; margin: 1.25rem 0 0; padding: 1rem 1.25rem; background: var(--ink); color: var(--paper); text-decoration: none; border-left: 4px solid var(--gold); transition: background .2s; }
+.file-prompt:hover { background: #262b31; }
+.file-prompt-icon { display: grid; place-items: center; width: 44px; height: 44px; flex: none; border-radius: 50%; background: rgba(180, 154, 103, .2); color: #e3d4b1; }
+.file-prompt-text { display: flex; flex-direction: column; gap: .2rem; flex: 1; min-width: 0; }
+.file-prompt-text small { color: #b8bcc2; font-size: .85rem; line-height: 1.45; }
+.file-prompt-go { flex: none; padding: .55rem 1rem; background: var(--paper); color: var(--ink); font-size: .9rem; font-weight: 500; white-space: nowrap; }
+@media (max-width: 640px) { .file-prompt { flex-wrap: wrap; } .file-prompt-go { width: 100%; text-align: center; } }
+#complete-file { scroll-margin-top: 6rem; }
