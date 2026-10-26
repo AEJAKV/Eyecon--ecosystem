@@ -1036,3 +1036,12 @@ test('affiliate profile photo: crop before upload, then it shows straight away w
   const c=readFileSync(new URL('../components/photo-cropper.js',import.meta.url),'utf8');
   assert.ok(c.includes("c.toBlob(resolve, 'image/jpeg', 0.9)")&&c.includes('const VIEW = 280, OUT = 512')&&c.includes('onKeyDown={keys}'),'512px JPEG, keyboard movable');
 });
+
+test('the booking confirmation shows the gift card inside the booking tile, with a Download button',()=>{
+  const flow=readFileSync(new URL('../components/booking-flow.js',import.meta.url),'utf8');
+  const tile=flow.slice(flow.indexOf('<div className="confirmation-card">'),flow.indexOf('<DocumentsForm token={confirmation.booking.documentsToken}'));
+  assert.ok(tile.includes('<BookedGift affiliate={affiliate} card={confirmation.booking.giftCard} />'),'inside the tile');
+  assert.ok(!flow.includes('<Gift affiliate={affiliate} card={confirmation.booking.giftCard} />'),'not repeated below');
+  const g=readFileSync(new URL('../components/booked-gift.js',import.meta.url),'utf8');
+  assert.ok(g.includes('Download your gift card')&&g.includes("'Download gift card'")&&g.includes('<QR url={url}'));
+});

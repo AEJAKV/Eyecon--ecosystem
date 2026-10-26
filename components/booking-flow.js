@@ -6,6 +6,7 @@ import { useApp } from './provider';
 import DocumentsForm from './documents-form';
 import Captcha from './captcha';
 import CalendarCard from './calendar-card';
+import BookedGift from './booked-gift';
 import Image from 'next/image';
 import { DEMO, clinic, services, brands, brandFromParam, doctorName, findDoctor, formatDate, instructions, serviceOptions, serviceOptionName } from '@/lib/config';
 import { websiteList, offersService, inTimeOff } from '@/lib/schedule';
@@ -304,7 +305,7 @@ export default function BookingFlow() {
 
         {path === 'book' && step === 3 && confirmation && <div className="confirmation step" key="s3">
           <div className="success-mark"><Icon name="check" size={34} /></div>
-          <p className="confirmation-lead">We look forward to seeing you, {confirmation.booking.name.split(' ')[0]}.</p>
+          <p className="confirmation-lead">We look forward to seeing you, {confirmation.booking.name.split(' ')[0]}.{affiliate && confirmation.booking.giftCard && <> Your $50 gift card is ready below.</>}</p>
           <div className="confirmation-card">
             <h3>{services.find(s => s.id === confirmation.booking.service)?.name}</h3>
             {serviceOptionName(confirmation.booking.service, confirmation.booking.serviceOption) && <p>{serviceOptionName(confirmation.booking.service, confirmation.booking.serviceOption)}</p>}
@@ -313,11 +314,11 @@ export default function BookingFlow() {
             <p>{formatDate(confirmation.booking.start, { dateStyle: 'full', timeStyle: 'short' })}</p>
             <p className="muted">{clinic.address || 'The clinic will confirm the location with you.'}</p>
             <CalendarCard booking={confirmation.booking} compact />
+            {affiliate && confirmation.booking.giftCard && <BookedGift affiliate={affiliate} card={confirmation.booking.giftCard} />}
           </div>
 
           <DocumentsForm token={confirmation.booking.documentsToken} canSkip />
 
-          {affiliate && confirmation.booking.giftCard && <Gift affiliate={affiliate} card={confirmation.booking.giftCard} />}
           <h3 className="plain">Before your visit</h3>
           <ul className="check-list">{instructions.map(t => <li key={t}><Icon name="check" size={18} />{t}</li>)}</ul>
           <Notice>{DEMO ? 'Demo booking saved in this browser. No email or SMS was sent.' : confirmation.notifications?.email === 'sent' ? 'Your confirmation email is on its way. Check your inbox.' : 'Your booking is saved. Keep your reference and add it to your calendar above.'}</Notice>
