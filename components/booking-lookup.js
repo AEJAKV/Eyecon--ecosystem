@@ -6,6 +6,7 @@ import Captcha from './captcha';
 import CalendarCard from './calendar-card';
 import { DEMO, clinic, formatDate } from '@/lib/config';
 import { Header, Footer, Button, Field, Icon, Notice, Loading } from './ui';
+import { giftCardPath } from '@/lib/gift';
 
 // /my-booking: patients without an account find their booking with its reference and the email they booked with.
 // The result is the limited view from lib/lookup.js; changes go through the clinic by phone.
@@ -54,7 +55,7 @@ export default function BookingLookup() {
           <p className="muted">{booking.clinicAddress || 'The clinic will confirm the location with you.'}</p>
           {booking.status !== 'Booked' && <p><span className={'badge ' + booking.status.toLowerCase()}>{booking.status}</span></p>}
         </div>
-        {booking.giftCardNumber && <p className="lookup-line"><Icon name="gift" size={20} /><span>Gift card number <strong>{booking.giftCardNumber}</strong>. Please bring it to your visit.</span></p>}
+        {booking.giftCardNumber && <p className="lookup-line"><Icon name="gift" size={20} /><span>Gift card number <strong>{booking.giftCardNumber}</strong>. <Link href={giftCardPath(booking.giftCardNumber)}>Show my gift card</Link> at your visit.</span></p>}
         {booking.fileComplete
           ? <p className="lookup-line"><Icon name="check" size={20} /><span>Your file is complete.</span></p>
           : booking.documentsToken && <p className="lookup-line"><Icon name="scan" size={20} /><span>Your file is missing a government ID. <Link href={'/documents#t=' + booking.documentsToken}>Complete your file</Link></span></p>}

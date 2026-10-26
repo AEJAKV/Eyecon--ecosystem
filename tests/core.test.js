@@ -751,11 +751,13 @@ test('the server releases and claims gift cards without errors',()=>{
   assert.deepEqual(out.calls[0],['release_gift_card',180,true],'releases call the database with a valid serial and 180 days');
   assert.equal(out.claimed,'Claimed');assert.equal(out.claimedSerial,'7K2M9Q');
 });
-test('the gift pill shows title, then the card number, then one small line, and never dots',()=>{
+test('the issued gift card shows title, one small line, then the QR code with the card number under it, and never dots',()=>{
   const ui=readFileSync(new URL('../components/ui.js',import.meta.url),'utf8');
   assert.ok(ui.includes('Your gift card for your first visit')&&ui.includes('Card number issued when you book'));
   assert.ok(!ui.includes('HIDDEN_SERIAL')&&!ui.includes('days from booking'),'no hidden-serial dots or booking-based wording in the pill');
-  assert.ok(ui.indexOf('your first visit</strong>')<ui.indexOf('className="gift-number"')&&ui.indexOf('className="gift-number"')<ui.indexOf('Valid until {until}'),'title, number, then validity');
+  const title=ui.indexOf('your first visit</strong>'),valid=ui.indexOf('Valid until {until}'),qr=ui.indexOf('<QR url={origin+giftCardPath(number)}'),num=ui.indexOf('className="gift-number"');
+  assert.ok(title<valid&&valid<qr&&qr<num,'title, validity, QR code, then the number under it');
+  assert.ok(ui.includes('const code=card&&!ended'),'no QR before a card exists or once it has expired');
   const css=readFileSync(new URL('../app/site.css',import.meta.url),'utf8');
   assert.ok(/\.gift \{ display: flex; align-items: center;/.test(css)&&!/\.gift-number \{[^}]*justify-self/.test(css));
 });
@@ -824,4 +826,53 @@ test('the server issues a prescription gift card and writes its email without er
   assert.equal(out.card.id,'g1');assert.match(out.card.serial,/^[2-9A-HJ-NP-Z]{6}$/);
   assert.match(out.taken,/^409 A gift card has already been sent/);
   assert.ok(out.text.includes('EYC-AMO-'+out.card.serial)&&out.text.includes('Hi Sample,')&&out.text.includes('with your prescription'));
+});
+
+// The QR gift card and the staff scan (/gift/[number], /api/gift/scan).
+import { parseGiftNumber,giftCardPath,giftScanView,SCAN_KEYS,SCAN_BOOKING_KEYS } from '../lib/gift.js';
+import { demoScanGift } from '../lib/demo.js';
+test('card numbers are read from the full number, any case or spacing, or the bare serial',()=>{
+  assert.equal(parseGiftNumber('EYC-AMO-7K2M9Q'),'7K2M9Q');assert.equal(parseGiftNumber(' eyc-amo-7k2m9q '),'7K2M9Q');assert.equal(parseGiftNumber('7k2m9q'),'7K2M9Q');
+  for(const bad of ['', 'EYC-AMO-7K2M9', 'EYC-AMO-0K2M9Q', 'EYC-AM-7K2M9Q', 'XYZ-AMO-7K2M9Q', '<script>'])assert.equal(parseGiftNumber(bad),null,bad);
+  assert.equal(giftCardPath('EYC-AMO-7K2M9Q'),'/gift/EYC-AMO-7K2M9Q');
+});
+test('staff scans show name, email and the booking, or name, email and number for a prescription card, and nothing else',()=>{
+  const booked=applyDemo(seedDemo(),'booking',validateBooking({...at(seedDemo().slots[2]),affiliateId:'demo-alex'}),null);
+  const data=applyDemo(booked,'claim',{name:'Sample claimant',email:'claim@example.com',affiliateId:'demo-alex',healthCard:'123456789',policy:'P-1'},null);
+  const b=data.bookings[0],c=data.giftClaims[0],staff={role:'staff'};
+  const one=demoScanGift(data,'EYC-AMO-'+b.giftCard.serial,staff);
+  assert.equal(one.kind,'booking');assert.equal(one.name,b.name);assert.equal(one.email,b.email);assert.equal(one.number,'EYC-AMO-'+b.giftCard.serial);assert.equal(one.expired,false);
+  assert.equal(one.booking.reference,b.reference);assert.equal(one.booking.doctor,b.doctor);assert.equal(one.booking.start,b.start);
+  assert.deepEqual(Object.keys(one).sort(),SCAN_KEYS);assert.deepEqual(Object.keys(one.booking).sort(),SCAN_BOOKING_KEYS);
+  const two=demoScanGift(data,c.serial.toLowerCase(),staff);
+  assert.equal(two.kind,'prescription');assert.equal(two.name,'Sample claimant');assert.equal(two.email,'claim@example.com');assert.equal(two.number,'EYC-AMO-'+c.serial);assert.equal(two.booking,null);
+  for(const v of [one,two]){const text=JSON.stringify(v);for(const k of ['phone','insurance','policy','health','documents','gross','net','commission'])assert.ok(!text.toLowerCase().includes(k),k+' is never shown on a scan');}
+  assert.throws(()=>demoScanGift(data,c.serial,{role:'affiliate',affiliateId:'demo-alex'}),/Staff access/);
+  assert.throws(()=>demoScanGift(data,c.serial,null),/Staff access/);
+  assert.throws(()=>demoScanGift(data,'EYC-AMO-ZZZZZZ',staff),/No gift card/);
+  assert.equal(giftScanView({kind:'prescription',number:'n',status:'Issued',issuedAt:'2020-01-01T00:00:00Z',expiresAt:'2020-06-29T00:00:00Z',name:'a',email:'b'}).expired,true);
+});
+test('the gift card page, scan route and sign-in return are staff-gated',()=>{
+  const route=readFileSync(new URL('../app/api/gift/scan/route.js',import.meta.url),'utf8');
+  assert.ok(route.includes('identity(request);requireStaff(user)')&&route.includes('sameOrigin(request)')&&route.includes("audit(user.db,user.id,'gift-card-scan',serial)"));
+  const page=readFileSync(new URL('../components/gift-card-page.js',import.meta.url),'utf8');
+  assert.ok(page.includes("ready && user?.role === 'staff'")&&page.includes('<StaffView number={shown} />'),'details only for signed-in staff');
+  assert.ok(readFileSync(new URL('../app/gift/[number]/page.js',import.meta.url),'utf8').includes('robots:{index:false,follow:false}'));
+  const login=readFileSync(new URL('../components/login-form.js',import.meta.url),'utf8');
+  assert.ok(login.includes("/^\\/gift\\/[A-Za-z0-9-]{6,20}$/.test(params.get('next')||'')"),'only a gift card page is accepted as the return address');
+  const mail=readFileSync(new URL('../lib/notifications.js',import.meta.url),'utf8');
+  assert.equal((mail.match(/giftCardPath\(giftNumber\(affiliate,/g)||[]).length,2,'both gift emails link to the card');
+});
+test('the server finds a scanned card on a booking or a prescription claim without errors',()=>{
+  const script=`
+    const { scanGiftCard } = await import(${JSON.stringify(new URL('../lib/server.js',import.meta.url).href)});
+    const rows = { bookings: { name: 'Sample patient', email: 'p@example.com', phone: '+1', policy_encrypted: 'x', reference: '7K2M9QXB', service: 'eye-exam', doctor: 'doctor-1', start: '2026-11-02T16:00:00Z', status: 'Booked', affiliate_id: 'a1', gift_serial: '7K2M9Q', gift_issued_at: '2026-10-26T07:00:00Z', gift_expires_at: '2999-01-01T00:00:00Z', gift_status: 'Issued' },
+      gift_claims: { name: 'Sample claimant', email: 'c@example.com', health_card: 'x', serial: 'B4XW8T', issued_at: '2026-10-26T07:00:00Z', expires_at: '2999-01-01T00:00:00Z', status: 'Issued', affiliate_id: 'a1' },
+      affiliates: { name: 'Alex Morgan', gift_code: null } };
+    const db = { from: table => { let match = true; const q = { select: () => q, eq: (k, v) => { if (k !== 'id') match = rows[table][k] === v; return q; }, maybeSingle: async () => ({ data: match ? rows[table] : null }) }; return q; } };
+    console.log(JSON.stringify({ booking: await scanGiftCard(db, '7K2M9Q'), claim: await scanGiftCard(db, 'B4XW8T'), none: await scanGiftCard(db, 'ZZZZZZ') }));`;
+  const out=JSON.parse(execFileSync(process.execPath,['--conditions=react-server','--input-type=module','-e',script],{encoding:'utf8'}).trim().split('\n').pop());
+  assert.equal(out.booking.kind,'booking');assert.equal(out.booking.number,'EYC-AMO-7K2M9Q');assert.equal(out.booking.booking.reference,'7K2M9QXB');
+  assert.equal(out.claim.kind,'prescription');assert.equal(out.claim.number,'EYC-AMO-B4XW8T');assert.equal(out.claim.booking,null);assert.equal(out.none,null);
+  assert.deepEqual(Object.keys(out.booking).sort(),SCAN_KEYS);assert.ok(!JSON.stringify(out).includes('policy')&&!JSON.stringify(out).includes('health')&&!JSON.stringify(out).includes('phone'));
 });
