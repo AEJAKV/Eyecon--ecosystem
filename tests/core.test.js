@@ -241,7 +241,8 @@ test('house links: brand pages and Book now keep the affiliate; directions only 
   assert.equal(directionsUrl(''),'');assert.equal(directionsUrl(undefined),'');
   assert.equal(directionsUrl('1 King St W, Toronto'),'https://www.google.com/maps/search/?api=1&query=1%20King%20St%20W%2C%20Toronto');
   const shop=readFileSync(new URL('../components/shop.js',import.meta.url),'utf8');
-  for(const part of ['Try pieces from every house with a personal styling consultation.','<Button href={stylingHref(affiliate)}>Book now</Button>','Address to be confirmed','{directions && <a','>Get directions<','href={brandHref(brand.slug, affiliate)}>Shop the collection','>Discover<'])assert.ok(shop.includes(part),part);
+  for(const part of ['Try pieces from every house with a personal styling consultation.','<Button href={stylingHref(affiliate)}>Book now</Button>','Address to be confirmed','{directions && <a','>Get directions<','button outline coming-soon">Coming Soon','house-link coming-soon">Coming Soon'])assert.ok(shop.includes(part),part);
+  assert.ok(!shop.includes('>Shop the collection')&&!shop.includes('>Discover<'),'brand calls to action say Coming Soon, not link');
 });
 test('house photographs: art-directed banners, brand photos on tiles and phones, fallback and alt text',()=>{
   const read=f=>readFileSync(new URL(f,import.meta.url),'utf8');
@@ -273,7 +274,7 @@ test('brand pages: every brand built ahead, unknown slugs not found, own title, 
   assert.ok(page.includes('notFound()')&&page.includes('title:{absolute:`${brand.name} · Shop Frames · Eyecon Optometry`}'));
   assert.ok(!page.includes('searchParams'),'reading searchParams on the server would stop the pages being built ahead');
   for(const part of ["<Suspense fallback={<BrandPageBody brand={brand} affiliate={null} />}>","useSearchParams().get('affiliate')","href={withAffiliate('/shop', affiliate)}>","All frames</Link>",'<Banner brand={brand} page />','{brand.blurb}','New pieces arriving soon. Book a styling visit to see the full collection in person.','Want to try {brand.name} in person?','<Button href={stylingHref(affiliate, brand.name)}>Book a styling visit</Button>','<FrameCard key={f.slug}'])assert.ok(shop.includes(part),part);
-  assert.ok(shop.includes("{!page && <Button className=\"outline\""),'no button on the brand page banner');
+  assert.ok(shop.includes("{!page && <span className=\"button outline coming-soon\""),'no button on the brand page banner');
   const css=read('../app/site.css');
   assert.ok(css.includes('.frame-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));'));
   assert.ok(css.includes('@media (max-width: 1024px) { .frame-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }'));

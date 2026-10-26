@@ -7,7 +7,7 @@ import { Header, Footer, Icon, Button } from './ui';
 import Photo, { ArtPhoto } from './photo';
 import { DEMO, clinic, collections, frames, shopUrl } from '@/lib/config';
 import { withAffiliate } from '@/lib/affiliate';
-import { frameBrand, framePrice, reserveHref, stylingHref, brandHref, directionsUrl, brandGroups, readSavedFrames, writeSavedFrames, toggleSaved } from '@/lib/shop';
+import { frameBrand, framePrice, reserveHref, stylingHref, directionsUrl, brandGroups, readSavedFrames, writeSavedFrames, toggleSaved } from '@/lib/shop';
 
 /* The Shop Frames page: featured frames and the houses Eyecon carries. affiliate is the ?affiliate= value the page
    was opened with; every booking link built here goes through withAffiliate so the referral is kept. */
@@ -146,7 +146,7 @@ function Banner({ brand, affiliate, page = false }) {
       <div className="shop-banner-text">
         <Heading id={'house-' + brand.slug} className="house-name">{brand.name}</Heading>
         <p className="house-tagline">{brand.tagline}</p>
-        {!page && <Button className="outline" href={brandHref(brand.slug, affiliate)}>Shop the collection<span className="sr-only"> from {brand.name}</span></Button>}
+        {!page && <span className="button outline coming-soon">Coming Soon<span className="sr-only"> for {brand.name}</span></span>}
       </div>
     </Wrap>
   );
@@ -160,7 +160,7 @@ function Tile({ brand, affiliate }) {
       </div>
       <h3 className="house-name">{brand.name}</h3>
       <p className="house-tagline">{brand.tagline}</p>
-      <Link className="text-link house-link" href={brandHref(brand.slug, affiliate)}>Discover<span className="sr-only"> {brand.name}</span></Link>
+      <span className="house-link coming-soon">Coming Soon<span className="sr-only"> for {brand.name}</span></span>
     </li>
   );
 }
