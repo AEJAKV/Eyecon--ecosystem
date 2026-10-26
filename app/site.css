@@ -1221,3 +1221,15 @@ html:has(.search-panel[open]) { overflow: hidden; }
 .brand-field { margin: 0; }
 .gift-save { font-size: .9rem; margin-top: .2rem; }
 .gift-check { max-width: 40rem; margin-bottom: 1.5rem; border-top: 0; padding-top: 0; }
+
+/* Profile photo cropper and saved confirmations (affiliate profile). */
+.cropper { display: flex; flex-direction: column; align-items: flex-start; gap: .8rem; }
+.crop-view { position: relative; overflow: hidden; background: var(--soft); border-radius: 4px; touch-action: none; cursor: grab; user-select: none; max-width: 100%; }
+.crop-view:active { cursor: grabbing; }
+.crop-view img { position: absolute; max-width: none; pointer-events: none; }
+.crop-mask { position: absolute; inset: 0; border-radius: 50%; border: 2px solid rgba(255, 255, 255, .9); box-shadow: 0 0 0 400px rgba(20, 24, 29, .6); pointer-events: none; }
+.crop-zoom { display: flex; align-items: center; gap: .8rem; width: 280px; max-width: 100%; font-size: .9rem; }
+.crop-zoom input { flex: 1; accent-color: var(--ink); }
+.cropper .quiet { margin: 0; }
+.saved-note { display: inline-flex; align-items: center; gap: .35rem; color: #36522a; font-size: .9rem; font-weight: 500; }
+.profile-save { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }

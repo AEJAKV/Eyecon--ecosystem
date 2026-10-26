@@ -1029,3 +1029,10 @@ test('staff Gift cards page lists booking and prescription cards, newest first, 
   assert.ok(ws.includes("['gift-cards','Gift cards']")&&ws.includes("role==='staff'&&section==='gift-cards'&&<GiftCardsAdmin"));
   assert.ok(readFileSync(new URL('../app/admin/[[...section]]/page.js',import.meta.url),'utf8').includes("'gift-cards'"));
 });
+test('affiliate profile photo: crop before upload, then it shows straight away with a saved note',()=>{
+  const ws=readFileSync(new URL('../components/workspace.js',import.meta.url),'utf8');
+  assert.ok(ws.includes('<PhotoCropper file={crop}')&&ws.includes("setPreview(url);setCrop(null);setPhotoNote('Photo saved')")&&ws.includes('src={preview||affiliate.photo}'));
+  assert.ok(ws.includes("if(result!==false)setSaved('Profile saved')"));
+  const c=readFileSync(new URL('../components/photo-cropper.js',import.meta.url),'utf8');
+  assert.ok(c.includes("c.toBlob(resolve, 'image/jpeg', 0.9)")&&c.includes('const VIEW = 280, OUT = 512')&&c.includes('onKeyDown={keys}'),'512px JPEG, keyboard movable');
+});
