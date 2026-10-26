@@ -7,7 +7,7 @@ import { Header, Footer, Icon, Button } from './ui';
 import Photo, { ArtPhoto } from './photo';
 import { DEMO, clinic, collections, frames, shopUrl } from '@/lib/config';
 import { withAffiliate } from '@/lib/affiliate';
-import { frameBrand, framePrice, reserveHref, stylingHref, directionsUrl, brandGroups, readSavedFrames, writeSavedFrames, toggleSaved } from '@/lib/shop';
+import { frameBrand, framePrice, stylingHref, directionsUrl, brandGroups, readSavedFrames, writeSavedFrames, toggleSaved } from '@/lib/shop';
 
 /* The Shop Frames page: featured frames and the houses Eyecon carries. affiliate is the ?affiliate= value the page
    was opened with; every booking link built here goes through withAffiliate so the referral is kept. */
@@ -82,7 +82,7 @@ function FrameCard({ frame, saved, onSave, affiliate, sizes = '(max-width: 640px
       <h3 className="frame-name">{brand?.name}<span aria-hidden="true"> · </span><span className="sr-only">, </span>{frame.model}</h3>
       <p className="frame-material">{frame.material}</p>
       {price && <p className="frame-price">{price}</p>}
-      <Link className="frame-reserve text-link" href={reserveHref(frame, affiliate)}>Reserve to try<span className="sr-only"> the {name}</span></Link>
+      <span className="frame-reserve coming-soon">Coming Soon<span className="sr-only"> for the {name}</span></span>
     </li>
   );
 }

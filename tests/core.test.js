@@ -194,7 +194,7 @@ test('Reserve to try books a styling visit for the frame’s brand, keeping the 
   assert.equal(reserveHref(santos),'/booking?service=styling&brand=Cartier');
   assert.equal(reserveHref(bone,'alex-morgan'),'/booking?service=styling&brand=Chrome%20Hearts&affiliate=alex-morgan');
   for(const f of frames)assert.ok(brands.includes(frameBrand(f).name),'the booking flow knows '+f.brand);
-  assert.ok(readFileSync(new URL('../components/shop.js',import.meta.url),'utf8').includes('href={reserveHref(frame, affiliate)}'));
+  assert.ok(readFileSync(new URL('../components/shop.js',import.meta.url),'utf8').includes('frame-reserve coming-soon">Coming Soon'),'frames say Coming Soon until booking from a frame opens');
 });
 test('a frame price shows only once filled in',()=>{
   assert.equal(framePrice(''),'');assert.equal(framePrice('  '),'');assert.equal(framePrice(undefined),'');
