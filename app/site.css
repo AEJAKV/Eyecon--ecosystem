@@ -1262,3 +1262,4 @@ html:has(.search-panel[open]) { overflow: hidden; }
 @media (max-width: 640px) { .file-prompt { flex-wrap: wrap; } .file-prompt-go { width: 100%; text-align: center; } }
 #complete-file { scroll-margin-top: 6rem; }
 .booked-gift-mail { font-size: .9rem; line-height: 1.5; }
+.file-prompt-skip { margin: .5rem 0 0; font-size: .88rem; color: var(--muted); }

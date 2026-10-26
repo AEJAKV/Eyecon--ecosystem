@@ -313,6 +313,7 @@ export default function BookingFlow() {
             <span className="file-prompt-text"><strong>One more step: complete your file</strong><small>Add your government ID now and skip the paperwork at check-in. It takes about a minute.</small></span>
             <span className="file-prompt-go">Complete my file <span aria-hidden="true">↓</span></span>
           </a>}
+          {confirmation.booking.documentsToken && fileState === 'form' && <p className="file-prompt-skip"><button type="button" className="text-link" onClick={() => setFileState('skipped')}>Skip for now</button> I’ll bring my ID to the visit.</p>}
           <div className="confirmation-card">
             <h3>{services.find(s => s.id === confirmation.booking.service)?.name}</h3>
             {serviceOptionName(confirmation.booking.service, confirmation.booking.serviceOption) && <p>{serviceOptionName(confirmation.booking.service, confirmation.booking.serviceOption)}</p>}
@@ -324,7 +325,7 @@ export default function BookingFlow() {
             {affiliate && confirmation.booking.giftCard && <BookedGift affiliate={affiliate} card={confirmation.booking.giftCard} emailed={confirmation.notifications?.email} email={confirmation.booking.email} />}
           </div>
 
-          <DocumentsForm token={confirmation.booking.documentsToken} canSkip onState={setFileState} />
+          <DocumentsForm token={confirmation.booking.documentsToken} canSkip onState={setFileState} skip={fileState === 'skipped'} />
 
           <h3 className="plain">Before your visit</h3>
           <ul className="check-list">{instructions.map(t => <li key={t}><Icon name="check" size={18} />{t}</li>)}</ul>

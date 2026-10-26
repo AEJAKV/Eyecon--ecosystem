@@ -12,7 +12,7 @@ const ACCEPT = '.pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png';
 // with the single-use token issued with the booking. canSkip shows "Skip for now" (on the confirmation step); the
 // /documents page, reached from the confirmation email, has no skip.
 // onState(state) reports 'form', 'done' or 'skipped', so the confirmation can hide its "complete your file" prompt.
-export default function DocumentsForm({ token, canSkip = false, onState }) {
+export default function DocumentsForm({ token, canSkip = false, onState, skip = false }) {
   const { submitDocuments, documentsLinkValid } = useApp();
   const [valid, setValid] = useState(null);
   const [state, setState] = useState('form');
@@ -25,6 +25,8 @@ export default function DocumentsForm({ token, canSkip = false, onState }) {
 
   useEffect(() => { if (!token) { setValid(false); return; } documentsLinkValid(token).then(setValid).catch(() => setValid(false)); }, [token]);
   useEffect(() => { if (state !== 'form') heading.current?.focus(); onState?.(state); }, [state]);
+  // Skipped from the banner at the top of the confirmation.
+  useEffect(() => { if (skip) setState('skipped'); }, [skip]);
 
   async function submit(e) {
     e.preventDefault(); setError('');
@@ -41,7 +43,7 @@ export default function DocumentsForm({ token, canSkip = false, onState }) {
   if (valid === null) return <section className="documents-card" aria-busy="true"><h3>Complete your file</h3><p className="quiet">Checking your link…</p></section>;
   if (!valid && state === 'form') return <section className="documents-card"><h3>Complete your file</h3><Notice>{token ? 'This link has expired or has already been used. Please contact the clinic, or bring your documents to your visit.' : 'Please bring your government ID and any documents to your visit.'}</Notice></section>;
   if (state === 'done') return <section className="documents-card done"><div className="success-mark small"><Icon name="check" size={22} /></div><h3 ref={heading} tabIndex={-1}>Your file is complete</h3><p>Thank you. Only clinic staff can see your documents. To change anything, please contact the clinic.</p>{DEMO && <p className="demo-label">Demo: only the file names and sizes were kept, in this browser. No file was uploaded.</p>}</section>;
-  if (state === 'skipped') return <section className="documents-card"><h3 ref={heading} tabIndex={-1}>Finish your file later</h3><p>{DEMO ? 'In live mode, your confirmation email has a link to finish this before your visit.' : 'Your confirmation email has a link to finish this before your visit. The link works once.'}</p>{DEMO && <p className="demo-label">Demo link: <Link href={'/documents#t=' + token}>{documentsLink(token, '')}</Link></p>}<Button secondary onClick={() => setState('form')}>Complete it now</Button></section>;
+  if (state === 'skipped') return <section className="documents-card"><h3 ref={heading} tabIndex={-1}>No problem</h3><p>Please bring your government ID and your Care Card / Alberta Health Card to your visit.</p></section>;
 
   return <section className="documents-card" id="complete-file" aria-labelledby="documents-title">
     <h3 id="documents-title">Complete your file</h3>
