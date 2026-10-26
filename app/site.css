@@ -1202,3 +1202,9 @@ html:has(.search-panel[open]) { overflow: hidden; }
 .redeem-line { display: flex; align-items: center; flex-wrap: wrap; gap: .7rem; margin: 0; }
 .detail-gift { margin: 1.2rem 0; padding-top: 1rem; border-top: 1px solid var(--line); }
 .detail-gift h3 { margin: 0 0 .4rem; }
+/* A redeemed, expired or void card: a stamp where the QR code was, so it no longer looks usable. */
+.gift-card-face.used { background: var(--soft); border-color: var(--line); }
+.gift-card-face.used .gift-number { color: var(--muted); text-decoration: line-through; }
+.gift-stamp { display: grid; place-items: center; width: 200px; height: 200px; border: 2px dashed var(--muted); border-radius: 4px; }
+.gift-stamp span { padding: .4rem 1rem; border: 3px solid var(--danger); color: var(--danger); font: 600 1.5rem/1 var(--sans); letter-spacing: .12em; text-transform: uppercase; transform: rotate(-12deg); }
+.gift-stamp-text { max-width: 26rem; margin: 0; color: var(--muted); }

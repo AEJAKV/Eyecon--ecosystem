@@ -38,8 +38,8 @@ const migration=()=>readFileSync(new URL('../supabase/migrations/004_doctor_avai
 test('the confirmation message names the optometrist',()=>{assert.ok(defaultTemplates.find(t=>t.id==='confirmation').body.includes('{doctor}'));assert.ok(migration().includes("'your appointment with {doctor} is booked for'"));});
 test('migration 004 keeps availability and bookings per optometrist',()=>{const sql=migration();for(const part of ['create extension if not exists btree_gist','add primary key (doctor, start)','drop index if exists public.one_active_booking_per_slot','drop constraint if exists no_overlapping_bookings;',"on public.bookings (doctor, start) where status <> 'Cancelled'",'exclude using gist (doctor with =, tstzrange(start, end_time','returns table(doctor text,','b.doctor = s.doctor','where doctor=p_doctor and start=p_start','for update',"raise exception 'doctor required'"])assert.ok(sql.includes(part),part);});
 test('sample rating and insurers are never used outside demo mode, and missing samples fall back to nothing',async()=>{const {siteContent,sample}=await import('../lib/config.js');const empty={rating:null,reviewCount:null,reviews:[],mentions:[],insurers:[],goodToKnow:[]};const live=siteContent(false,empty);assert.deepEqual(live.reviews,{items:[],sample:false});assert.equal(live.rating.value,null);assert.equal(live.rating.count,null);assert.deepEqual(live.insurers.items,[]);assert.deepEqual(live.mentions.items,[]);assert.deepEqual(live.goodToKnow.items,[]);for(const part of Object.values(live))assert.equal(part.sample,false);const demo=siteContent(true,empty);assert.deepEqual(demo.reviews,{items:[],sample:false},'no sample reviews exist any more');assert.deepEqual(demo.mentions,{items:[],sample:false});assert.equal(demo.rating.value,4.9);assert.equal(demo.rating.sample,true);assert.equal(demo.insurers.sample,true);const real=[{name:'Real P.',source:'Google',text:'Real words.'}];const mixed=siteContent(true,{...empty,reviews:real,rating:4.6});assert.equal(mixed.reviews.items,real);assert.equal(mixed.reviews.sample,false);assert.equal(mixed.rating.value,4.6);assert.equal(mixed.rating.count,null);assert.equal(mixed.rating.sample,false);assert.equal('reviews' in sample,false);assert.equal('mentions' in sample,false);});
-test('gift card serials use the unambiguous alphabet and cards expire 180 days after issue',()=>{for(let i=0;i<500;i++)assert.match(giftSerial(),/^[2-9A-HJ-NP-Z]{6}$/);const now=new Date('2026-10-09T15:00:00.000Z'),card=issueGiftCard(()=>false,now);assert.match(card.serial,/^[2-9A-HJ-NP-Z]{6}$/);assert.equal(card.issuedAt,'2026-10-09T15:00:00.000Z');assert.equal(card.expiresAt,'2027-04-07T15:00:00.000Z');assert.equal((new Date(card.expiresAt)-new Date(card.issuedAt))/86400000,180);assert.equal(card.status,'Issued');let calls=0;const second=issueGiftCard(()=>++calls<4);assert.equal(calls,4);assert.match(second.serial,/^[2-9A-HJ-NP-Z]{6}$/);assert.throws(()=>issueGiftCard(()=>true));assert.equal(giftCode({name:'Alex Morgan'}),'AMO');assert.equal(giftCode({name:'Alex Morgan',code:'amx'}),'AMX');assert.equal(giftCode({name:'Cher'}),'CHE');assert.equal(giftCode({name:'Jo Li'}),'JLI');assert.equal(giftNumber({name:'Alex Morgan'},'7K2M9Q'),'EYC-AMO-7K2M9Q');assert.equal(giftNumber({name:'Alex Morgan'}),'EYC-AMO-••••••');});
-test('only referral bookings are issued a gift card, each with its own serial',()=>{const data=seedDemo();const direct=applyDemo(data,'booking',validateBooking(at(data.slots[1])),null);assert.equal('giftCard' in direct.bookings[0],false);const first=applyDemo(data,'booking',validateBooking({...at(data.slots[1]),affiliateId:'demo-alex'}),null),second=applyDemo(first,'booking',validateBooking({...at(data.slots[2]),affiliateId:'demo-alex'}),null);const a=first.bookings[0].giftCard,b=second.bookings[0].giftCard;assert.match(a.serial,/^[2-9A-HJ-NP-Z]{6}$/);assert.equal(a.status,'Issued');assert.equal(Math.round((new Date(a.expiresAt)-new Date(a.issuedAt))/86400000),180);assert.notEqual(a.serial,b.serial);assert.equal(new Set(second.bookings.filter(x=>x.giftCard).map(x=>x.giftCard.serial)).size,second.bookings.filter(x=>x.giftCard).length);});
+test('gift card serials use the unambiguous alphabet and cards expire 30 days after issue',()=>{for(let i=0;i<500;i++)assert.match(giftSerial(),/^[2-9A-HJ-NP-Z]{6}$/);const now=new Date('2026-10-09T15:00:00.000Z'),card=issueGiftCard(()=>false,now);assert.match(card.serial,/^[2-9A-HJ-NP-Z]{6}$/);assert.equal(card.issuedAt,'2026-10-09T15:00:00.000Z');assert.equal(card.expiresAt,'2026-11-08T15:00:00.000Z');assert.equal((new Date(card.expiresAt)-new Date(card.issuedAt))/86400000,30);assert.equal(card.status,'Issued');let calls=0;const second=issueGiftCard(()=>++calls<4);assert.equal(calls,4);assert.match(second.serial,/^[2-9A-HJ-NP-Z]{6}$/);assert.throws(()=>issueGiftCard(()=>true));assert.equal(giftCode({name:'Alex Morgan'}),'AMO');assert.equal(giftCode({name:'Alex Morgan',code:'amx'}),'AMX');assert.equal(giftCode({name:'Cher'}),'CHE');assert.equal(giftCode({name:'Jo Li'}),'JLI');assert.equal(giftNumber({name:'Alex Morgan'},'7K2M9Q'),'EYC-AMO-7K2M9Q');assert.equal(giftNumber({name:'Alex Morgan'}),'EYC-AMO-••••••');});
+test('only referral bookings are issued a gift card, each with its own serial',()=>{const data=seedDemo();const direct=applyDemo(data,'booking',validateBooking(at(data.slots[1])),null);assert.equal('giftCard' in direct.bookings[0],false);const first=applyDemo(data,'booking',validateBooking({...at(data.slots[1]),affiliateId:'demo-alex'}),null),second=applyDemo(first,'booking',validateBooking({...at(data.slots[2]),affiliateId:'demo-alex'}),null);const a=first.bookings[0].giftCard,b=second.bookings[0].giftCard;assert.match(a.serial,/^[2-9A-HJ-NP-Z]{6}$/);assert.equal(a.status,'Issued');assert.equal(Math.round((new Date(a.expiresAt)-new Date(a.issuedAt))/86400000),30);assert.notEqual(a.serial,b.serial);assert.equal(new Set(second.bookings.filter(x=>x.giftCard).map(x=>x.giftCard.serial)).size,second.bookings.filter(x=>x.giftCard).length);});
 
 // "Complete your file"
 const doc=(kind,over={})=>({name:kind+'.pdf',size:2048,type:'application/pdf',kind,...over});
@@ -579,10 +579,10 @@ import { demoReleaseGift } from '../lib/demo.js';
 const GIFT_TZ='Pacific/Honolulu'; // UTC-10 all year, so these edge days do not depend on the clock-change rules in the machine's time zone data
 const released=(data=seedDemo(),slug='alex-morgan',now=new Date())=>demoReleaseGift(data,slug,now);
 const bookWith=(data,token,affiliateId='demo-alex',slot=data.slots[2])=>applyDemo(data,'booking',{...at(slot),affiliateId,giftToken:token},null);
-test('a released card starts its 180 days at release, with a six-character serial and no booking',()=>{
+test('a released card starts its days at release, with a six-character serial and no booking',()=>{
   const now=new Date('2026-10-09T15:00:00.000Z'),c=releaseGiftCard(()=>false,now);
   assert.match(c.serial,/^[2-9A-HJ-NP-Z]{6}$/);assert.equal(c.status,'Released');assert.equal(c.releasedAt,now.toISOString());
-  assert.equal(c.expiresAt,new Date(now.getTime()+180*86400000).toISOString());
+  assert.equal(c.expiresAt,new Date(now.getTime()+30*86400000).toISOString());
   const {data,card}=released(seedDemo(),'alex-morgan',now);
   assert.deepEqual(Object.keys(card).sort(),['expiresAt','releasedAt','serial','token']);assert.ok(card.token.length>=64);
   assert.equal(data.giftCards.length,1);assert.equal(data.giftCards[0].status,'Released');assert.equal(data.giftCards[0].bookingId,null);
@@ -644,7 +644,7 @@ test('the countdown counts calendar days in clinic time, with Last day and Expir
   assert.deepEqual([state('2026-12-31T15:00:00Z'),state('2027-01-05T12:00:00Z'),state('2026-06-01T12:00:00Z')],['last','expired','days']);
   assert.equal(giftDaysLeft(expires,new Date('2027-01-03T12:00:00Z'),GIFT_TZ),-3);
   assert.equal(giftExpired(expires,new Date('2027-01-01T05:00:00Z'),GIFT_TZ),false);assert.equal(giftExpired(expires,new Date('2027-01-01T10:00:00Z'),GIFT_TZ),true);
-  const now=new Date('2026-10-09T15:00:00Z');assert.equal(giftCountdown(releaseGiftCard(()=>false,now).expiresAt,now,GIFT_TZ).label,'180 days left');
+  const now=new Date('2026-10-09T15:00:00Z');assert.equal(giftCountdown(releaseGiftCard(()=>false,now).expiresAt,now,GIFT_TZ).label,'30 days left');
 });
 test('the release API, claim and migration follow the rules',()=>{
   const read=p=>readFileSync(new URL(p,import.meta.url),'utf8');
@@ -656,7 +656,7 @@ test('the release API, claim and migration follow the rules',()=>{
   assert.ok(sql.includes("('Released','Claimed','Redeemed','Expired','Void')")&&sql.includes('gift_cards_serial_unique')&&sql.includes('bookings_gift_serial_guard'));
   assert.ok(read('../components/use-gift.js').includes('resolveGift')&&read('../lib/gift-browser.js').includes('giftStorageWorks')&&read('../lib/gift-browser.js').includes('try {'));
   const ui=read('../components/ui.js');assert.ok(ui.includes('setNow(new Date())')&&ui.includes('gift-number'));
-  assert.ok(read('../app/gift-card-terms/page.js').includes('from the day the card is received')&&read('../lib/notifications.js').includes('from the day you received it'));
+  assert.ok(read('../app/gift-card-terms/page.js').includes('from the day the card is issued')&&!read('../lib/notifications.js').includes('from the day you received it'));
 });
 
 // If releasing a card fails for any reason, the visitor still gets a card, issued at booking
@@ -748,7 +748,7 @@ test('the server releases and claims gift cards without errors',()=>{
     console.log(JSON.stringify({ serialOk: /^[2-9A-HJ-NP-Z]{6}$/.test(card.serial), tokenLength: card.token.length, expiresAt: card.expiresAt, claimed: booked.gift_status, claimedSerial: booked.gift_serial, calls }));`;
   const out=JSON.parse(execFileSync(process.execPath,['--conditions=react-server','--input-type=module','-e',script],{encoding:'utf8'}).trim().split('\n').pop());
   assert.equal(out.serialOk,true);assert.equal(out.tokenLength,64);assert.equal(out.expiresAt,'2027-04-21T14:00:00Z');
-  assert.deepEqual(out.calls[0],['release_gift_card',180,true],'releases call the database with a valid serial and 180 days');
+  assert.deepEqual(out.calls[0],['release_gift_card',30,true],'releases call the database with a valid serial and 30 days');
   assert.equal(out.claimed,'Claimed');assert.equal(out.claimedSerial,'7K2M9Q');
 });
 test('the issued gift card shows title, one small line, then the QR code with the card number under it, and never dots',()=>{
@@ -774,7 +774,7 @@ test('no gift card is released or shown before booking',()=>{
   const data=seedDemo(),slot=data.slots[2];
   const b=applyDemo(data,'booking',validateBooking({...at(slot),affiliateId:'demo-alex'}),null).bookings[0];
   assert.equal(b.giftCard.status,'Issued');assert.match(b.giftCard.serial,/^[2-9A-HJ-NP-Z]{6}$/);
-  assert.equal(Math.round((new Date(b.giftCard.expiresAt)-new Date(b.giftCard.issuedAt))/86400000),180,'the 180 days start at booking');
+  assert.equal(Math.round((new Date(b.giftCard.expiresAt)-new Date(b.giftCard.issuedAt))/86400000),30,'the 30 days start at booking');
 });
 
 // "Already have a prescription": a gift card claimed without booking, through an affiliate's link only.
@@ -792,7 +792,7 @@ test('the demo issues one prescription gift card per email per affiliate, with n
   const data=seedDemo(),next=applyDemo(data,'claim',{...claimer,healthCard:'123456789',policy:'P-1'},null);
   const g=next.giftClaims[0];
   assert.equal(g.status,'Issued');assert.match(g.serial,/^[2-9A-HJ-NP-Z]{6}$/);assert.equal(g.affiliateId,'demo-alex');
-  assert.equal(Math.round((new Date(g.expiresAt)-new Date(g.issuedAt))/86400000),180);
+  assert.equal(Math.round((new Date(g.expiresAt)-new Date(g.issuedAt))/86400000),30);
   assert.equal(next.bookings.length,data.bookings.length,'no booking is created');
   assert.ok(!JSON.stringify(g).includes('123456789')&&!JSON.stringify(g).includes('P-1'),'the demo keeps no health card or policy number');
   assert.throws(()=>applyDemo(next,'claim',{...claimer,email:'claim@example.com'},null),/already been sent/);
@@ -822,7 +822,7 @@ test('the server issues a prescription gift card and writes its email without er
     const text = claimEmailText(card, { name: 'Alex Morgan', code: null });
     console.log(JSON.stringify({ card, calls, taken, text }));`;
   const out=JSON.parse(execFileSync(process.execPath,['--conditions=react-server','--input-type=module','-e',script],{encoding:'utf8'}).trim().split('\n').pop());
-  assert.deepEqual(out.calls[0],['claim_prescription_gift',180,true,null,null],'180 days, a valid serial, blank numbers stored as null');
+  assert.deepEqual(out.calls[0],['claim_prescription_gift',30,true,null,null],'30 days, a valid serial, blank numbers stored as null');
   assert.equal(out.card.id,'g1');assert.match(out.card.serial,/^[2-9A-HJ-NP-Z]{6}$/);
   assert.match(out.taken,/^409 A gift card has already been sent/);
   assert.ok(out.text.includes('EYC-AMO-'+out.card.serial)&&out.text.includes('Hi Sample,')&&out.text.includes('with your prescription'));
@@ -940,4 +940,38 @@ test('the server redeems and un-redeems a gift card without errors',()=>{
   assert.equal(out.one,'Redeemed');assert.equal(out.oneAt,true);assert.match(out.again,/^409 This gift card has already been redeemed/);
   assert.equal(out.undo,'Issued');assert.equal(out.two,'Redeemed');assert.equal(out.kind,'prescription');
   assert.equal(out.writes[0][1].gift_redeemed_by,'staff-1');assert.equal(out.writes[1][1].gift_redeemed_at,null);
+});
+
+// The card page's public status: a redeemed or expired card stops showing a usable QR code.
+import { giftPublicStatus,PUBLIC_STATUS_KEYS } from '../lib/gift.js';
+import { demoGiftStatus } from '../lib/demo.js';
+test('the card page shows anyone only the card state and dates, and only for the full number',()=>{
+  let data=applyDemo(seedDemo(),'booking',validateBooking({...at(seedDemo().slots[2]),affiliateId:'demo-alex'}),null);
+  const number='EYC-AMO-'+data.bookings[0].giftCard.serial;
+  const fresh=demoGiftStatus(data,number);assert.equal(fresh.state,'Not redeemed');assert.deepEqual(Object.keys(fresh).sort(),PUBLIC_STATUS_KEYS);
+  assert.equal(demoGiftStatus(data,number.toLowerCase()).state,'Not redeemed');
+  assert.equal(demoGiftStatus(data,data.bookings[0].giftCard.serial),null,'a bare serial shows nothing');
+  assert.equal(demoGiftStatus(data,'EYC-XYZ-'+data.bookings[0].giftCard.serial),null,'the affiliate code must match');
+  data=applyDemo(data,'gift-redeem',{number},{role:'staff'});
+  const used=demoGiftStatus(data,number);assert.equal(used.state,'Redeemed');assert.ok(used.redeemedAt);
+  data.bookings[0].giftCard.status='Issued';data.bookings[0].giftCard.expiresAt='2020-01-01T00:00:00Z';
+  assert.equal(demoGiftStatus(data,number).state,'Expired');
+  assert.ok(!JSON.stringify(demoGiftStatus(data,number)).includes('@'),'no email or name');
+  assert.equal(giftPublicStatus('EYC-AMO-7K2M9Q',null),null);
+  const page=readFileSync(new URL('../components/gift-card-page.js',import.meta.url),'utf8');
+  assert.ok(page.includes("usable = !status.loading && !status.missing && (!status.card || s === 'Not redeemed')")&&page.includes('className="gift-stamp"'),'QR only while the card can be used');
+  const route=readFileSync(new URL('../app/api/gift/status/route.js',import.meta.url),'utf8');
+  assert.ok(route.includes('sameOrigin(request)')&&route.includes('giftStatus(adminClient()'));
+});
+test('the server reports a card status without errors and without patient details',()=>{
+  const script=`
+    const { giftStatus } = await import(${JSON.stringify(new URL('../lib/server.js',import.meta.url).href)});
+    const rows = { bookings: { affiliate_id: 'a1', gift_status: 'Redeemed', gift_expires_at: '2999-01-01T00:00:00Z', gift_redeemed_at: '2026-10-27T18:00:00Z', gift_serial: '7K2M9Q' }, gift_claims: null, affiliates: { name: 'Alex Morgan', gift_code: null } };
+    const selects = [];
+    const db = { from: table => { const q = { select: cols => { selects.push(cols); return q; }, eq: () => q, maybeSingle: async () => ({ data: rows[table] }) }; return q; } };
+    console.log(JSON.stringify({ ok: await giftStatus(db, 'EYC-AMO-7K2M9Q'), wrong: await giftStatus(db, 'EYC-XYZ-7K2M9Q'), bad: await giftStatus(db, 'hello'), selects }));`;
+  const out=JSON.parse(execFileSync(process.execPath,['--conditions=react-server','--input-type=module','-e',script],{encoding:'utf8'}).trim().split('\n').pop());
+  assert.deepEqual(out.ok,{state:'Redeemed',expiresAt:'2999-01-01T00:00:00Z',redeemedAt:'2026-10-27T18:00:00Z'});
+  assert.equal(out.wrong,null);assert.equal(out.bad,null);
+  assert.ok(!out.selects.some(c=>/name,email|email|phone/.test(c.replace('name,gift_code',''))),'never reads patient details');
 });

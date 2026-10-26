@@ -59,26 +59,53 @@ function CheckAnother() {
   </form>;
 }
 
+// The card itself. Only a card that can still be used shows its QR code; a redeemed, expired or void card shows a
+// stamp instead, so nobody tries to use it again. If the status cannot be checked (offline), the code is shown and staff
+// still see the real state when they scan it.
+function CardFace({ shown, status, origin }) {
+  const until = d => formatDate(d, { dateStyle: 'long', timeStyle: undefined });
+  const s = status.card?.state, usable = !status.loading && !status.missing && (!status.card || s === 'Not redeemed');
+  return <section className={`gift-card-face ${usable || status.loading ? '' : 'used'}`} aria-labelledby="gift-card-title">
+    <p className="eyebrow">EYECON OPTOMETRY</p>
+    <h1 id="gift-card-title"><span className="gift-value">$50</span> gift card</h1>
+    {status.loading
+      ? <div className="gift-qr" style={{ width: 200, height: 200 }} aria-label="Checking this card" />
+      : status.missing
+        ? <p className="gift-stamp-text">We could not find this gift card. Please check the link in your email, or call the clinic.</p>
+        : usable
+          ? (origin ? <QR url={origin + giftCardPath(shown)} size={200} className="gift-qr" alt={'QR code for gift card ' + shown} /> : <div className="gift-qr" style={{ width: 200, height: 200 }} />)
+          : <div className="gift-stamp" role="img" aria-label={'Gift card ' + s.toLowerCase()}><span>{s}</span></div>}
+    {!status.missing && <p className="gift-number"><span className="sr-only">Card number </span>{shown}</p>}
+    {!status.loading && !status.missing && <p className="gift-stamp-text">{
+      s === 'Redeemed' ? <>This card was used{status.card.redeemedAt ? <> on {until(status.card.redeemedAt)}</> : null}. It cannot be used again.</>
+        : s === 'Expired' ? <>This card expired on {until(status.card.expiresAt)}.</>
+          : s === 'Void' ? <>This card is no longer valid. Please call the clinic.</>
+            : <>{status.card ? <>Valid until {until(status.card.expiresAt)}. </> : null}Show this code at the clinic. {clinic.address || ''}</>}</p>}
+    <Link className="gift-terms" href="/gift-card-terms">Gift card terms</Link>
+  </section>;
+}
+
 export default function GiftCardPage({ number }) {
-  const { user, ready } = useApp();
+  const { user, ready, giftStatus, data } = useApp();
   const [origin, setOrigin] = useState('');
   useEffect(() => { setOrigin(window.location.origin); }, []);
   const serial = parseGiftNumber(number), shown = String(number).toUpperCase();
   const staff = ready && user?.role === 'staff';
+  // Checked again when the workspace data changes, so a card staff have just redeemed shows as used straight away.
+  const [status, setStatus] = useState({ loading: true });
+  useEffect(() => {
+    if (!serial || !ready) return;
+    let live = true;
+    giftStatus(shown).then(card => { if (live) setStatus(card ? { card } : { missing: true }); }).catch(() => { if (live) setStatus({ failed: true }); });
+    return () => { live = false; };
+  }, [shown, ready, data]);
   return <>
     <Header />
     <main className="container gift-page" id="main-content">
       {!serial
         ? <><h1>Gift card</h1><Notice error>This is not an Eyecon gift card number. Please check the link in your email.</Notice></>
         : <>
-          <section className="gift-card-face" aria-labelledby="gift-card-title">
-            <p className="eyebrow">EYECON OPTOMETRY</p>
-            <h1 id="gift-card-title"><span className="gift-value">$50</span> gift card</h1>
-            {origin ? <QR url={origin + giftCardPath(shown)} size={200} className="gift-qr" alt={'QR code for gift card ' + shown} /> : <div className="gift-qr" style={{ width: 200, height: 200 }} />}
-            <p className="gift-number"><span className="sr-only">Card number </span>{shown}</p>
-            <p className="quiet">Show this code at the clinic. {clinic.address || ''}</p>
-            <Link className="gift-terms" href="/gift-card-terms">Gift card terms</Link>
-          </section>
+          <CardFace shown={shown} status={status} origin={origin} />
           <section className="scan-panel" aria-label="Clinic staff">
             {staff
               ? <><h2><Icon name="check" size={20} /> Staff check</h2><StaffView number={shown} /><CheckAnother /></>

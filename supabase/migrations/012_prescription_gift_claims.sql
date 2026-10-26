@@ -3,7 +3,7 @@
 -- use in store. Run this once in the Supabase SQL editor, after 011_released_gift_cards.sql.
 -- Only the server (service role) can read or write this table, like the others. Affiliates never see these rows.
 
--- 1. Claims. The serial uses the same six-character alphabet as every other gift card and the 180 days start at the
+-- 1. Claims. The serial uses the same six-character alphabet as every other gift card and its days (GIFT_CARD_DAYS) start at the
 -- claim. The health card number and the insurance policy number are stored encrypted by the server (encryptPolicy in
 -- lib/server.js), like a booking's policy number. One claim per email address per affiliate.
 create table public.gift_claims (

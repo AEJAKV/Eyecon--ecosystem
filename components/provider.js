@@ -1,7 +1,7 @@
 'use client';
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { DEMO, placeholderDoctors, setDoctorDirectory } from '@/lib/config';
-import { seedDemo, applyDemo, demoLookup, demoReleaseGift, demoScanGift } from '@/lib/demo';
+import { seedDemo, applyDemo, demoLookup, demoReleaseGift, demoScanGift, demoGiftStatus } from '@/lib/demo';
 import { browserClient, passwordLinkType, onPasswordForm, passwordFormPath } from '@/lib/supabase';
 import { clearStoredGifts } from '@/lib/gift-browser';
 const Context=createContext(null);
@@ -39,6 +39,8 @@ export function Provider({children}){
   async function book(payload){if(DEMO)return action('booking',payload);const response=await fetch('/api/bookings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const result=await response.json();if(!response.ok)throw new Error(result.error);return result;}
   // "Already have a prescription": claim the $50 card without booking. Returns { card: { serial, issuedAt, expiresAt, name }, notifications }.
   async function claimGift(payload){if(DEMO){const next=applyDemo(data,'claim',payload,user);setData(next);const c=next.giftClaims[0];return {card:{serial:c.serial,issuedAt:c.issuedAt,expiresAt:c.expiresAt,name:c.name},notifications:{email:'demo'}};}const response=await fetch('/api/gift/claim',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const result=await response.json();if(!response.ok)throw new Error(result.error);return result;}
+  // The card page's public status: { state, expiresAt, redeemedAt } or null when there is no such card.
+  async function giftStatus(number){if(DEMO)return demoGiftStatus(data,number);const response=await fetch('/api/gift/status',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({number})});const result=await response.json();if(!response.ok)throw new Error(result.error);return result.card;}
   // Staff scan of a gift card by its number (from the card's QR code or typed). Returns giftScanView's fields.
   async function scanGift(number){if(DEMO)return demoScanGift(data,number,user);const response=await fetch('/api/gift/scan',{method:'POST',headers:{...await headers(),'Content-Type':'application/json'},body:JSON.stringify({number})});const result=await response.json();if(!response.ok)throw new Error(result.error);return result.card;}
   // Opening an affiliate's link releases a gift card to the visitor ({ serial, releasedAt, expiresAt, token }); the 180 days start now.
@@ -75,6 +77,6 @@ export function Provider({children}){
     if(DEMO){const url=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=reject;reader.readAsDataURL(file);});const d=doctors.find(d=>d.slug===doctor);return action('doctor',{...d,photo:url});}
     const form=new FormData();form.set('file',file);form.set('doctor',doctor);const response=await fetch('/api/doctors',{method:'POST',headers:await headers(),body:form});const result=await response.json();if(!response.ok)throw new Error(result.error);await reload();return result;
   }
-  return <Context.Provider value={{data,user,ready,error,reload,action,book,releaseGift,claimGift,scanGift,photo,documentsLinkValid,submitDocuments,lookupBooking,demoSignIn,signOut,reset,doctors,doctorsReady,doctorAction,doctorPhoto}}>{children}</Context.Provider>;
+  return <Context.Provider value={{data,user,ready,error,reload,action,book,releaseGift,claimGift,scanGift,giftStatus,photo,documentsLinkValid,submitDocuments,lookupBooking,demoSignIn,signOut,reset,doctors,doctorsReady,doctorAction,doctorPhoto}}>{children}</Context.Provider>;
 }
 export function useApp(){return useContext(Context);}
