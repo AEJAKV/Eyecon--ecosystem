@@ -1040,10 +1040,10 @@ test('affiliate profile photo: crop before upload, then it shows straight away w
 test('the booking confirmation shows the gift card inside the booking tile, with a Download button',()=>{
   const flow=readFileSync(new URL('../components/booking-flow.js',import.meta.url),'utf8');
   const tile=flow.slice(flow.indexOf('<div className="confirmation-card">'),flow.indexOf('<DocumentsForm token={confirmation.booking.documentsToken}'));
-  assert.ok(tile.includes('<BookedGift affiliate={affiliate} card={confirmation.booking.giftCard} />'),'inside the tile');
+  assert.ok(tile.includes('<BookedGift affiliate={affiliate} card={confirmation.booking.giftCard}'),'inside the tile');
   assert.ok(!flow.includes('<Gift affiliate={affiliate} card={confirmation.booking.giftCard} />'),'not repeated below');
   const g=readFileSync(new URL('../components/booked-gift.js',import.meta.url),'utf8');
-  assert.ok(g.includes('Download your gift card')&&g.includes("'Download gift card'")&&g.includes('<QR url={url}'));
+  assert.ok(g.includes('Download your gift card')&&g.includes('Your gift card is in your inbox')&&g.includes("'Download gift card'")&&g.includes('<QR url={url}'));
 });
 test('the booking confirmation asks for the file first, until it is saved or skipped',()=>{
   const flow=readFileSync(new URL('../components/booking-flow.js',import.meta.url),'utf8');
@@ -1051,4 +1051,25 @@ test('the booking confirmation asks for the file first, until it is saved or ski
   assert.ok(flow.includes("confirmation.booking.documentsToken && fileState === 'form' &&")&&flow.includes('onState={setFileState}'));
   const form=readFileSync(new URL('../components/documents-form.js',import.meta.url),'utf8');
   assert.ok(form.includes('id="complete-file"')&&form.includes('onState?.(state)'));
+});
+// The gift card email (ready for when Resend is connected).
+test('the gift card email shows and attaches the card, escapes names, and is sent from both routes',()=>{
+  const script=`
+    const { giftEmailContent, sendGiftEmail } = await import(${JSON.stringify(new URL('../lib/notifications.js',import.meta.url).href)});
+    const c = giftEmailContent({ name: 'Sam <b>Lee</b>', number: 'EYC-AMO-7K2M9Q', expiresAt: '2026-11-25T07:00:00Z', affiliateName: 'Alex & Co', start: '2026-11-02T16:00:00Z' });
+    const off = await sendGiftEmail({ to: 'p@example.com', key: 'k', content: c, png: null, number: 'EYC-AMO-7K2M9Q' });
+    console.log(JSON.stringify({ c, off }));`;
+  const env={...process.env};delete env.RESEND_API_KEY;delete env.RESEND_FROM;
+  const out=JSON.parse(execFileSync(process.execPath,['--conditions=react-server','--input-type=module','-e',script],{encoding:'utf8',env}).trim().split('\n').pop());
+  assert.equal(out.c.subject,'Your $50 Eyecon gift card');
+  assert.ok(out.c.html.includes('/api/gift/image?number=EYC-AMO-7K2M9Q')&&out.c.html.includes('/gift/EYC-AMO-7K2M9Q')&&out.c.html.includes('Open my gift card'));
+  assert.ok(out.c.html.includes('Sam &lt;b&gt;Lee&lt;/b&gt;')===false&&out.c.html.includes('Hi Sam,')&&out.c.html.includes('Alex &amp; Co'),'names are escaped');
+  assert.ok(out.c.text.includes('Card number: EYC-AMO-7K2M9Q')&&out.c.text.includes('Bring it to your appointment on')&&!out.c.text.includes('..'),'no double full stop');
+  assert.equal(out.off.email,'not-configured','nothing is sent until Resend is set up');
+  const n=readFileSync(new URL('../lib/notifications.js',import.meta.url),'utf8');
+  assert.ok(n.includes("attachments:[{filename:'eyecon-gift-card-'+number+'.png'")&&n.includes("kind:'gift-card'"));
+  const booking=readFileSync(new URL('../app/api/bookings/route.js',import.meta.url),'utf8'),claim=readFileSync(new URL('../app/api/gift/claim/route.js',import.meta.url),'utf8');
+  assert.ok(booking.includes('sendBookingGiftEmail(db,saved,affiliate,await giftCardPng(')&&claim.includes('sendClaimEmail(card,affiliate,await giftCardPng('));
+  const img=readFileSync(new URL('../app/api/gift/image/route.js',import.meta.url),'utf8');
+  assert.ok(img.includes('giftStatus(adminClient(), number)')&&img.includes("status: 404"),'only real cards get an image');
 });

@@ -321,7 +321,7 @@ export default function BookingFlow() {
             <p>{formatDate(confirmation.booking.start, { dateStyle: 'full', timeStyle: 'short' })}</p>
             <p className="muted">{clinic.address || 'The clinic will confirm the location with you.'}</p>
             <CalendarCard booking={confirmation.booking} compact />
-            {affiliate && confirmation.booking.giftCard && <BookedGift affiliate={affiliate} card={confirmation.booking.giftCard} />}
+            {affiliate && confirmation.booking.giftCard && <BookedGift affiliate={affiliate} card={confirmation.booking.giftCard} emailed={confirmation.notifications?.gift} email={confirmation.booking.email} />}
           </div>
 
           <DocumentsForm token={confirmation.booking.documentsToken} canSkip onState={setFileState} />

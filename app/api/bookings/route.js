@@ -1,9 +1,11 @@
-import { DEMO, documentsLink } from '@/lib/config';
+import { DEMO, documentsLink, clinic } from '@/lib/config';
 import { validateBooking } from '@/lib/validation';
 import { adminClient, encryptPolicy, mapBooking, sameOrigin, fail, issueGift, claimGift, issueDocumentToken, verifyTurnstile, requestHash, saveServiceOption, loadDoctorDirectory } from '@/lib/server';
 import { findDoctor } from '@/lib/config';
 import { isVisible, offersService } from '@/lib/schedule';
-import { claimAndSend } from '@/lib/notifications';
+import { claimAndSend, sendBookingGiftEmail } from '@/lib/notifications';
+import { giftCardPng } from '@/lib/gift-image';
+import { giftNumber, giftCardPath } from '@/lib/gift';
 export async function POST(request) {
   try{
     sameOrigin(request);if(DEMO)return fail(new Error('Use the browser demo booking flow.'),409);
@@ -20,6 +22,8 @@ export async function POST(request) {
     // A visitor holding a released card claims it; one without a token (browser storage unavailable) is issued a card now.
     const row=await saveServiceOption(db,data[0],b.serviceOption),saved=mapBooking(raw.giftToken?await claimGift(db,row,raw.giftToken):await issueGift(db,row)),documentsToken=await issueDocumentToken(db,data[0]);
     const notifications=await claimAndSend(db,{...saved,documentsLink:documentsLink(documentsToken)},'confirmation');
+    // A referral booking's gift card also goes out in its own email, with the card attached.
+    if(saved.giftCard&&saved.affiliateId){const {data:a}=await db.from('affiliates').select('name,gift_code').eq('id',saved.affiliateId).maybeSingle();const affiliate={name:a?.name||'your introducer',code:a?.gift_code||null},number=giftNumber(affiliate,saved.giftCard.serial);notifications.gift=(await sendBookingGiftEmail(db,saved,affiliate,await giftCardPng({number,url:clinic.site+giftCardPath(number),expiresAt:saved.giftCard.expiresAt}))).email;}
     return Response.json({booking:{id:saved.id,reference:saved.reference,doctor:saved.doctor,start:saved.start,duration:saved.duration,service:saved.service,serviceOption:saved.serviceOption,affiliateId:saved.affiliateId,name:saved.name,giftCard:saved.giftCard,documentsToken},notifications},{status:201,headers:{'Cache-Control':'no-store'}});
   }catch(e){return fail(e);}
 }

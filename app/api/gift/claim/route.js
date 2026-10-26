@@ -1,4 +1,6 @@
-import { DEMO } from '@/lib/config';
+import { DEMO, clinic } from '@/lib/config';
+import { giftCardPng } from '@/lib/gift-image';
+import { giftNumber, giftCardPath } from '@/lib/gift';
 import { validateClaim } from '@/lib/validation';
 import { adminClient, sameOrigin, fail, verifyTurnstile, requestHash, claimPrescriptionGift } from '@/lib/server';
 import { sendClaimEmail } from '@/lib/notifications';
@@ -13,7 +15,8 @@ export async function POST(request) {
     const claim=validateClaim(raw),db=adminClient();
     const card=await claimPrescriptionGift(db,claim,requestHash(request));
     const {data:a}=await db.from('affiliates').select('name,gift_code').eq('id',claim.affiliateId).maybeSingle();
-    const notifications=await sendClaimEmail(card,{name:a?.name||'your introducer',code:a?.gift_code||null});
+    const affiliate={name:a?.name||'your introducer',code:a?.gift_code||null},number=giftNumber(affiliate,card.serial);
+    const notifications=await sendClaimEmail(card,affiliate,await giftCardPng({number,url:clinic.site+giftCardPath(number),expiresAt:card.expiresAt}));
     return Response.json({card:{serial:card.serial,issuedAt:card.issuedAt,expiresAt:card.expiresAt,name:card.name},notifications},{status:201,headers:{'Cache-Control':'no-store'}});
   }catch(e){return fail(e,e.status||400);}
 }
