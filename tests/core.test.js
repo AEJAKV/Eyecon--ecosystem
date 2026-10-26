@@ -124,10 +124,10 @@ test('on phones the right of the header has search and a shopping bag that goes 
   assert.ok(css.includes('.menu-toggle, .menu-spacer, .header-icons { display: none; }'),'wider screens never show the phone icons');
   assert.ok(css.includes('grid-template-columns: 84px 1fr 84px;'),'equal outer columns keep the logo centred');
 });
-test('on phones the hero line under the buttons is fine print',()=>{
+test('on phones the hero line under the buttons is fine print, a little smaller again',()=>{
   const read=f=>readFileSync(new URL(f,import.meta.url),'utf8');
   assert.ok(read('../components/landing.js').includes('<p className="hero-rating hero-fineprint">Book online in under a minute.</p>'));
-  assert.ok(read('../app/site.css').includes('  .hero-fineprint { font-size: .74rem; font-weight: 300; letter-spacing: .06em; line-height: 1.4; color: rgba(255, 255, 255, .62); }'));
+  assert.ok(read('../app/site.css').includes('  .hero-rating.hero-fineprint { font-size: .72rem; }'));
 });
 test('tablets and desktops have Search first in the header row, opening the same panel, and Escape closes it',()=>{
   const read=f=>readFileSync(new URL(f,import.meta.url),'utf8');
@@ -974,4 +974,12 @@ test('the server reports a card status without errors and without patient detail
   assert.deepEqual(out.ok,{state:'Redeemed',expiresAt:'2999-01-01T00:00:00Z',redeemedAt:'2026-10-27T18:00:00Z'});
   assert.equal(out.wrong,null);assert.equal(out.bad,null);
   assert.ok(!out.selects.some(c=>/name,email|email|phone/.test(c.replace('name,gift_code',''))),'never reads patient details');
+});
+
+test('“Book online in under a minute.” is fine print at every screen size',()=>{
+  const css=readFileSync(new URL('../app/site.css',import.meta.url),'utf8');
+  const rule=/\n\.hero-rating\.hero-fineprint \{([^}]*)\}/.exec(css);
+  assert.ok(rule,'a rule outside any media query');
+  assert.ok(/font-size: \.78rem/.test(rule[1])&&/font-weight: 300/.test(rule[1])&&/rgba\(255, 255, 255, \.55\)/.test(rule[1]));
+  assert.ok(css.indexOf(rule[0])>css.indexOf('.hero-rating { display: inline-flex'),'after the rating line it overrides');
 });
