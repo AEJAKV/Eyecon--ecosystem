@@ -1008,3 +1008,9 @@ test('an issued gift card can be downloaded as an image, from the confirmation a
   assert.ok(readFileSync(new URL('../components/ui.js',import.meta.url),'utf8').includes('>Download card</button>'));
   assert.ok(readFileSync(new URL('../components/gift-card-page.js',import.meta.url),'utf8').includes('{usable && origin && <button'),'only a usable card can be downloaded');
 });
+test('password boxes mask with asterisks: the mask font is served and applied to password inputs',()=>{
+  const css=readFileSync(new URL('../app/globals.css',import.meta.url),'utf8');
+  assert.ok(css.includes("font-family:'Password Mask';src:url('/fonts/password-mask.ttf')")&&css.includes('unicode-range:U+2022,U+25CF'));
+  assert.ok(css.includes(".password-input input[type=password]{font-family:'Password Mask'"));
+  assert.ok(readFileSync(new URL('../public/fonts/password-mask.ttf',import.meta.url)).length>200,'font file present');
+});

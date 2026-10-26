@@ -254,3 +254,7 @@ td select{font-size:.85rem;padding:.5rem .7rem;min-height:42px;min-width:120px}
 .password-toggle:hover{color:var(--ink)}
 .password-toggle:focus-visible{outline:2px solid var(--ink);outline-offset:-4px}
 .caps-warning{color:var(--gold-text)!important;font-weight:500}
+
+/* Password boxes mask with asterisks: the browser draws the mask character itself, so a tiny font maps it to an asterisk. */
+@font-face{font-family:'Password Mask';src:url('/fonts/password-mask.ttf') format('truetype');unicode-range:U+2022,U+25CF}
+.password-input input[type=password]{font-family:'Password Mask',var(--sans,system-ui),sans-serif;font-size:1.25rem;letter-spacing:.08em}
