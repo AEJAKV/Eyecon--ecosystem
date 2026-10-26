@@ -1053,23 +1053,30 @@ test('the booking confirmation asks for the file first, until it is saved or ski
   assert.ok(form.includes('id="complete-file"')&&form.includes('onState?.(state)'));
 });
 // The gift card email (ready for when Resend is connected).
-test('the gift card email shows and attaches the card, escapes names, and is sent from both routes',()=>{
+test('the booking confirmation carries the gift card (one email); a prescription claim gets its own card email',()=>{
   const script=`
-    const { giftEmailContent, sendGiftEmail } = await import(${JSON.stringify(new URL('../lib/notifications.js',import.meta.url).href)});
-    const c = giftEmailContent({ name: 'Sam <b>Lee</b>', number: 'EYC-AMO-7K2M9Q', expiresAt: '2026-11-25T07:00:00Z', affiliateName: 'Alex & Co', start: '2026-11-02T16:00:00Z' });
+    const { giftEmailContent, sendGiftEmail, confirmationHtml } = await import(${JSON.stringify(new URL('../lib/notifications.js',import.meta.url).href)});
+    const { defaultTemplates } = await import(${JSON.stringify(new URL('../lib/config.js',import.meta.url).href)});
+    const c = giftEmailContent({ name: 'Sam <b>Lee</b>', number: 'EYC-AMO-7K2M9Q', expiresAt: '2026-11-25T07:00:00Z', affiliateName: 'Alex & Co' });
     const off = await sendGiftEmail({ to: 'p@example.com', key: 'k', content: c, png: null, number: 'EYC-AMO-7K2M9Q' });
-    console.log(JSON.stringify({ c, off }));`;
+    const body = defaultTemplates.find(t => t.id === 'confirmation').body, b = { id: 'b1', name: 'Sam Lee', start: '2026-11-02T16:00:00Z', doctor: 'doctor-1', reference: '7K2M9QXB', affiliateId: 'a1', giftCard: { serial: '7K2M9Q', expiresAt: '2026-11-25T07:00:00Z' }, documentsLink: 'https://x.test/documents#t=abc' };
+    const conf = confirmationHtml(body, b, { name: 'Alex Morgan', code: null }), plain = confirmationHtml(body, { ...b, affiliateId: null, giftCard: null }, null);
+    console.log(JSON.stringify({ c, off, conf, plain }));`;
   const env={...process.env};delete env.RESEND_API_KEY;delete env.RESEND_FROM;
   const out=JSON.parse(execFileSync(process.execPath,['--conditions=react-server','--input-type=module','-e',script],{encoding:'utf8',env}).trim().split('\n').pop());
   assert.equal(out.c.subject,'Your $50 Eyecon gift card');
   assert.ok(out.c.html.includes('/api/gift/image?number=EYC-AMO-7K2M9Q')&&out.c.html.includes('/gift/EYC-AMO-7K2M9Q')&&out.c.html.includes('Open my gift card'));
-  assert.ok(out.c.html.includes('Sam &lt;b&gt;Lee&lt;/b&gt;')===false&&out.c.html.includes('Hi Sam,')&&out.c.html.includes('Alex &amp; Co'),'names are escaped');
-  assert.ok(out.c.text.includes('Card number: EYC-AMO-7K2M9Q')&&out.c.text.includes('Bring it to your appointment on')&&!out.c.text.includes('..'),'no double full stop');
+  assert.ok(out.c.html.includes('Hi Sam,')&&out.c.html.includes('Alex &amp; Co'),'names are escaped');
+  assert.ok(out.c.text.includes('Card number: EYC-AMO-7K2M9Q')&&out.c.text.includes('with your prescription'));
+  assert.ok(!out.conf.includes('m..'),'no double full stop after a.m./p.m.');assert.ok(out.conf.includes('Open my gift card')&&out.conf.includes('/api/gift/image?number=EYC-AMO-7K2M9Q')&&(out.conf.match(/Your \$50 gift card/g)||[]).length===1,'the confirmation holds the card once');
+  assert.ok(!out.conf.includes('Your referral includes a $50 gift card'),'the text gift line is replaced by the card');
+  assert.ok(out.plain.includes('Open my gift card')===false&&!out.plain.includes('/api/gift/image'),'a booking with no card has no card block');
   assert.equal(out.off.email,'not-configured','nothing is sent until Resend is set up');
   const n=readFileSync(new URL('../lib/notifications.js',import.meta.url),'utf8');
-  assert.ok(n.includes("attachments:[{filename:'eyecon-gift-card-'+number+'.png'")&&n.includes("kind:'gift-card'"));
+  assert.ok(n.includes("attachments:[{filename:'eyecon-gift-card-'+number+'.png'")&&n.includes("filename:'eyecon-gift-card-'+giftNumber(affiliate,b.giftCard.serial)+'.png'"),'claim email and confirmation both attach the card');
   const booking=readFileSync(new URL('../app/api/bookings/route.js',import.meta.url),'utf8'),claim=readFileSync(new URL('../app/api/gift/claim/route.js',import.meta.url),'utf8');
-  assert.ok(booking.includes('sendBookingGiftEmail(db,saved,affiliate,await giftCardPng(')&&claim.includes('sendClaimEmail(card,affiliate,await giftCardPng('));
+  assert.ok(booking.includes("claimAndSend(db,{...saved,documentsLink:documentsLink(documentsToken)},'confirmation',{giftPng})")&&!booking.includes('sendBookingGiftEmail'),'one email per booking');
+  assert.ok(claim.includes('sendClaimEmail(card,affiliate,await giftCardPng('));
   const img=readFileSync(new URL('../app/api/gift/image/route.js',import.meta.url),'utf8');
   assert.ok(img.includes('giftStatus(adminClient(), number)')&&img.includes("status: 404"),'only real cards get an image');
 });

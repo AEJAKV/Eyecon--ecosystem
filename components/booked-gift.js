@@ -19,8 +19,8 @@ export default function BookedGift({ affiliate, card, emailed, email }) {
       <h4 id="booked-gift-title">{emailed === 'sent' ? 'Your gift card is in your inbox' : 'Download your gift card'}</h4>
       <p><strong className="booked-gift-value">$50</strong> toward your eyewear, courtesy of {affiliate.name}.</p>
       <p className="quiet">Valid until {formatDate(card.expiresAt, { dateStyle: 'medium', timeStyle: undefined })}. Show the code at the clinic. <a className="gift-terms" href="/gift-card-terms" target="_blank">Terms</a></p>
-      {emailed === 'sent' ? <p className="booked-gift-mail">We emailed it to <strong>{email}</strong>. Save the attached card to your phone. Not there? Check your spam folder, or download it here.</p>
-        : emailed === 'demo' ? <p className="booked-gift-mail">On the live site, this card is also emailed to the patient with the card attached.</p> : null}
+      {emailed === 'sent' ? <p className="booked-gift-mail">We emailed it to <strong>{email}</strong>. It’s in your confirmation email, attached so you can save it to your phone. Not there? Check your spam folder, or download it here.</p>
+        : emailed === 'demo' ? <p className="booked-gift-mail">On the live site, this card is also in the confirmation email, attached to save.</p> : null}
       <Button secondary={emailed === 'sent'} onClick={download} disabled={!origin || busy}>{busy ? 'Preparing…' : 'Download gift card'}</Button>
     </div>
     <figure className="booked-gift-code">

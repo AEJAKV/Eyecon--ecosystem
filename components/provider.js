@@ -33,7 +33,7 @@ export function Provider({children}){
   useEffect(()=>{if(DEMO&&ready)try{localStorage.setItem('eyecon-demo-v5',JSON.stringify(data));}catch{setError('This browser could not save demo changes. Keep this tab open or reset the demo.');}},[data,ready]);
   useEffect(()=>{if(DEMO)return;let active=true;fetch('/api/doctors').then(r=>r.ok?r.json():Promise.reject()).then(r=>{if(active)setPublicDoctors(r.doctors);}).catch(()=>{if(active)setPublicDoctors([]);});return()=>{active=false;};},[]);
   async function action(action,payload){
-    if(DEMO){let next=applyDemo(data,action,payload,user);setData(next);return action==='booking'?{booking:next.bookings[0],notifications:{email:'demo',sms:'demo',gift:'demo'}}:{ok:true};}
+    if(DEMO){let next=applyDemo(data,action,payload,user);setData(next);return action==='booking'?{booking:next.bookings[0],notifications:{email:'demo',sms:'demo'}}:{ok:true};}
     const response=await fetch('/api/workspace',{method:'POST',headers:{...await headers(),'Content-Type':'application/json'},body:JSON.stringify({action,payload})});const result=await response.json();if(!response.ok)throw new Error(result.error);await reload();return result;
   }
   async function book(payload){if(DEMO)return action('booking',payload);const response=await fetch('/api/bookings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const result=await response.json();if(!response.ok)throw new Error(result.error);return result;}
