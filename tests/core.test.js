@@ -876,3 +876,68 @@ test('the server finds a scanned card on a booking or a prescription claim witho
   assert.equal(out.claim.kind,'prescription');assert.equal(out.claim.number,'EYC-AMO-B4XW8T');assert.equal(out.claim.booking,null);assert.equal(out.none,null);
   assert.deepEqual(Object.keys(out.booking).sort(),SCAN_KEYS);assert.ok(!JSON.stringify(out).includes('policy')&&!JSON.stringify(out).includes('health')&&!JSON.stringify(out).includes('phone'));
 });
+
+// Redeeming gift cards (staff): the state in the bookings list and the redeem / undo control.
+import { giftState,checkRedeem } from '../lib/gift.js';
+test('gift card state and redeem rules',()=>{
+  const future='2999-01-01T00:00:00Z',past='2020-01-01T00:00:00Z';
+  assert.equal(giftState({status:'Issued',expiresAt:future}),'Not redeemed');assert.equal(giftState({status:'Claimed',expiresAt:future}),'Not redeemed');
+  assert.equal(giftState({status:'Issued',expiresAt:past}),'Expired');assert.equal(giftState({status:'Redeemed',expiresAt:past}),'Redeemed','a redeemed card stays redeemed after expiry');
+  assert.equal(giftState({status:'Void',expiresAt:future}),'Void');
+  assert.equal(checkRedeem({status:'Issued',expiresAt:future},true).ok,true);
+  assert.match(checkRedeem({status:'Redeemed',expiresAt:future},true).message,/already been redeemed/);
+  assert.match(checkRedeem({status:'Issued',expiresAt:past},true).message,/expired/);
+  assert.match(checkRedeem({status:'Void',expiresAt:future},true).message,/void/);
+  assert.equal(checkRedeem({status:'Redeemed',expiresAt:past},false).ok,true,'a mistake can be undone');
+  assert.match(checkRedeem({status:'Issued',expiresAt:future},false).message,/not been redeemed/);
+  assert.match(checkRedeem(null,true).message,/No gift card/);
+});
+test('staff redeem and undo booking and prescription cards in the demo; only once, never expired',()=>{
+  const staff={role:'staff'};
+  let data=applyDemo(seedDemo(),'booking',validateBooking({...at(seedDemo().slots[2]),affiliateId:'demo-alex'}),null);
+  data=applyDemo(data,'claim',{name:'Sample claimant',email:'claim@example.com',affiliateId:'demo-alex'},null);
+  const booked='EYC-AMO-'+data.bookings[0].giftCard.serial,claimed=data.giftClaims[0].serial;
+  assert.throws(()=>applyDemo(data,'gift-redeem',{number:booked},{role:'affiliate',affiliateId:'demo-alex'}),/Staff access/);
+  let next=applyDemo(data,'gift-redeem',{number:booked},staff);
+  assert.equal(next.bookings[0].giftCard.status,'Redeemed');assert.ok(next.bookings[0].giftCard.redeemedAt);
+  const scan=demoScanGift(next,booked,staff);assert.equal(scan.status,'Redeemed');assert.ok(scan.redeemedAt);
+  assert.throws(()=>applyDemo(next,'gift-redeem',{number:booked},staff),/already been redeemed/);
+  next=applyDemo(next,'gift-redeem',{number:booked,redeemed:false},staff);
+  assert.equal(next.bookings[0].giftCard.status,'Issued');assert.equal(next.bookings[0].giftCard.redeemedAt,null);
+  next=applyDemo(next,'gift-redeem',{number:claimed},staff);assert.equal(next.giftClaims[0].status,'Redeemed');
+  next.bookings[0].giftCard.expiresAt='2020-01-01T00:00:00Z';
+  assert.throws(()=>applyDemo(next,'gift-redeem',{number:booked},staff),/expired/);
+  assert.throws(()=>applyDemo(next,'gift-redeem',{number:'nope'},staff),/not an Eyecon gift card/);
+});
+test('redeeming: migration 013, the workspace action, the bookings list and the scan page',()=>{
+  const sql=readFileSync(new URL('../supabase/migrations/013_gift_redemption.sql',import.meta.url),'utf8');
+  assert.ok(sql.startsWith('--')&&sql.includes('after 012_prescription_gift_claims.sql')&&sql.includes('gift_redeemed_at timestamptz')&&sql.includes('redeemed_by uuid'));
+  assert.ok(sql.includes("((gift_status = 'Redeemed') = (gift_redeemed_at is not null))")&&sql.includes("((status = 'Redeemed') = (redeemed_at is not null))"));
+  const route=readFileSync(new URL('../app/api/workspace/route.js',import.meta.url),'utf8');
+  const branch=route.slice(route.indexOf("action==='gift-redeem'"),route.indexOf("action==='pricing'"));
+  assert.ok(route.indexOf('requireStaff(u);')<route.indexOf("action==='gift-redeem'"),'staff only');
+  assert.ok(branch.includes('setGiftRedeemed(db,serial,p.redeemed!==false,u.id)')&&branch.includes("audit(db,u.id,p.redeemed!==false?'gift-redeem':'gift-redeem-undo',serial)"));
+  const ws=readFileSync(new URL('../components/workspace.js',import.meta.url),'utf8');
+  assert.ok(ws.includes("<td>{b.source}{b.giftCard&&<GiftBadge card={b.giftCard}/>}</td>")&&ws.includes('<RedeemGift number={giftNumber('));
+  assert.ok(readFileSync(new URL('../components/gift-card-page.js',import.meta.url),'utf8').includes('<RedeemGift number={card.number} card={card} />'));
+});
+test('the server redeems and un-redeems a gift card without errors',()=>{
+  const script=`
+    const { setGiftRedeemed } = await import(${JSON.stringify(new URL('../lib/server.js',import.meta.url).href)});
+    const writes = [];
+    const make = (booking, claim) => ({ from: table => { const q = { select: () => q, eq: () => q, is: () => q, in: () => q,
+      maybeSingle: async () => ({ data: table === 'bookings' ? booking : table === 'gift_claims' ? claim : table === 'affiliates' ? { name: 'Alex Morgan', gift_code: null } : null }),
+      update: fields => { writes.push([table, fields]); if (table === 'bookings' && booking) Object.assign(booking, fields); if (table === 'gift_claims' && claim) Object.assign(claim, fields);
+        const u = { eq: () => u, select: async () => ({ data: [{ id: 'x' }], error: null }) }; return u; } }; return q; } });
+    const b = { id: 'b1', name: 'Sample patient', email: 'p@example.com', reference: '7K2M9QXB', service: 'eye-exam', doctor: 'doctor-1', start: '2026-11-02T16:00:00Z', status: 'Booked', affiliate_id: 'a1', gift_serial: '7K2M9Q', gift_issued_at: '2026-10-26T07:00:00Z', gift_expires_at: '2999-01-01T00:00:00Z', gift_status: 'Issued' };
+    const one = await setGiftRedeemed(make(b, null), '7K2M9Q', true, 'staff-1');
+    let again = ''; try { await setGiftRedeemed(make(b, null), '7K2M9Q', true, 'staff-1'); } catch (e) { again = e.status + ' ' + e.message; }
+    const undo = await setGiftRedeemed(make(b, null), '7K2M9Q', false, 'staff-1');
+    const c = { id: 'c1', name: 'Sample claimant', email: 'c@example.com', serial: 'B4XW8T', issued_at: '2026-10-26T07:00:00Z', expires_at: '2999-01-01T00:00:00Z', status: 'Issued', affiliate_id: 'a1' };
+    const two = await setGiftRedeemed(make(null, c), 'B4XW8T', true, 'staff-1');
+    console.log(JSON.stringify({ one: one.status, oneAt: !!one.redeemedAt, again, undo: undo.status, two: two.status, kind: two.kind, writes }));`;
+  const out=JSON.parse(execFileSync(process.execPath,['--conditions=react-server','--input-type=module','-e',script],{encoding:'utf8'}).trim().split('\n').pop());
+  assert.equal(out.one,'Redeemed');assert.equal(out.oneAt,true);assert.match(out.again,/^409 This gift card has already been redeemed/);
+  assert.equal(out.undo,'Issued');assert.equal(out.two,'Redeemed');assert.equal(out.kind,'prescription');
+  assert.equal(out.writes[0][1].gift_redeemed_by,'staff-1');assert.equal(out.writes[1][1].gift_redeemed_at,null);
+});

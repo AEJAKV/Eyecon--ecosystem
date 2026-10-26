@@ -1,4 +1,5 @@
-import { identity, requireStaff, sameOrigin, fail, mapBooking, mapAffiliate, mapPricing, encryptPolicy, audit, issueGift, issueDocumentToken, loadDoctorDirectory, loadSchedules } from '@/lib/server';
+import { identity, requireStaff, sameOrigin, fail, mapBooking, mapAffiliate, mapPricing, encryptPolicy, audit, issueGift, issueDocumentToken, loadDoctorDirectory, loadSchedules, setGiftRedeemed } from '@/lib/server';
+import { parseGiftNumber } from '@/lib/gift';
 import { publicDoctor } from '@/lib/schedule';
 import { clean, validateStatus, validateSlug, validateBooking, safePhoto, validateGiftCode, validateDoctor, inviteErrorMessage } from '@/lib/validation';
 import { claimAndSend } from '@/lib/notifications';
@@ -55,6 +56,11 @@ export async function POST(request){
         const {error:ce}=await db.rpc('complete_appointment',{p_id:String(p.id||''),p_gross:gross,p_discount:discount,p_actor:u.id});
         if(ce)throw new Error(ce.message.includes('locked')?'This referral has been paid, so its commission is locked.':ce.message.includes('not found')?'Booking not found.':'Could not save this appointment. Check the amounts and try again.');
         return Response.json({ok:true});
+      }else if(action==='gift-redeem'){
+        // Mark a gift card redeemed when the patient uses it, or undo a mistake (p.redeemed false). By card number.
+        const serial=parseGiftNumber(p.number);if(!serial)throw new Error('That is not an Eyecon gift card number.');
+        const card=await setGiftRedeemed(db,serial,p.redeemed!==false,u.id);
+        await audit(db,u.id,p.redeemed!==false?'gift-redeem':'gift-redeem-undo',serial);return Response.json({ok:true,card});
       }else if(action==='pricing'){
         if(!services.some(s=>s.id===p.service))throw new Error('Unknown procedure.');
         const {retailPrice,operationCost}=validatePricing(p);
@@ -84,5 +90,5 @@ export async function POST(request){
       }else throw new Error('Unknown action.');
     }
     if(error)throw new Error('Could not save the change. Check the selected records and try again.');await audit(db,u.id,action,p.id||'batch');return Response.json({ok:true});
-  }catch(e){return fail(e);}
+  }catch(e){return fail(e,e.status||400);}
 }

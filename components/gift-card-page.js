@@ -5,29 +5,30 @@ import { useRouter } from 'next/navigation';
 import { useApp } from './provider';
 import QR from './qr';
 import { Header, Footer, Button, Field, Notice, Icon } from './ui';
-import { parseGiftNumber, giftCardPath } from '@/lib/gift';
+import { parseGiftNumber, giftCardPath, giftState } from '@/lib/gift';
+import { RedeemGift } from './gift-status';
 import { clinic, doctorName, formatDate, services } from '@/lib/config';
 
-// Staff see the card's state as a word, not only a colour.
+// Staff see the card's state as a word, not only a colour. A card that can still be used reads "Valid".
 function state(card) {
-  if (card.status === 'Redeemed') return { label: 'Already redeemed', tone: 'cancelled' };
-  if (card.status === 'Void') return { label: 'Void', tone: 'cancelled' };
-  if (card.expired) return { label: 'Expired', tone: 'cancelled' };
-  return { label: 'Valid', tone: 'attended' };
+  const s = giftState(card);
+  return s === 'Not redeemed' ? { label: 'Valid · not redeemed', tone: 'attended' } : { label: s === 'Redeemed' ? 'Already redeemed' : s, tone: 'cancelled' };
 }
 
 // What signed-in staff see under the card: is it valid, and whose is it. A booking card shows the appointment; a
 // prescription card has none.
 function StaffView({ number }) {
-  const { scanGift } = useApp();
+  const { scanGift, data } = useApp();
   const [card, setCard] = useState(null), [error, setError] = useState(''), [loading, setLoading] = useState(true);
+  useEffect(() => { setLoading(true); setCard(null); }, [number]);
+  // Checked again whenever the workspace data changes, so a redemption shows straight away.
   useEffect(() => {
-    let live = true; setLoading(true); setError('');
-    scanGift(number).then(c => { if (live) setCard(c); }).catch(e => { if (live) setError(e.message); }).finally(() => { if (live) setLoading(false); });
+    let live = true;
+    scanGift(number).then(c => { if (live) { setCard(c); setError(''); } }).catch(e => { if (live) setError(e.message); }).finally(() => { if (live) setLoading(false); });
     return () => { live = false; };
-  }, [number]);
+  }, [number, data]);
   if (loading) return <p className="quiet" role="status">Checking this card…</p>;
-  if (error) return <Notice error>{error}</Notice>;
+  if (error && !card) return <Notice error>{error}</Notice>;
   const s = state(card), b = card.booking;
   return <div className="scan-result">
     <div className="scan-head"><span className={'badge ' + s.tone}>{s.label}</span><small>{card.kind === 'booking' ? 'Booked an appointment' : 'Already has a prescription'}</small></div>
@@ -45,6 +46,7 @@ function StaffView({ number }) {
       </>}
     </dl>
     {!b && <p className="quiet">No appointment: this patient claimed the card with an existing prescription.</p>}
+    <RedeemGift number={card.number} card={card} />
   </div>;
 }
 

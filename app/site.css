@@ -1194,3 +1194,11 @@ html:has(.search-panel[open]) { overflow: hidden; }
 .scan-another { display: flex; align-items: flex-end; gap: .75rem; padding-top: 1rem; border-top: 1px solid var(--line); }
 .scan-another .field { flex: 1; margin: 0; }
 @media (max-width: 520px) { .scan-fields div { grid-template-columns: 1fr; gap: .1rem; } .scan-another { flex-direction: column; align-items: stretch; } }
+
+/* Gift card state in the staff bookings list and the redeem control (booking details, scan page). */
+.badge.gift-open { background: var(--tint); color: var(--gold-text); }
+.gift-badge { margin-top: .35rem; }
+.redeem-gift { display: flex; flex-direction: column; align-items: flex-start; gap: .6rem; margin-top: .5rem; }
+.redeem-line { display: flex; align-items: center; flex-wrap: wrap; gap: .7rem; margin: 0; }
+.detail-gift { margin: 1.2rem 0; padding-top: 1rem; border-top: 1px solid var(--line); }
+.detail-gift h3 { margin: 0 0 .4rem; }
