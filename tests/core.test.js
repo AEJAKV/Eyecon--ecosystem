@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { validateBooking,csv,slotTaken,validateDocuments,fileSignatureOk,fileComplete,checkUploadedFile,inviteErrorMessage } from '../lib/validation.js';
+import { validateBooking,normalizePhone,csv,slotTaken,validateDocuments,fileSignatureOk,fileComplete,checkUploadedFile,inviteErrorMessage } from '../lib/validation.js';
 import { seedDemo,applyDemo,affiliateRows } from '../lib/demo.js';
 import { calendarFile } from '../lib/calendar.js';
 import { readFileSync } from 'node:fs';
@@ -20,7 +20,14 @@ const patient={name:'Sample Patient',email:'sample@example.com',phone:'+14165550
 // A patient booking a particular slot: that slot's optometrist and start time.
 const at=slot=>({...patient,doctor:slot.doctor,start:slot.start});
 test('booking validates patient details, service and future time',()=>{assert.equal(validateBooking(patient).source,'Direct');assert.equal(validateBooking({...patient,affiliateId:'ref'}).source,'Affiliate');assert.throws(()=>validateBooking({...patient,email:'invalid'}));assert.throws(()=>validateBooking({...patient,service:'emergency'}));assert.throws(()=>validateBooking({...patient,firstVisit:null}));assert.throws(()=>validateBooking({...patient,start:'2000-01-01'}));});
-test('SMS requires an international-format phone number',()=>{assert.throws(()=>validateBooking({...patient,phone:'416 555 0123',smsConsent:true}));assert.equal(validateBooking({...patient,smsConsent:true}).smsConsent,true);});
+test('SMS needs a number texts can reach: local Canadian and US numbers get +1 added',()=>{
+  for(const typed of ['780 555 0123','(780) 555-0123','780-555-0123','1-780-555-0123','+1 780 555 0123','7805550123'])assert.equal(validateBooking({...patient,phone:typed,smsConsent:true}).phone,'+17805550123',typed);
+  assert.equal(validateBooking({...patient,phone:'+44 20 7946 0958',smsConsent:true}).phone,'+442079460958','international numbers keep their country code');
+  for(const typed of ['0909990909','555 0123','080 555 0123'])assert.throws(()=>validateBooking({...patient,phone:typed,smsConsent:true}),/area code/,typed);
+  assert.equal(validateBooking({...patient,phone:'0909990909',smsConsent:false}).phone,'0909990909','without text reminders an unusual number is kept as typed');
+  assert.equal(validateBooking({...patient,smsConsent:true}).smsConsent,true);
+  assert.equal(normalizePhone('780.555.0123'),'+17805550123');assert.equal(normalizePhone('abc'),null);
+});
 test('demo bookings reject simultaneous and overlapping appointments with the same optometrist',()=>{const data=seedDemo(),slot=data.slots[1];const next=applyDemo(data,'booking',at(slot),null);assert.equal(next.bookings[0].duration,30);assert.throws(()=>applyDemo(next,'booking',at(slot),null));assert.equal(slotTaken({doctor:slot.doctor,start:new Date(new Date(slot.start).getTime()+15*60000).toISOString(),duration:30},next.bookings),true);assert.equal(slotTaken({doctor:slot.doctor,start:new Date(new Date(slot.start).getTime()+30*60000).toISOString(),duration:15},next.bookings),false);});
 test('affiliate view excludes clinical and contact details',()=>{const rows=affiliateRows(seedDemo().bookings,'demo-alex');assert.ok(rows.length);for(const row of rows){for(const key of ['email','phone','service','policy','insurance','brands','doctor','giftCard','residencyStatus','documents','documentsToken','grossAmount','discountAmount','operationCost','netAmount','commissionRate'])assert.equal(key in row,false);}});
 test('only staff can record valid payouts, and duplicate payment is rejected',()=>{const data=seedDemo();assert.throws(()=>applyDemo(data,'payout',{ids:['sample-2']},{role:'affiliate'}));const paid=applyDemo(data,'payout',{ids:['sample-2']},{role:'staff'});assert.equal(paid.bookings.find(b=>b.id==='sample-2').payout,'Paid');assert.throws(()=>applyDemo(paid,'payout',{ids:['sample-2']},{role:'staff'}));assert.throws(()=>applyDemo(data,'payout',{ids:['sample-1']},{role:'staff'}));});

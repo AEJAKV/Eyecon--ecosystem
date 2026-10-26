@@ -276,7 +276,7 @@ export default function BookingFlow() {
           {summary(<button type="button" className="text-link" onClick={() => back(1)}>Change</button>)}
           <Field label="Full name" id="patient-name" autoComplete="name" required maxLength={120} value={details.name} onChange={e => change('name', e.target.value)} />
           <div className="form-grid">
-            <Field label="Mobile number" id="patient-phone" type="tel" autoComplete="tel" required maxLength={32} placeholder="+1 416 555 0123" value={details.phone} onChange={e => change('phone', e.target.value)} />
+            <Field label="Mobile number" id="patient-phone" type="tel" autoComplete="tel" required maxLength={32} placeholder="780 555 0123" value={details.phone} onChange={e => change('phone', e.target.value)} />
             <Field label="Email address" id="patient-email" type="email" autoComplete="email" required value={details.email} onChange={e => change('email', e.target.value)} />
           </div>
           <fieldset className="choice-field"><legend>Is this your first visit to Eyecon?</legend>
