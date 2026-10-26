@@ -1216,3 +1216,4 @@ html:has(.search-panel[open]) { overflow: hidden; }
 .calendar-inline .button { min-height: 44px; padding: .55rem 1.1rem; }
 .calendar-inline .text-link { font-size: .9rem; }
 .brand-field { margin: 0; }
+.gift-save { font-size: .9rem; margin-top: .2rem; }

@@ -1001,3 +1001,9 @@ test('designers you love are required online, and the calendar sits inside the b
   const form=readFileSync(new URL('../components/documents-form.js',import.meta.url),'utf8');
   assert.ok(!form.includes('Residency status')&&!form.includes('residency-status')&&form.includes('Care Card / Alberta Health Card <small>Optional, 1 file</small>'));
 });
+test('an issued gift card can be downloaded as an image, from the confirmation and from its own page',()=>{
+  const dl=readFileSync(new URL('../components/gift-download.js',import.meta.url),'utf8');
+  assert.ok(dl.includes("c.toBlob(resolve, 'image/png')")&&dl.includes("a.download = 'eyecon-gift-card-' + number + '.png'")&&dl.includes('g.fillText(number'));
+  assert.ok(readFileSync(new URL('../components/ui.js',import.meta.url),'utf8').includes('>Download card</button>'));
+  assert.ok(readFileSync(new URL('../components/gift-card-page.js',import.meta.url),'utf8').includes('{usable && origin && <button'),'only a usable card can be downloaded');
+});

@@ -7,6 +7,7 @@ import QR from './qr';
 import { Header, Footer, Button, Field, Notice, Icon } from './ui';
 import { parseGiftNumber, giftCardPath, giftState } from '@/lib/gift';
 import { RedeemGift } from './gift-status';
+import { downloadGiftCard } from './gift-download';
 import { clinic, doctorName, formatDate, services } from '@/lib/config';
 
 // Staff see the card's state as a word, not only a colour. A card that can still be used reads "Valid".
@@ -81,6 +82,7 @@ function CardFace({ shown, status, origin }) {
         : s === 'Expired' ? <>This card expired on {until(status.card.expiresAt)}.</>
           : s === 'Void' ? <>This card is no longer valid. Please call the clinic.</>
             : <>{status.card ? <>Valid until {until(status.card.expiresAt)}. </> : null}Show this code at the clinic. {clinic.address || ''}</>}</p>}
+    {usable && origin && <button type="button" className="text-link gift-save" onClick={() => downloadGiftCard({ number: shown, url: origin + giftCardPath(shown), expiresAt: status.card?.expiresAt })}>Download card</button>}
     <Link className="gift-terms" href="/gift-card-terms">Gift card terms</Link>
   </section>;
 }
