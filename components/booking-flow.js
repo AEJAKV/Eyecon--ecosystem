@@ -3,8 +3,6 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useApp } from './provider';
-import { useGift } from './use-gift';
-import { giftExpired } from '@/lib/gift';
 import DocumentsForm from './documents-form';
 import Captcha from './captcha';
 import CalendarCard from './calendar-card';
@@ -47,8 +45,6 @@ function ranges() {
 export default function BookingFlow() {
   const params = useSearchParams(), slug = params.get('affiliate'), { data, ready, book, doctors: allDoctors, doctorsReady } = useApp();
   const [affiliate, setAffiliate] = useState(null);
-  // The card released when the visitor opened the affiliate's link (the same one the landing page showed).
-  const gift = useGift(affiliate);
   const [slots, setSlots] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
@@ -146,7 +142,7 @@ export default function BookingFlow() {
     try {
       const payload = validateBooking({ ...details, brands: details.brands.join(', '), firstVisit: details.firstVisit === 'yes' ? true : details.firstVisit === 'no' ? false : null, service, serviceOption, start, doctor, affiliateId: affiliate?.id });
       if (!DEMO && !captcha) throw new Error('Complete the verification before booking.');
-      const result = await book({ ...payload, giftToken: gift.card?.token, captcha, website: details.website });
+      const result = await book({ ...payload, captcha, website: details.website });
       setConfirmation(result); setStep(3);
     } catch (e) { setError(e.message); setCaptcha(''); setCaptchaKey(k => k + 1); }
     finally { setBusy(false); }
@@ -165,7 +161,7 @@ export default function BookingFlow() {
       <aside className="booking-aside">
         <h1>A little time, a clearer view.</h1>
         <p>Choose your appointment and a time that suits you. It takes about a minute.</p>
-        {affiliate && <><Referral affiliate={affiliate} />{step < 3 && <Gift compact affiliate={affiliate} card={gift.card} loading={gift.status === 'loading'} />}</>}
+        {affiliate && <><Referral affiliate={affiliate} />{step < 3 && <Gift compact affiliate={affiliate} />}</>}
         <div className="booking-help">
           <Icon name="phone" />
           <h3>Prefer to talk to us?</h3>
@@ -293,7 +289,7 @@ export default function BookingFlow() {
 
           <CalendarCard booking={confirmation.booking} />
 
-          {affiliate && (confirmation.booking.giftCard || gift.status === 'fallback' || (gift.card && giftExpired(gift.card.expiresAt))) && <Gift affiliate={affiliate} card={confirmation.booking.giftCard || (gift.card && giftExpired(gift.card.expiresAt) ? gift.card : undefined)} />}
+          {affiliate && confirmation.booking.giftCard && <Gift affiliate={affiliate} card={confirmation.booking.giftCard} />}
           <h3 className="plain">Before your visit</h3>
           <ul className="check-list">{instructions.map(t => <li key={t}><Icon name="check" size={18} />{t}</li>)}</ul>
           <Notice>{DEMO ? 'Demo booking saved in this browser. No email or SMS was sent.' : confirmation.notifications?.email === 'sent' ? 'Your confirmation email is on its way. Check your inbox.' : 'Your booking is saved. Keep your reference and add it to your calendar above.'}</Notice>

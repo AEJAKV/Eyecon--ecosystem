@@ -401,9 +401,12 @@ test('/shop opens with a photo header, the overlay site header, and the plain he
   assert.match(css,/@media \(max-width: 640px\) \{[^}]*\}[\s\S]*?\.shop-hero-photo \{ order: 1;[^}]*aspect-ratio: 4 \/ 5;/,'phones: words above the 4:5 photo');
 });
 
-test('the hero “Pick your optometrist” button scrolls to the doctors section',()=>{
+test('the hero has one booking button: inside the gift tile on an affiliate page, with the prescription claim under it',()=>{
   const landing=readFileSync(new URL('../components/landing.js',import.meta.url),'utf8');
-  assert.ok(landing.includes('<a className="button outline" href="#doctors">Pick your optometrist</a>'));
+  assert.ok(!landing.includes('Pick your optometrist'),'no second hero button');
+  assert.ok(/<Gift affiliate=\{affiliate\}>\s*<Button href=\{booking\} className="hero-book">Book Now<\/Button>\s*<Link className="gift-alt" href=\{booking \+ '&claim=prescription'\}>/.test(landing),'Book Now then the prescription link, inside the tile');
+  assert.equal((landing.match(/className="hero-book"/g)||[]).length,2,'one hero button per kind of visitor');
+  assert.ok(landing.includes("document.querySelector('.hero-book')"),'the floating mobile button follows the hero button');
   assert.ok(/<section className="doctors" id="doctors" aria-labelledby="doctors-title"[ >]/.test(landing));
   assert.equal((landing.match(/id="doctors"/g)||[]).length,1,'one #doctors target');
   assert.ok(!landing.includes('See appointment types'));
@@ -755,4 +758,19 @@ test('the gift pill shows title, then the card number, then one small line, and 
   assert.ok(ui.indexOf('your first visit</strong>')<ui.indexOf('className="gift-number"')&&ui.indexOf('className="gift-number"')<ui.indexOf('Valid until {until}'),'title, number, then validity');
   const css=readFileSync(new URL('../app/site.css',import.meta.url),'utf8');
   assert.ok(/\.gift \{ display: flex; align-items: center;/.test(css)&&!/\.gift-number \{[^}]*justify-self/.test(css));
+});
+
+// The gift card is issued only once the visitor books (or claims it with a prescription): nothing is released when the
+// affiliate page or the booking page opens, so neither shows a card number before then.
+test('no gift card is released or shown before booking',()=>{
+  for(const f of ['../components/landing.js','../components/booking-flow.js']){
+    const src=readFileSync(new URL(f,import.meta.url),'utf8');
+    assert.ok(!src.includes('useGift')&&!src.includes('giftToken'),f+' does not release a card or send a claim token');
+  }
+  const flow=readFileSync(new URL('../components/booking-flow.js',import.meta.url),'utf8');
+  assert.ok(flow.includes('<Gift compact affiliate={affiliate} />'),'the booking steps show the offer with no card');
+  const data=seedDemo(),slot=data.slots[2];
+  const b=applyDemo(data,'booking',validateBooking({...at(slot),affiliateId:'demo-alex'}),null).bookings[0];
+  assert.equal(b.giftCard.status,'Issued');assert.match(b.giftCard.serial,/^[2-9A-HJ-NP-Z]{6}$/);
+  assert.equal(Math.round((new Date(b.giftCard.expiresAt)-new Date(b.giftCard.issuedAt))/86400000),180,'the 180 days start at booking');
 });

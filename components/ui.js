@@ -86,12 +86,13 @@ export function Header({bookingHref='/booking',bookingLabel='Book appointment',b
     <SiteSearch open={find} onClose={()=>setFind(false)} bookingHref={bookingHref} shopHref={shopHref}/></>;}
 export function PreviewBar(){return DEMO?<div className="preview-bar">Design preview · Use fictional patient details.<Link href="/login">Explore workspaces</Link></div>:null;}
 export function Referral({affiliate}){return affiliate?<div className="referral"><img src={affiliate.photo||'/images/affiliate.webp'} width="56" height="56" alt=""/><div><small>Introduced by</small><strong>{affiliate.name}</strong></div></div>:null;}
-// The $50 gift pill. card is the visitor's released card (or the booking's, once claimed): { serial, expiresAt }. It shows
-// the full number on its own line at the lower right, the date it is valid until, and a countdown by calendar day in
-// clinic time. The countdown needs the visitor's clock, so it is worked out in an effect and nothing about it is
-// rendered on the server. loading shows the pill while the card is being released. With no card and not loading (browser
-// storage unavailable) it is the earlier pill: the card is issued when the visitor books.
-export function Gift({compact=false,affiliate,card,loading=false}){
+// The $50 gift pill. card is the card issued to a booking or a prescription claim: { serial, expiresAt }. It shows the
+// full number on its own line, the date it is valid until, and a countdown by calendar day in clinic time. The
+// countdown needs the visitor's clock, so it is worked out in an effect and nothing about it is rendered on the server.
+// Before a card exists (the affiliate page and the booking steps) there is no number: the card is issued only once the
+// visitor books or claims it. children (the affiliate hero's Book Now button and prescription link) sit inside the
+// tile, under the offer.
+export function Gift({compact=false,affiliate,card,loading=false,children}){
   const [now,setNow]=useState(null);
   useEffect(()=>{setNow(new Date());const timer=setInterval(()=>setNow(new Date()),60000);return()=>clearInterval(timer);},[]);
   const countdown=card&&now?giftCountdown(card.expiresAt,now):null,until=card?formatDate(card.expiresAt,{dateStyle:'medium',timeStyle:undefined}):'';
@@ -99,7 +100,7 @@ export function Gift({compact=false,affiliate,card,loading=false}){
   const ended=countdown?.state==='expired';
   // One reading order: the title, the card number once it exists, then one small line (validity and terms).
   // Before a card exists the number is left out entirely; the small line says it comes with the booking.
-  return <div className={`gift ${compact?'compact':''}`} aria-busy={loading||undefined}><span className="gift-value" aria-hidden="true">$50</span>
+  return <div className={`gift ${compact?'compact':''} ${children?'with-action':''}`} aria-busy={loading||undefined}><div className="gift-main"><span className="gift-value" aria-hidden="true">$50</span>
     <div className="gift-body">{ended
       ?<><strong>This gift card offer has ended</strong><small>Your card expired on {until}. You can still book your visit. {terms}</small></>
       :<><strong>Your gift card for your first visit</strong>
@@ -107,7 +108,8 @@ export function Gift({compact=false,affiliate,card,loading=false}){
         <small>{card
           ?<><span>Valid until {until}</span>{countdown&&<> · <span className="gift-left" data-state={countdown.state}>{countdown.label}</span></>} · {terms}</>
           :loading?<span>Preparing your card…</span>
-          :<><span>Card number issued when you book</span> · {terms}</>}</small></>}</div>
+          :<><span>Card number issued when you book or claim</span> · {terms}</>}</small></>}</div></div>
+    {children&&<div className="gift-action">{children}</div>}
   </div>;}
 export function Stars({value=5,size=16}){return <span className="stars" aria-hidden="true">{[0,1,2,3,4].map(i=>{const fill=Math.max(0,Math.min(1,value-i));return <svg key={i} width={size} height={size} viewBox="0 0 24 24"><defs><linearGradient id={'s'+i+'-'+Math.round(value*10)}><stop offset={fill} stopColor="currentColor"/><stop offset={fill} stopColor="currentColor" stopOpacity=".22"/></linearGradient></defs><path fill={`url(#s${i}-${Math.round(value*10)})`} d="M12 2.8l2.75 5.9 6.45.75-4.78 4.42 1.28 6.38L12 17.06l-5.7 3.19 1.28-6.38L2.8 9.45l6.45-.75z"/></svg>;})}</span>;}
 export function Footer(){return <footer className="footer"><div className="footer-inner"><div className="footer-brand"><Logo/><p className="footer-about">Eyecon is the leading provider of optometry services and vision care products in Edmonton. Come visit us today!</p></div><div className="footer-col"><h2>Visit</h2>{clinic.address?<p>{clinic.address}</p>:<p className="pending-text">Address to be confirmed</p>}{clinic.hours?<p>{clinic.hours}</p>:<p className="pending-text">Hours to be confirmed</p>}</div><div className="footer-col"><h2>Contact</h2>{clinic.phone?<a href={clinic.phoneHref}>{clinic.phone}</a>:<p className="pending-text">Phone to be confirmed</p>}{clinic.email&&<a href={'mailto:'+clinic.email}>{clinic.email}</a>}</div><div className="footer-col"><h2>Eyecon</h2><Link href="/my-booking">Find my booking</Link><Link href="/privacy">Privacy</Link><Link href="/login">Affiliate and staff sign-in</Link></div></div><p className="footer-legal">© {new Date().getFullYear()} Eyecon Optometry</p></footer>;}

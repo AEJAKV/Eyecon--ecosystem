@@ -3,7 +3,6 @@ import { useEffect, useRef, useState } from 'react';
 import Image, { getImageProps } from 'next/image';
 import Link from 'next/link';
 import { useApp } from './provider';
-import { useGift } from './use-gift';
 import { Header, Footer, Button, Icon, Gift, Referral, Loading, Notice, Stars } from './ui';
 import { DEMO, services, collections, instructions, clinic, shopUrl } from '@/lib/config';
 import { websiteList } from '@/lib/schedule';
@@ -644,8 +643,6 @@ function Collections({ href, shopHref }) {
 export default function Landing({ slug }) {
   const { data, ready } = useApp();
   const [affiliate, setAffiliate] = useState(null);
-  // Opening an affiliate's page releases the visitor's gift card, so the 180 days start now.
-  const gift = useGift(affiliate);
   const [loaded, setLoaded] = useState(!slug);
   const [error, setError] = useState('');
   const [floating, setFloating] = useState(false);
@@ -667,7 +664,7 @@ export default function Landing({ slug }) {
   // and steps aside while the appointment cards are on screen so it never covers their own Book buttons.
   useEffect(() => {
     if (!loaded || error) return;
-    const hero = document.querySelector('.hero-actions .button'), final = document.querySelector('.final-cta .button'), cards = document.querySelector('.appointment-track');
+    const hero = document.querySelector('.hero-book'), final = document.querySelector('.final-cta .button'), cards = document.querySelector('.appointment-track');
     if (!hero || !final) return;
     let heroPast = false, finalVisible = false, cardsVisible = false;
     const observer = new IntersectionObserver(entries => {
@@ -698,11 +695,14 @@ export default function Landing({ slug }) {
             {affiliate && <Referral affiliate={affiliate} />}
             <h1>Clear sight, exquisitely framed.</h1>
             <p className="hero-description">A thorough eye exam and a private look at the world’s finest eyewear, in one unhurried visit.</p>
-            {affiliate && <Gift affiliate={affiliate} card={gift.card} loading={gift.status === 'loading'} />}
-            <div className="hero-actions">
-              <Button href={booking}>Book your appointment</Button>
-              <a className="button outline" href="#doctors">Pick your optometrist</a>
-            </div>
+            {/* One main action. Through an affiliate's link it sits inside the gift tile, with the prescription claim
+                under it; the card itself is issued only once the visitor books or claims. */}
+            {affiliate
+              ? <Gift affiliate={affiliate}>
+                  <Button href={booking} className="hero-book">Book Now</Button>
+                  <Link className="gift-alt" href={booking + '&claim=prescription'}>Already have a prescription? <span>Claim your gift card</span></Link>
+                </Gift>
+              : <div className="hero-actions"><Button href={booking} className="hero-book">Book your appointment</Button></div>}
             {clinic.rating
               ? <a className="hero-rating" href={clinic.reviews || '#reviews'} target={clinic.reviews ? '_blank' : undefined} rel="noopener noreferrer"><Stars value={clinic.rating} /><span><strong>{clinic.rating.toFixed(1)}</strong> on Google{clinic.reviewCount ? ` from ${clinic.reviewCount} reviews` : ''}</span></a>
               : <p className="hero-rating hero-fineprint">Book online in under a minute.</p>}
