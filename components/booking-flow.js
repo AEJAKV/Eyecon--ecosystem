@@ -276,7 +276,7 @@ export default function BookingFlow() {
           {summary(<button type="button" className="text-link" onClick={() => back(1)}>Change</button>)}
           <Field label="Full name" id="patient-name" autoComplete="name" required maxLength={120} value={details.name} onChange={e => change('name', e.target.value)} />
           <div className="form-grid">
-            <Field label="Mobile number" id="patient-phone" type="tel" autoComplete="tel" required maxLength={32} placeholder="+1 416 555 0123" value={details.phone} onChange={e => change('phone', e.target.value)} />
+            <Field label="Mobile number" id="patient-phone" type="tel" autoComplete="tel" required maxLength={32} placeholder="780 555 0123" value={details.phone} onChange={e => change('phone', e.target.value)} />
             <Field label="Email address" id="patient-email" type="email" autoComplete="email" required value={details.email} onChange={e => change('email', e.target.value)} />
           </div>
           <fieldset className="choice-field"><legend>Is this your first visit to Eyecon?</legend>
@@ -289,12 +289,12 @@ export default function BookingFlow() {
               <Field label="Policy number" id="policy" value={details.policy} maxLength={120} onChange={e => change('policy', e.target.value)} hint="Only clinic staff can see this. You can bring your insurance card instead." />
             </div>
           </details>
-          <details className="optional-fields" open><summary>Designers you love <small>Optional</small></summary>
+          <fieldset className="choice-field brand-field"><legend>Designers you love <small>Choose at least one</small></legend>
             <div className="brand-chips" role="group" aria-label="Favourite designers">
               {brands.map(b => <button type="button" key={b} aria-pressed={details.brands.includes(b)} onClick={() => toggleBrand(b)}>{details.brands.includes(b) && <Icon name="check" size={14} />}{b}</button>)}
             </div>
             <p className="quiet" style={{ marginTop: '.8rem' }}>We’ll have these ready for you to try.</p>
-          </details>
+          </fieldset>
           <label className="checkbox-label"><input type="checkbox" checked={details.smsConsent} onChange={e => change('smsConsent', e.target.checked)} /><span>Text me appointment reminders{affiliate ? ' and my gift card details' : ''}.<small>Optional. Message and data rates may apply. Contact the clinic to stop.</small></span></label>
           <p className="privacy-note">{affiliate ? `${affiliate.name} can see your name and booking status. Your appointment type and insurance stay with the clinic. ` : ''}Read our <Link href="/privacy">privacy notice</Link>.</p>
           <div className="honeypot" aria-hidden="true"><label htmlFor="website">Leave this blank</label><input id="website" value={details.website} onChange={e => change('website', e.target.value)} tabIndex={-1} autoComplete="off" /></div>
@@ -312,11 +312,10 @@ export default function BookingFlow() {
             <p>With {doctorName(confirmation.booking.doctor)}</p>
             <p>{formatDate(confirmation.booking.start, { dateStyle: 'full', timeStyle: 'short' })}</p>
             <p className="muted">{clinic.address || 'The clinic will confirm the location with you.'}</p>
+            <CalendarCard booking={confirmation.booking} compact />
           </div>
 
           <DocumentsForm token={confirmation.booking.documentsToken} canSkip />
-
-          <CalendarCard booking={confirmation.booking} />
 
           {affiliate && confirmation.booking.giftCard && <Gift affiliate={affiliate} card={confirmation.booking.giftCard} />}
           <h3 className="plain">Before your visit</h3>

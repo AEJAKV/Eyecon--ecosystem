@@ -13,7 +13,8 @@ function preferredCalendar() {
   return 'google';
 }
 // "Add it to your calendar", used on the confirmation step and on /my-booking.
-export default function CalendarCard({ booking, text = 'One tap, so you won’t miss it. Your confirmation email has the invite too.' }) {
+// compact: one line inside the booking tile on the confirmation step: the device's calendar as a button, the others as links.
+export default function CalendarCard({ booking, text = 'One tap, so you won’t miss it. Your confirmation email has the invite too.', compact = false }) {
   const [calendar, setCalendar] = useState('google'), [added, setAdded] = useState('');
   useEffect(() => { setCalendar(preferredCalendar()); }, []);
   function addTo(kind) {
@@ -21,6 +22,11 @@ export default function CalendarCard({ booking, text = 'One tap, so you won’t 
     else window.open(kind === 'google' ? googleCalendar(booking) : outlookCalendar(booking), '_blank', 'noopener,noreferrer');
     setAdded(kind);
   }
+  if (compact) return <div className="calendar-inline">
+    <button type="button" className="button secondary" onClick={() => addTo(calendar)}><Icon name="calendar" size={18} />Add to {NAMES[calendar]}</button>
+    <span className="quiet">or {['google', 'apple', 'outlook'].filter(k => k !== calendar).map((k, i) => <span key={k}>{i ? ' · ' : ''}<button type="button" className="text-link" onClick={() => addTo(k)}>{NAMES[k]}</button></span>)}</span>
+    {added && <span className="quiet" role="status">Opened in {NAMES[added]}. Save it there to finish.</span>}
+  </div>;
   return <div className="calendar-card">
     <h3>Add it to your calendar</h3>
     <p>{text}</p>

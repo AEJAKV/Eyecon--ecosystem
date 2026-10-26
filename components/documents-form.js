@@ -2,46 +2,36 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useApp } from './provider';
-import { DEMO, residencyStatuses, documentKinds, DOCUMENT_MAX_FILES, DOCUMENT_MAX_BYTES, fileSize, documentsLink } from '@/lib/config';
+import { DEMO, DOCUMENT_MAX_BYTES, fileSize, documentsLink } from '@/lib/config';
 import { validateDocuments } from '@/lib/validation';
 import { Button, Field, Icon, Notice } from './ui';
 
 const ACCEPT = '.pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png';
-const extraKinds = documentKinds.filter(k => k.id !== 'government-id');
 
-// "Complete your file": residency status, one government ID and optional tagged documents, sent once with the
-// single-use token issued with the booking. canSkip shows "Skip for now" (on the confirmation step); the
+// "Complete your file": one government ID (required) and the Care Card / Alberta Health Card (optional), sent once
+// with the single-use token issued with the booking. canSkip shows "Skip for now" (on the confirmation step); the
 // /documents page, reached from the confirmation email, has no skip.
 export default function DocumentsForm({ token, canSkip = false }) {
   const { submitDocuments, documentsLinkValid } = useApp();
   const [valid, setValid] = useState(null);
   const [state, setState] = useState('form');
-  const [residency, setResidency] = useState('');
   const [id, setId] = useState(null);
-  const [extras, setExtras] = useState([]);
+  const [card, setCard] = useState(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(null);
-  const idInput = useRef(null), extraInput = useRef(null), heading = useRef(null);
+  const idInput = useRef(null), cardInput = useRef(null), heading = useRef(null);
 
   useEffect(() => { if (!token) { setValid(false); return; } documentsLinkValid(token).then(setValid).catch(() => setValid(false)); }, [token]);
   useEffect(() => { if (state !== 'form') heading.current?.focus(); }, [state]);
 
-  const total = (id ? 1 : 0) + extras.length;
-  function addExtras(list) {
-    setError('');
-    const room = DOCUMENT_MAX_FILES - total, added = [...list].slice(0, Math.max(0, room)).map(file => ({ key: crypto.randomUUID(), file, kind: '' }));
-    if (list.length > room) setError(`You can add up to ${DOCUMENT_MAX_FILES} files in total.`);
-    setExtras(x => [...x, ...added]);
-    if (extraInput.current) extraInput.current.value = '';
-  }
   async function submit(e) {
     e.preventDefault(); setError('');
-    const files = [...(id ? [{ file: id, kind: 'government-id' }] : []), ...extras.map(({ file, kind }) => ({ file, kind }))];
+    const files = [...(id ? [{ file: id, kind: 'government-id' }] : []), ...(card ? [{ file: card, kind: 'health-card' }] : [])];
     try {
-      validateDocuments({ residencyStatus: residency, files: files.map(({ file, kind }) => ({ name: file.name, size: file.size, type: file.type, kind })) });
+      validateDocuments({ files: files.map(({ file, kind }) => ({ name: file.name, size: file.size, type: file.type, kind })) });
       setBusy(true);
-      await submitDocuments({ token, residencyStatus: residency, files, onProgress: (done, count) => setProgress({ done, count }) });
+      await submitDocuments({ token, residencyStatus: null, files, onProgress: (done, count) => setProgress({ done, count }) });
       setState('done');
     } catch (err) { setError(err.message); }
     finally { setBusy(false); setProgress(null); }
@@ -54,36 +44,22 @@ export default function DocumentsForm({ token, canSkip = false }) {
 
   return <section className="documents-card" aria-labelledby="documents-title">
     <h3 id="documents-title">Complete your file</h3>
-    <p className="muted">Add your residency status and a valid government ID. PDF, JPG or PNG, up to {DOCUMENT_MAX_BYTES / 1048576} MB each and {DOCUMENT_MAX_FILES} files in total.</p>
+    <p className="muted">Add a valid government ID, and your Care Card / Alberta Health Card if you have it. PDF, JPG or PNG, up to {DOCUMENT_MAX_BYTES / 1048576} MB each.</p>
     {DEMO && <p className="demo-label">Demo: only file names and sizes are kept, in this browser. File contents are never stored or sent.</p>}
     <Notice error>{error}</Notice>
     <form className="stack" onSubmit={submit} noValidate>
-      <Field label="Residency status" id="residency-status">
-        <select id="residency-status" required value={residency} onChange={e => setResidency(e.target.value)}>
-          <option value="">Choose your status</option>
-          {residencyStatuses.map(s => <option key={s} value={s}>{s}</option>)}
-        </select>
-      </Field>
       <div className="field">
         <label htmlFor="government-id">Valid government ID <small>Required, 1 file</small></label>
         {id
           ? <div className="file-row"><Icon name="check" size={18} /><span>{id.name}<small>{fileSize(id.size)}</small></span><button type="button" className="text-link" onClick={() => { setId(null); if (idInput.current) idInput.current.value = ''; }}>Remove</button></div>
-          : <input ref={idInput} id="government-id" type="file" accept={ACCEPT} required onChange={e => { setError(''); const f = e.target.files?.[0]; if (f && total >= DOCUMENT_MAX_FILES) setError(`You can add up to ${DOCUMENT_MAX_FILES} files in total.`); else setId(f || null); }} />}
+          : <input ref={idInput} id="government-id" type="file" accept={ACCEPT} required onChange={e => { setError(''); setId(e.target.files?.[0] || null); }} />}
       </div>
-      <fieldset className="choice-field documents-extra">
-        <legend>Additional documents <small>Optional</small></legend>
-        {extras.map((x, i) => <div className="file-row" key={x.key}>
-          <span>{x.file.name}<small>{fileSize(x.file.size)}</small></span>
-          <label className="sr-only" htmlFor={'kind-' + x.key}>What is {x.file.name}?</label>
-          <select id={'kind-' + x.key} required value={x.kind} onChange={e => setExtras(list => list.map((y, j) => j === i ? { ...y, kind: e.target.value } : y))}>
-            <option value="">What is this?</option>
-            {extraKinds.map(k => <option key={k.id} value={k.id}>{k.label}</option>)}
-          </select>
-          <button type="button" className="text-link" onClick={() => setExtras(list => list.filter((_, j) => j !== i))}>Remove<span className="sr-only"> {x.file.name}</span></button>
-        </div>)}
-        {total < DOCUMENT_MAX_FILES && <label className="upload-label">Add documents<input ref={extraInput} type="file" accept={ACCEPT} multiple onChange={e => addExtras(e.target.files || [])} /></label>}
-        <p className="quiet">Tag each as a diploma, certificate, high school diploma, English language test result or other. {total} of {DOCUMENT_MAX_FILES} files.</p>
-      </fieldset>
+      <div className="field">
+        <label htmlFor="health-card">Care Card / Alberta Health Card <small>Optional, 1 file</small></label>
+        {card
+          ? <div className="file-row"><Icon name="check" size={18} /><span>{card.name}<small>{fileSize(card.size)}</small></span><button type="button" className="text-link" onClick={() => { setCard(null); if (cardInput.current) cardInput.current.value = ''; }}>Remove</button></div>
+          : <input ref={cardInput} id="health-card" type="file" accept={ACCEPT} onChange={e => { setError(''); setCard(e.target.files?.[0] || null); }} />}
+      </div>
       <p className="privacy-note">Only authorised clinic staff can see these documents. They are never shared with affiliates. Read our <Link href="/privacy">privacy notice</Link>.</p>
       <div className="form-actions">
         {canSkip && <Button type="button" secondary onClick={() => { setError(''); setState('skipped'); }}>Skip for now</Button>}
