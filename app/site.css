@@ -1210,3 +1210,9 @@ html:has(.search-panel[open]) { overflow: hidden; }
 .gift-stamp { display: grid; place-items: center; width: 200px; height: 200px; border: 2px dashed var(--muted); border-radius: 4px; }
 .gift-stamp span { padding: .4rem 1rem; border: 3px solid var(--danger); color: var(--danger); font: 600 1.5rem/1 var(--sans); letter-spacing: .12em; text-transform: uppercase; transform: rotate(-12deg); }
 .gift-stamp-text { max-width: 26rem; margin: 0; color: var(--muted); }
+
+/* Add to calendar, inside the booking tile on the confirmation step: one button for this device's calendar, the others as links. */
+.confirmation-card .calendar-inline { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: .5rem 1rem; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--line); }
+.calendar-inline .button { min-height: 44px; padding: .55rem 1.1rem; }
+.calendar-inline .text-link { font-size: .9rem; }
+.brand-field { margin: 0; }
