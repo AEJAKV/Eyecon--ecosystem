@@ -64,6 +64,7 @@ From November 1, 2026 Alberta stays on UTC−6 all year (“Alberta Time”, for
 | `/api/gift/status` | POST with a full card number: its state (Not redeemed, Redeemed, Expired, Void) and dates, for the card page. No patient details. Live mode only; the demo reads the browser's demo data. |
 | `/api/gift/scan` | POST, staff only: the details behind a scanned or typed gift card number (see `/gift/[number]`). Live mode only; the demo reads the browser's demo data. |
 | `/gift/[number]` | A gift card's own page (for example `/gift/EYC-AMO-7K2M9Q`): the QR code and number to show at the clinic. Staff signed in see whose card it is; others get a sign-in link that returns here. Not indexed. |
+| `/admin/gift-cards` | Staff › Gift cards: “Check a card number” (opens the card’s page to see and redeem it) and every card issued, booking and prescription, with search and a status filter (Not redeemed, Redeemed, Expired). |
 | `/book/[slug]/opengraph-image` | The 1200×630 link preview for a shared affiliate link: their photo, name, the Eyecon wordmark and the $50 gift card line. An unknown or inactive slug gets a plain Eyecon card. Set `NEXT_PUBLIC_SITE_URL` to the public address so WhatsApp, Facebook and iMessage get absolute image URLs. |
 | `/booking?affiliate=alex-morgan` | Booking flow with affiliate referral |
 | `/booking?affiliate=alex-morgan&claim=prescription` | Opens “Already have a prescription” on the details form (the link under Book Now in the affiliate hero) |

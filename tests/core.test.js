@@ -1008,3 +1008,18 @@ test('an issued gift card can be downloaded as an image, from the confirmation a
   assert.ok(readFileSync(new URL('../components/ui.js',import.meta.url),'utf8').includes('>Download card</button>'));
   assert.ok(readFileSync(new URL('../components/gift-card-page.js',import.meta.url),'utf8').includes('{usable && origin && <button'),'only a usable card can be downloaded');
 });
+import { giftCardRows } from '../lib/gift.js';
+test('staff Gift cards page lists booking and prescription cards, newest first, without health details',()=>{
+  let data=applyDemo(seedDemo(),'booking',validateBooking({...at(seedDemo().slots[2]),affiliateId:'demo-alex'}),null);
+  data=applyDemo(data,'claim',{name:'Sample claimant',email:'claim@example.com',affiliateId:'demo-alex',healthCard:'123456789'},null);
+  const rows=giftCardRows(data);
+  assert.equal(rows.length,data.bookings.filter(b=>b.giftCard).length+1);
+  assert.equal(rows[0].kind,'Prescription');assert.equal(rows[0].name,'Sample claimant');assert.equal(rows[0].state,'Not redeemed');assert.match(rows[0].number,/^EYC-AMO-/);
+  assert.ok(rows.some(r=>r.kind==='Booking'&&r.reference));
+  assert.ok(!JSON.stringify(rows).includes('123456789'));
+  const route=readFileSync(new URL('../app/api/workspace/route.js',import.meta.url),'utf8');
+  assert.ok(route.includes(".select('id,affiliate_id,serial,name,email,issued_at,expires_at,status,redeemed_at')"),'never selects health card or policy');
+  const ws=readFileSync(new URL('../components/workspace.js',import.meta.url),'utf8');
+  assert.ok(ws.includes("['gift-cards','Gift cards']")&&ws.includes("role==='staff'&&section==='gift-cards'&&<GiftCardsAdmin"));
+  assert.ok(readFileSync(new URL('../app/admin/[[...section]]/page.js',import.meta.url),'utf8').includes("'gift-cards'"));
+});

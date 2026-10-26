@@ -28,7 +28,11 @@ export async function GET(request){
     const pr=await db.from('procedure_costs').select('*');if(pr.error)console.error('Pricing not loaded:',pr.error.code);
     // Optometrists with their schedules (migration 010), for Staff admin > Doctors.
     const schedules=await loadSchedules(db);
-    return Response.json({user:{role:'staff'},procedureCosts:(pr.data||[]).map(mapPricing),affiliates:a.data.map(mapAffiliate),bookings:b.data.map(r=>mapBooking(r,docs.get(r.id))),templates:t.data,slots:s.data,jobs:j.data,doctors,...schedules},{headers:{'Cache-Control':'no-store'}});
+    // Prescription gift cards (migration 012), for Staff admin > Gift cards. Names, emails and card dates only: never the
+    // health card, insurance or policy.
+    const gc=await db.from('gift_claims').select('id,affiliate_id,serial,name,email,issued_at,expires_at,status,redeemed_at').order('issued_at',{ascending:false}).limit(2000);if(gc.error)console.error('Gift claims not loaded:',gc.error.code);
+    const giftClaims=(gc.data||[]).map(c=>({id:c.id,affiliateId:c.affiliate_id,serial:c.serial,name:c.name,email:c.email,issuedAt:c.issued_at,expiresAt:c.expires_at,status:c.status,redeemedAt:c.redeemed_at}));
+    return Response.json({user:{role:'staff'},procedureCosts:(pr.data||[]).map(mapPricing),affiliates:a.data.map(mapAffiliate),bookings:b.data.map(r=>mapBooking(r,docs.get(r.id))),giftClaims,templates:t.data,slots:s.data,jobs:j.data,doctors,...schedules},{headers:{'Cache-Control':'no-store'}});
   }catch(e){return fail(e,401);}
 }
 export async function POST(request){
