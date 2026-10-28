@@ -24,9 +24,13 @@ export default function GiftCardsAdmin({ data }) {
     router.push(giftCardPath(match ? match.number : number.trim().toUpperCase()));
   }
   return <>
-    <form className="scan-another gift-check" onSubmit={check}>
-      <Field label="Check a card number" id="gift-check" value={number} onChange={e => { setError(''); setNumber(e.target.value); }} placeholder="EYC-AMO-7K2M9Q" autoComplete="off" error={error} hint="Or scan the patient’s QR code with your phone camera while signed in." />
-      <Button type="submit">Check card</Button>
+    {/* The hint and any error sit under the row, so the button lines up with the input box. */}
+    <form className="gift-check" onSubmit={check} noValidate>
+      <div className="gift-check-row">
+        <Field label="Check a card number" id="gift-check" value={number} onChange={e => { setError(''); setNumber(e.target.value); }} placeholder="EYC-AMO-7K2M9Q" autoComplete="off" aria-invalid={!!error} aria-describedby="gift-check-help" />
+        <Button type="submit">Check card</Button>
+      </div>
+      <p id="gift-check-help" className={error ? 'error-text' : 'quiet'}>{error || 'Or scan the patient’s QR code with your phone camera while signed in.'}</p>
     </form>
     <div className="filters">
       <Field label="Search cards" id="gift-search" type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder="Name, email or card number" />
