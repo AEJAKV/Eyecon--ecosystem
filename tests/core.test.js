@@ -1236,7 +1236,7 @@ test('the front desk panels stay money-free and use the allowed status action',(
   assert.ok(v.includes("onStatus(b, 'Attended')")&&v.includes("onStatus(b, 'No-show')")&&v.includes("onStatus(b, 'Booked')"));
   const ws=readFileSync(new URL('../components/workspace.js',import.meta.url),'utf8');
   assert.ok(ws.includes("{clinicUi&&!section&&<>{desk?<DeskToday bookings={data.bookings}")&&ws.includes("run(()=>action('status',{id:b.id,status:s})")&&ws.includes("{clinicUi&&section==='gift-cards'&&<GiftSummary data={data}/>}"));
-  assert.ok(ws.includes("className={'workspace'+(clinicUi?' clinic':'')+(desk?' desk':'')}"),'clinic styles are scoped to the staff and front desk workspaces');
+  assert.ok(ws.includes("className={'workspace'+(clinicUi?' clinic':'')+(desk?' desk':'')+(role!=='staff'?' has-tabbar':'')}"),'clinic styles are scoped to the staff and front desk workspaces');
 });
 
 // The staff admin redesign (front end only): overview figures, payouts, pricing tiles, messages preview, doctors.
@@ -1276,4 +1276,12 @@ test('the Messages preview fills in sample details and keeps unknown fields as t
   for(const k of ['name','doctor','date','address','phone','instructions','gift','documents_link','reference','lookup_link'])assert.ok(sample.includes(k+':'),k);
   assert.ok(/\[[^\]]+\]/.test(sample)&&!/@(?!example\.com)/.test(sample),'placeholders in square brackets, no real-looking details');
   assert.ok(v.includes("replace(/\\{([a-z_]+)\\}/g, (m, k) => SAMPLE[k] ?? m)"));
+});
+test('on phones the affiliate and front desk menus become a bottom tab bar; staff admin keeps its menu',()=>{
+  const ws=readFileSync(new URL('../components/workspace.js',import.meta.url),'utf8');
+  assert.ok(ws.includes("+(role!=='staff'?' has-tabbar':'')")&&ws.includes("style={{'--tabs':nav.length}}"));
+  assert.ok(ws.includes('<span className="nav-label">{label}</span><span className="nav-short" aria-hidden="true">'),'the full name stays for screen readers');
+  const css=readFileSync(new URL('../app/workspace.css',import.meta.url),'utf8'),bar=css.slice(css.indexOf('/* ---------- Phone tab bar'));
+  assert.ok(bar.includes('.has-tabbar .sidebar nav { position: fixed;')&&bar.includes('env(safe-area-inset-bottom')&&bar.includes('.has-tabbar .workspace-main { padding-bottom:'),'fixed bar, clear of the iPhone home bar, and content never hidden under it');
+  assert.ok(bar.includes('.has-tabbar .sidebar nav .nav-label { position: absolute; width: 1px;')&&bar.includes('(hover: hover)'));
 });

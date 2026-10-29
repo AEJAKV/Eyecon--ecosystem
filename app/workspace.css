@@ -448,3 +448,22 @@ a.stat-card:hover .stat-top > svg:last-child { transform: translate(2px, -2px); 
 .top-card ol a { border: 0; }
 .stats .stat-card strong { white-space: nowrap; }
 @media (max-width: 480px) { .stats .stat-card strong { font-size: clamp(1.35rem, 7vw, 1.9rem); } .overview-main .schedule .row-actions { padding-left: 0; } }
+
+/* ---------- Phone tab bar (affiliate and front desk): the sidebar items move to a bar at the bottom ---------- */
+.sidebar nav .nav-short { display: none; }
+@media (max-width: 800px) {
+  .has-tabbar .sidebar nav { position: fixed; left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); z-index: 40; display: grid; grid-template-columns: repeat(var(--tabs, 5), minmax(0, 1fr)); gap: 4px; padding: 8px; border-radius: 22px; background: var(--ink); box-shadow: 0 20px 40px -18px rgba(20,24,29,.6); animation: ws-rise .5s var(--ease) both; }
+  .has-tabbar .sidebar nav a { position: relative; flex-direction: column; justify-content: center; gap: 4px; min-height: 56px; padding: 4px 2px; border-radius: 14px; color: #c9c8c1; font-size: .7rem; line-height: 1.1; white-space: nowrap; text-align: center; }
+  .has-tabbar .sidebar nav a:hover { background: transparent; color: #c9c8c1; }
+  .has-tabbar .sidebar nav a:hover svg { transform: none; }
+  .has-tabbar .sidebar nav a[aria-current=page] { background: rgba(255,255,255,.1); color: #d8c49a; }
+  .has-tabbar .sidebar nav a[aria-current=page] svg { color: #d8c49a; }
+  .has-tabbar .sidebar nav .nav-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; }
+  .has-tabbar .sidebar nav .nav-short { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+  .has-tabbar .sidebar nav .nav-count { position: absolute; top: 4px; left: calc(50% + 6px); margin: 0; min-width: 16px; font-size: .62rem; line-height: 16px; padding: 0 4px; background: var(--gold); color: var(--ink); }
+  .has-tabbar .sidebar { padding-bottom: 1rem; }
+  .has-tabbar .workspace-main { padding-bottom: calc(112px + env(safe-area-inset-bottom, 0px)); }
+}
+/* Hover only where there is a real pointer, so a tapped tab does not stay lit on a phone. */
+@media (max-width: 800px) and (hover: hover) { .has-tabbar .sidebar nav a:not([aria-current=page]):hover { background: rgba(255,255,255,.06); color: var(--paper); } }
+@media (prefers-reduced-motion: reduce) { .has-tabbar .sidebar nav { animation: none; } }
