@@ -225,7 +225,7 @@
 .schedule-row.attended .avatar { background: #e3ecdf; color: #2f5a2a; }
 .row-badges { display: flex; flex-wrap: wrap; gap: .35rem; margin-top: .35rem; }
 .row-badges .file-badge { display: inline-flex; margin: 0; border-radius: 999px; font-size: .72rem; padding: .15rem .55rem; }
-.row-actions { flex: 0 0 auto; display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: .5rem .9rem; min-width: 210px; }
+.schedule .row-actions { flex: 0 0 auto; display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: .5rem .9rem; min-width: 210px; }
 .mini-button { display: inline-flex; align-items: center; gap: .4rem; min-height: 40px; padding: 0 .95rem; border-radius: 999px; border: 1px solid var(--ink); background: var(--ink); color: var(--paper); font-size: .85rem; font-weight: 500; transition: transform .2s, background .25s, color .25s, box-shadow .25s; }
 .mini-button:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 10px 22px -14px rgba(20,24,29,.6); }
 .mini-button.quiet-button { background: transparent; color: var(--ink); border-color: #c9c8c1; }
@@ -274,13 +274,13 @@
 
 @media (max-width: 800px) {
   .schedule .ref-row { flex-wrap: wrap; }
-  .row-actions { flex-basis: 100%; justify-content: flex-start; min-width: 0; padding-left: calc(64px + 1rem); }
+  .schedule .row-actions { flex-basis: 100%; justify-content: flex-start; min-width: 0; padding-left: calc(64px + 1rem); }
   .clinic .booking-details dl { grid-template-columns: 1fr; }
 }
 @media (max-width: 480px) {
   .slot-time { flex-basis: 52px; }
   .schedule .avatar { display: none; }
-  .row-actions { padding-left: 0; }
+  .schedule .row-actions { padding-left: 0; }
   .clinic .modal { padding: 1.5rem; }
 }
 @media (prefers-reduced-motion: reduce) { .mini-button, .clinic .view-tabs button, .clinic .month-grid > button { transition: none; } .mini-button:hover:not(:disabled) { transform: none; } }
@@ -467,3 +467,63 @@ a.stat-card:hover .stat-top > svg:last-child { transform: translate(2px, -2px); 
 /* Hover only where there is a real pointer, so a tapped tab does not stay lit on a phone. */
 @media (max-width: 800px) and (hover: hover) { .has-tabbar .sidebar nav a:not([aria-current=page]):hover { background: rgba(255,255,255,.06); color: var(--paper); } }
 @media (prefers-reduced-motion: reduce) { .has-tabbar .sidebar nav { animation: none; } }
+
+/* Staff phone tab bar: Bookings, Gift cards, Affiliates, Payouts and More (the other pages, in a sheet). */
+.sidebar nav .nav-more { display: none; }
+@media (max-width: 800px) {
+  .has-tabbar .sidebar nav .nav-extra { display: none; }
+  .has-tabbar .sidebar nav .nav-more { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 56px; padding: 4px 2px; border: 0; border-radius: 14px; background: transparent; color: #c9c8c1; font-size: .7rem; line-height: 1.1; }
+  .has-tabbar .sidebar nav .nav-more .nav-short { display: block; }
+  .has-tabbar .sidebar nav .nav-more.current { background: rgba(255,255,255,.1); color: #d8c49a; }
+}
+.more-list { display: flex; flex-direction: column; gap: .5rem; }
+.more-list a { display: flex; align-items: center; gap: .8rem; min-height: 56px; padding: .4rem .9rem; border-radius: 14px; border: 1px solid var(--line); background: var(--white); text-decoration: none; font-size: 1rem; transition: border-color .2s; }
+.more-list a:hover { border-color: var(--ink); }
+.more-list a[aria-current=page] { border-color: var(--ink); background: var(--tint); }
+.more-list a > svg:last-child { margin-left: auto; color: var(--gold-text); }
+
+/* Phones: the card-style tables keep their header row for screen readers only; it must not widen the page. */
+@media (max-width: 700px) { .performance-table, .appointments-table { overflow-x: clip; } }
+
+/* ---------- Phones and small tablets: no sideways scrolling inside tables (800px and narrower), nothing squeezed ---------- */
+@media (max-width: 800px) {
+  /* Tables become one card per row; each value has its column name on the left. */
+  .table-wrap.card-table { border: 0; background: transparent; overflow: visible; border-radius: 0; }
+  .card-table table, .card-table tbody, .card-table tr, .card-table td { display: block; width: 100%; }
+  .card-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .card-table tbody tr { margin-bottom: .75rem; padding: .85rem 1rem; border: 1px solid var(--line); border-radius: 18px; background: var(--white); }
+  .card-table tbody tr:hover { background: var(--white); }
+  .card-table td { position: relative; min-height: 2rem; padding: .45rem 0 .45rem 38%; border: 0; text-align: right; white-space: normal; overflow-wrap: anywhere; }
+  .card-table td::before { content: attr(data-label); position: absolute; left: 0; top: .5rem; width: 36%; text-align: left; font-size: .8rem; color: var(--muted); }
+  .card-table td[data-main] { padding: 0 0 .65rem; margin-bottom: .3rem; border-bottom: 1px solid var(--soft); text-align: left; }
+  .card-table td[data-main]::before { content: none; }
+  .card-table td small { display: block; }
+  .card-table td .badge, .card-table td .file-badge { display: inline-flex; margin: .2rem 0 0 .3rem; width: auto; }
+  .card-table td[data-main] .file-badge { margin-left: 0; }
+  .card-table td .status-select { width: auto; max-width: 100%; display: inline-block; }
+  .card-table td input[type=checkbox] { width: 22px; height: 22px; }
+  .card-table td .calc-link { display: inline-flex; margin: 0 0 0 .75rem; vertical-align: baseline; }
+  .card-table .cell-person, .card-table .cell-date { justify-content: flex-start; }
+  .card-table td[data-label="Appointment"] .cell-date, .card-table td[data-label="Date & time"] .cell-date { justify-content: flex-end; }
+
+}
+@media (max-width: 640px) {
+  /* Doctors: intro above its button, and the week in two columns of readable rows. */
+  .doctors-admin > .section-heading { flex-direction: column; align-items: flex-start; gap: 1rem; }
+  .week-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .week-strip li { min-height: 0; flex-direction: row; flex-wrap: wrap; align-items: baseline; gap: .1rem .5rem; }
+  .week-strip li strong { flex: 0 0 2.4rem; }
+  .doctor-foot .button { width: 100%; }
+  .clinic .doctor-admin-head > img { width: 72px; height: 90px; }
+
+  /* Affiliate cards: the Active switch drops under the name instead of squeezing it. */
+  .affiliate-card-top { flex-wrap: wrap; }
+  .affiliate-card-top > div { flex: 1 1 150px; }
+  .affiliate-card-top .switch { margin-left: auto; }
+
+  /* Earnings: the visit → calculated → paid steps run down the page. */
+  .timeline { flex-direction: column; flex-wrap: nowrap; gap: .9rem; padding: .4rem 1.2rem 1.4rem; }
+  .timeline li { flex: none; display: grid; grid-template-columns: 22px 1fr; column-gap: .6rem; padding: 0; }
+  .timeline li > span { grid-row: span 2; margin: .2rem 0 0; }
+  .timeline li::before { top: 18px; left: 6px; right: auto; bottom: -16px; width: 2px; height: auto; }
+}

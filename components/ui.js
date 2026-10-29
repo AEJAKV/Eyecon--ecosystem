@@ -30,7 +30,8 @@ export function Icon({name='eye',size=24}){const paths={eye:<><path d="M2 12s4-7
   info:<><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8v.01"/></>,
   receipt:<><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 7h6M9 11h6M9 15h3"/></>,
   list:<path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/>,
-  tag:<><path d="M3 12V4a1 1 0 0 1 1-1h8l9 9-9 9z"/><circle cx="7.5" cy="7.5" r="1.5"/></>};return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]||paths.eye}</svg>;}
+  tag:<><path d="M3 12V4a1 1 0 0 1 1-1h8l9 9-9 9z"/><circle cx="7.5" cy="7.5" r="1.5"/></>,
+  more:<><circle cx="5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="19" cy="12" r="1.4"/></>};return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]||paths.eye}</svg>;}
 // The wordmark with Eyecon's mark: a thin gold outlined rectangle, 3:2, to the right of EYECON. It is drawn inline so it
 // stays sharp at any size, sits on the baseline at the height of the capitals, and is decorative (the link is labelled).
 export function Logo(){return <Link href="/" className="logo" aria-label="Eyecon Optometry home"><span>EYECON<svg className="logo-mark" viewBox="0 0 30 20" aria-hidden="true" focusable="false"><rect x="1" y="1" width="28" height="18" fill="none" stroke="currentColor" strokeWidth="2"/></svg></span><small>Optometry</small></Link>;}

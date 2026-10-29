@@ -926,7 +926,7 @@ test('redeeming: migration 013, the workspace action, the bookings list and the 
   assert.ok(route.indexOf('requireStaff(u);')<route.indexOf("action==='gift-redeem'"),'staff only');
   assert.ok(branch.includes('setGiftRedeemed(db,serial,p.redeemed!==false,u.id)')&&branch.includes("audit(db,u.id,p.redeemed!==false?'gift-redeem':'gift-redeem-undo',serial)"));
   const ws=readFileSync(new URL('../components/workspace.js',import.meta.url),'utf8');
-  assert.ok(ws.includes("<td>{b.source}{b.giftCard&&<GiftBadge card={b.giftCard}/>}</td>")&&ws.includes('<RedeemGift number={giftNumber('));
+  assert.ok(ws.includes("<td data-label=\"Source\">{b.source}{b.giftCard&&<GiftBadge card={b.giftCard}/>}</td>")&&ws.includes('<RedeemGift number={giftNumber('));
   assert.ok(readFileSync(new URL('../components/gift-card-page.js',import.meta.url),'utf8').includes('<RedeemGift number={card.number} card={card} />'));
 });
 test('the server redeems and un-redeems a gift card without errors',()=>{
@@ -1236,7 +1236,7 @@ test('the front desk panels stay money-free and use the allowed status action',(
   assert.ok(v.includes("onStatus(b, 'Attended')")&&v.includes("onStatus(b, 'No-show')")&&v.includes("onStatus(b, 'Booked')"));
   const ws=readFileSync(new URL('../components/workspace.js',import.meta.url),'utf8');
   assert.ok(ws.includes("{clinicUi&&!section&&<>{desk?<DeskToday bookings={data.bookings}")&&ws.includes("run(()=>action('status',{id:b.id,status:s})")&&ws.includes("{clinicUi&&section==='gift-cards'&&<GiftSummary data={data}/>}"));
-  assert.ok(ws.includes("className={'workspace'+(clinicUi?' clinic':'')+(desk?' desk':'')+(role!=='staff'?' has-tabbar':'')}"),'clinic styles are scoped to the staff and front desk workspaces');
+  assert.ok(ws.includes("className={'workspace'+(clinicUi?' clinic':'')+(desk?' desk':'')+' has-tabbar'}"),'clinic styles are scoped to the staff and front desk workspaces');
 });
 
 // The staff admin redesign (front end only): overview figures, payouts, pricing tiles, messages preview, doctors.
@@ -1277,11 +1277,20 @@ test('the Messages preview fills in sample details and keeps unknown fields as t
   assert.ok(/\[[^\]]+\]/.test(sample)&&!/@(?!example\.com)/.test(sample),'placeholders in square brackets, no real-looking details');
   assert.ok(v.includes("replace(/\\{([a-z_]+)\\}/g, (m, k) => SAMPLE[k] ?? m)"));
 });
-test('on phones the affiliate and front desk menus become a bottom tab bar; staff admin keeps its menu',()=>{
+test('on phones every workspace menu becomes a bottom tab bar; staff admin shows four pages and More',()=>{
   const ws=readFileSync(new URL('../components/workspace.js',import.meta.url),'utf8');
-  assert.ok(ws.includes("+(role!=='staff'?' has-tabbar':'')")&&ws.includes("style={{'--tabs':nav.length}}"));
+  assert.ok(ws.includes("+' has-tabbar'}")&&ws.includes("style={{'--tabs':role==='staff'?STAFF_TABS.length+1:nav.length}}"));
+  assert.ok(ws.includes("const STAFF_TABS=['','gift-cards','affiliates','payouts'];")&&ws.includes("className={role==='staff'&&!STAFF_TABS.includes(path)?'nav-extra':undefined}"));
+  assert.ok(ws.includes("onClick={()=>setModal('more')}")&&ws.includes("staffNav.filter(([path])=>!STAFF_TABS.includes(path))"),'More lists every other staff page');
   assert.ok(ws.includes('<span className="nav-label">{label}</span><span className="nav-short" aria-hidden="true">'),'the full name stays for screen readers');
   const css=readFileSync(new URL('../app/workspace.css',import.meta.url),'utf8'),bar=css.slice(css.indexOf('/* ---------- Phone tab bar'));
   assert.ok(bar.includes('.has-tabbar .sidebar nav { position: fixed;')&&bar.includes('env(safe-area-inset-bottom')&&bar.includes('.has-tabbar .workspace-main { padding-bottom:'),'fixed bar, clear of the iPhone home bar, and content never hidden under it');
   assert.ok(bar.includes('.has-tabbar .sidebar nav .nav-label { position: absolute; width: 1px;')&&bar.includes('(hover: hover)'));
+});
+
+test('on phones wide tables become labelled cards instead of scrolling sideways',()=>{
+  const css=readFileSync(new URL('../app/workspace.css',import.meta.url),'utf8'),phone=css.slice(css.indexOf('/* ---------- Phones and small tablets'));
+  assert.ok(phone.includes('.card-table td::before { content: attr(data-label);')&&phone.includes('.card-table thead { position: absolute;'));
+  for(const f of ['workspace.js','affiliate-view.js','gift-cards-admin.js','team-admin.js']){const src=readFileSync(new URL('../components/'+f,import.meta.url),'utf8');assert.ok(src.includes('card-table')&&src.includes('data-main=""'),f);
+    const cells=(src.match(/<td[ >]/g)||[]).length,labelled=(src.match(/<td[^>]*data-label=/g)||[]).length;assert.equal(labelled,cells,f+': every cell has a label');}
 });

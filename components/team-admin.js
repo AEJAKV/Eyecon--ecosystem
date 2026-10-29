@@ -27,14 +27,14 @@ export default function TeamAdmin({ team, busy, run, action }) {
       {problem && <p className="error-text" role="alert">{problem}</p>}
       <Button disabled={busy}>Send invitation</Button>
     </form>
-    {team.length ? <div className="table-wrap" tabIndex={0} role="region" aria-label="Front desk team table"><table>
+    {team.length ? <div className="table-wrap card-table" tabIndex={0} role="region" aria-label="Front desk team table"><table>
       <caption className="sr-only">Front desk team</caption>
       <thead><tr><th scope="col">Name</th><th scope="col">Added</th><th scope="col">Access</th><th scope="col">Actions</th></tr></thead>
       <tbody>{team.map(t => <tr key={t.id}>
-        <td><strong>{t.name || 'Name not recorded'}</strong><small>{t.email}</small></td>
-        <td>{t.createdAt ? formatDate(t.createdAt, { timeStyle: undefined }) : '—'}</td>
-        <td><span className={'badge ' + (t.active ? 'attended' : 'no-show')}>{t.active ? 'Active' : 'Inactive'}</span></td>
-        <td><button className="text-link" disabled={busy} onClick={() => run(() => action('team-toggle', { id: t.id }), t.active ? (t.name || t.email) + ' can no longer sign in to the front desk.' : (t.name || t.email) + ' can sign in to the front desk again.')}>{t.active ? 'Deactivate' : 'Activate'}<span className="sr-only"> {t.name || t.email}</span></button></td>
+        <td data-label="Name" data-main=""><strong>{t.name || 'Name not recorded'}</strong><small>{t.email}</small></td>
+        <td data-label="Added">{t.createdAt ? formatDate(t.createdAt, { timeStyle: undefined }) : '—'}</td>
+        <td data-label="Access"><span className={'badge ' + (t.active ? 'attended' : 'no-show')}>{t.active ? 'Active' : 'Inactive'}</span></td>
+        <td data-label="Actions"><button className="text-link" disabled={busy} onClick={() => run(() => action('team-toggle', { id: t.id }), t.active ? (t.name || t.email) + ' can no longer sign in to the front desk.' : (t.name || t.email) + ' can sign in to the front desk again.')}>{t.active ? 'Deactivate' : 'Activate'}<span className="sr-only"> {t.name || t.email}</span></button></td>
       </tr>)}</tbody>
     </table></div> : <Empty text="No front desk members yet. Invite one above." />}
   </>;

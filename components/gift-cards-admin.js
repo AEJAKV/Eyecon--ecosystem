@@ -36,16 +36,16 @@ export default function GiftCardsAdmin({ data }) {
       <Field label="Search cards" id="gift-search" type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder="Name, email or card number" />
       <Field label="Status" id="gift-state"><select id="gift-state" value={state} onChange={e => setState(e.target.value)}>{['All', 'Not redeemed', 'Redeemed', 'Expired'].map(s => <option key={s}>{s}</option>)}</select></Field>
     </div>
-    {shown.length ? <div className="table-wrap" tabIndex={0} role="region" aria-label="Gift cards table"><table>
+    {shown.length ? <div className="table-wrap card-table" tabIndex={0} role="region" aria-label="Gift cards table"><table>
       <caption className="sr-only">Gift cards</caption>
       <thead><tr><th scope="col">Card</th><th scope="col">Patient</th><th scope="col">Type</th><th scope="col">Issued</th><th scope="col">Valid until</th><th scope="col">Status</th></tr></thead>
       <tbody>{shown.map(r => <tr key={r.id}>
-        <td><Link className="mono" href={giftCardPath(r.number)}>{r.number}</Link></td>
-        <td><strong>{r.name}</strong><small>{r.email}</small></td>
-        <td>{r.kind === 'Booking' ? 'Booking' : 'Prescription'}{r.reference && <small>Ref {r.reference}</small>}{r.introducer && <small>Via {r.introducer}</small>}</td>
-        <td>{day(r.issuedAt)}</td>
-        <td>{day(r.expiresAt)}</td>
-        <td><span className={'badge ' + TONES[r.state]}>{r.state}</span>{r.redeemedAt && <small>{day(r.redeemedAt)}</small>}</td>
+        <td data-label="Card" data-main=""><Link className="mono" href={giftCardPath(r.number)}>{r.number}</Link></td>
+        <td data-label="Patient"><strong>{r.name}</strong><small>{r.email}</small></td>
+        <td data-label="Type">{r.kind === 'Booking' ? 'Booking' : 'Prescription'}{r.reference && <small>Ref {r.reference}</small>}{r.introducer && <small>Via {r.introducer}</small>}</td>
+        <td data-label="Issued">{day(r.issuedAt)}</td>
+        <td data-label="Valid until">{day(r.expiresAt)}</td>
+        <td data-label="Status"><span className={'badge ' + TONES[r.state]}>{r.state}</span>{r.redeemedAt && <small>{day(r.redeemedAt)}</small>}</td>
       </tr>)}</tbody>
     </table></div> : <Empty text={rows.length ? 'No gift cards match your filters.' : 'No gift cards yet. Cards are issued when someone books through an affiliate link or claims one with a prescription.'} />}
   </>;
