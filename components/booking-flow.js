@@ -242,7 +242,7 @@ export default function BookingFlow() {
         {done && <div className="success-mark"><Icon name="check" size={34} /></div>}
         <h1 className="bk-title" ref={titleRef} tabIndex={-1}>{title}</h1>
         {subtitles[step] && <p className="bk-sub">{subtitles[step]}</p>}
-        {step === 1 && !isClaim && chosenService && <p className="bk-sub">{serviceName}</p>}
+        {step === 1 && !isClaim && chosenService && <p className="bk-sub">{serviceName}{chosenService.length && <> · {chosenService.length}</>}</p>}
         <Notice error>{error}</Notice>
 
         {step === 0 && <div className="step" key="s0">
@@ -258,7 +258,7 @@ export default function BookingFlow() {
             {services.map((s, i) => { const on = path === 'book' && service === s.id; return <label key={s.id} className={`service-choice ${on ? 'selected' : ''}`} style={{ animationDelay: i * 40 + 'ms' }}>
               <input type="radio" name="service" value={s.id} checked={on} onChange={() => { choose('book'); setService(s.id); if (!serviceOptions[s.id]) setServiceOption(''); }} />
               <span className="bk-tile" aria-hidden="true"><Icon name={s.icon} /></span>
-              <span><strong>{s.name}</strong><small>{s.description}</small></span>
+              <span><strong>{s.name}</strong><small>{s.description}</small>{s.length && <small className="bk-length"><Icon name="clock" size={14} />{s.length}</small>}</span>
               <Tick on={on} />
             </label>; })}
           </div>

@@ -1352,3 +1352,10 @@ test('the footer shows the store hours, one line per day range',()=>{
   assert.ok(ui.includes('<ul className="footer-hours" aria-label="Store hours">')&&ui.includes("clinic.hours.split(' · ')"));
   assert.ok(readFileSync(new URL('../.env.example',import.meta.url),'utf8').includes('NEXT_PUBLIC_CLINIC_HOURS=Mon–Fri 10am–9pm · Sat 10am–7pm · Sun 11am–6pm'));
 });
+test('every service shows how long it takes, on the cards and in booking',()=>{
+  const len=Object.fromEntries(services.map(s=>[s.id,s.length]));
+  assert.equal(len['eye-exam'],'About 15 min');assert.equal(len.contacts,'About 15 min');assert.equal(len['skin-tightening'],'30–60 min');
+  for(const s of services){assert.match(s.length,/\d+ min$/,s.id);assert.ok(s.meta.startsWith(s.length+' · '),s.id);assert.ok(!s.meta.includes('[XX]'),s.id);}
+  const flow=readFileSync(new URL('../components/booking-flow.js',import.meta.url),'utf8');
+  assert.ok(flow.includes('<small className="bk-length"><Icon name="clock" size={14} />{s.length}</small>')&&flow.includes('{chosenService.length && <> · {chosenService.length}</>}'));
+});
