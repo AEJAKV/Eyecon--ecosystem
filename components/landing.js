@@ -111,12 +111,16 @@ function BrandImage({ brand }) {
   return <Photo src={'/images/brands/' + brand.slug + '.webp'} alt={brand.name + ' eyewear'} sizes="(max-width: 860px) 78vw, 24vw"><span className="brand-placeholder"><strong>{brand.name}</strong>{' '}<small>Photograph to follow</small></span></Photo>;
 }
 
+// A service's photograph: its own photo field when set (a new file name, so no stale cached copy is shown), else
+// public/images/services/[id].webp.
+const servicePhoto = s => s.photo || '/images/services/' + s.id + '.webp';
+
 /* What one appointment involves: photograph, who it is for, three points and the booking button. */
 function ServiceDetail({ service, href, leaving = false }) {
   return (
     <div className={`service-detail ${leaving ? 'leaving' : ''}`} aria-hidden={leaving || undefined}>
       <div className="service-photo">
-        <Photo src={'/images/services/' + service.id + '.webp'} alt={leaving ? '' : service.name} sizes="(max-width: 860px) 100vw, 36vw"><span className="service-photo-fallback"><Icon name={service.icon} size={56} /></span></Photo>
+        <Photo src={servicePhoto(service)} alt={leaving ? '' : service.name} sizes="(max-width: 860px) 100vw, 36vw"><span className="service-photo-fallback"><Icon name={service.icon} size={56} /></span></Photo>
       </div>
       <p className="service-meta">{service.meta}</p>
       <h3>{service.name}</h3>
@@ -165,7 +169,7 @@ function AppointmentCards({ serviceHref }) {
       <div className="appointment-track" ref={track} role="region" aria-label="Appointment types" tabIndex={0} onScroll={follow} onScrollEnd={settle}>
         {services.map(s => <article className="appointment-card" key={s.id} role="group" aria-label={s.name}>
           <div className="service-photo">
-            <Photo src={'/images/services/' + s.id + '.webp'} alt={s.name} sizes="84vw"><span className="service-photo-fallback"><Icon name={s.icon} size={48} /></span></Photo>
+            <Photo src={servicePhoto(s)} alt={s.name} sizes="84vw"><span className="service-photo-fallback"><Icon name={s.icon} size={48} /></span></Photo>
           </div>
           <div className="appointment-card-body">
             <p className="service-meta">{s.meta}</p>
