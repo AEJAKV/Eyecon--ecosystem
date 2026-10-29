@@ -8,7 +8,8 @@ const arrow = d => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" s
 
 /* The technologies for Non-Invasive Skin Tightening as a row of cards. Like the Collections carousel, the row is a
    native scroll-snap track, so swiping and trackpads work without script; the arrows and the left and right keys
-   (while the row has focus) move it one card at a time.
+   (while the row has focus) move it one card at a time. With a single technology there is nothing to scroll, so the
+   arrows are hidden.
    - With onChange (booking step 1), each card is a toggle: choosing one is optional and choosing it again clears it.
    - With hrefFor (the home page panel), each card links to booking with that technology already chosen. */
 export default function SkinTechnologies({ value = '', onChange, hrefFor }) {
@@ -27,10 +28,10 @@ export default function SkinTechnologies({ value = '', onChange, hrefFor }) {
   return <div className="skin-tech">
     <div className="skin-tech-head">
       <p className="skin-tech-title">{onChange ? 'Choose a technology' : 'Technologies'} <small>Optional</small></p>
-      <div className="skin-tech-arrows">
+      {skinTechnologies.length > 1 && <div className="skin-tech-arrows">
         <button type="button" className="carousel-arrow small" aria-label="Previous technology" onClick={() => move(-1)}>{arrow('M19 12H5m6-6-6 6 6 6')}</button>
         <button type="button" className="carousel-arrow small" aria-label="Next technology" onClick={() => move(1)}>{arrow('M5 12h14m-6-6 6 6-6 6')}</button>
-      </div>
+      </div>}
     </div>
     <ul className="skin-tech-track" ref={track} tabIndex={0} onKeyDown={keys} aria-label="Skin tightening technologies. Use the left and right arrow keys to move.">
       {skinTechnologies.map(t => <li key={t.slug}>

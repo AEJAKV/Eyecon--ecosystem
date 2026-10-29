@@ -254,3 +254,6 @@
 @media (prefers-reduced-motion: reduce) {
   .bk *, .bk *::before, .bk *::after { animation: none !important; transition: none !important; }
 }
+
+/* The skin tightening technology cards in booking match the rounded service cards. */
+.bk .tech-card { border-radius: var(--bk-r); overflow: hidden; }
