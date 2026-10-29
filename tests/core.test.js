@@ -1216,3 +1216,25 @@ test('the redesigned affiliate views show only the agreed fields, with commissio
   const css=readFileSync(new URL('../app/workspace.css',import.meta.url),'utf8');
   assert.ok(css.includes('@media (prefers-reduced-motion: reduce)')&&css.includes('.sidebar-bottom > a { display: none; }'));
 });
+
+// The front desk redesign (front end only): today's figures, schedule and gift card counts.
+import { deskDay, giftSummary } from '../lib/front-desk.js';
+test('the front desk Today panel counts today in clinic time, and falls back to the next day with bookings',()=>{
+  const at=(iso,status,extra={})=>({id:iso+status,name:'Sample',start:iso,status,...extra});
+  const now=new Date('2026-10-29T17:00:00Z'),tz='America/Edmonton';
+  const rows=[at('2026-10-29T15:00:00Z','Attended'),at('2026-10-29T22:00:00Z','Booked',{documents:[{kind:'government-id'}]}),at('2026-10-29T19:00:00Z','No-show'),at('2026-10-29T20:00:00Z','Cancelled'),at('2026-10-30T16:00:00Z','Booked',{giftCard:{status:'Issued',expiresAt:'2027-01-01T00:00:00Z'}})];
+  const d=deskDay(rows,tz,now);
+  assert.equal(d.isToday,true);assert.deepEqual(d.list.map(b=>b.status),['Attended','No-show','Booked'],'sorted by time, cancelled left out');
+  assert.deepEqual([d.total,d.checkedIn,d.toArrive,d.noShow,d.missingId,d.giftsOpen],[3,1,1,1,1,1]);
+  const n=deskDay(rows.slice(4),tz,now);assert.equal(n.isToday,false);assert.equal(n.list.length,1);assert.equal(n.nextDate,'2026-10-30T16:00:00Z');
+  assert.deepEqual(deskDay([],tz,now).list,[]);
+  assert.deepEqual(giftSummary([{state:'Not redeemed'},{state:'Redeemed'},{state:'Expired'},{state:'Not redeemed'}]),{total:4,open:2,redeemed:1,expired:1});
+});
+test('the front desk panels stay money-free and use the allowed status action',()=>{
+  const v=readFileSync(new URL('../components/desk-view.js',import.meta.url),'utf8');
+  for(const f of ['commission','payout','grossAmount','operationCost','netAmount','money('])assert.equal(v.includes(f),false,f);
+  assert.ok(v.includes("onStatus(b, 'Attended')")&&v.includes("onStatus(b, 'No-show')")&&v.includes("onStatus(b, 'Booked')"));
+  const ws=readFileSync(new URL('../components/workspace.js',import.meta.url),'utf8');
+  assert.ok(ws.includes("{desk&&!section&&<><DeskToday bookings={data.bookings}")&&ws.includes("run(()=>action('status',{id:b.id,status:s})")&&ws.includes("{desk&&section==='gift-cards'&&<GiftSummary data={data}/>}"));
+  assert.ok(ws.includes("className={'workspace'+(desk?' desk':'')}"),'front desk styles are scoped to the desk');
+});

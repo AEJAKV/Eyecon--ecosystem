@@ -93,8 +93,8 @@ From November 1, 2026 Alberta stays on UTC−6 all year (“Alberta Time”, for
 | `/admin/pricing` | Retail price and operation cost for each procedure |
 | `/admin/messages` | Edit templates and inspect live delivery activity |
 | `/admin/team` | Invite front desk members by name and email, and deactivate or reactivate them |
-| `/desk` | Front desk bookings: list and calendar, attendance, manual bookings, available times and booking details (no commission or amounts) |
-| `/desk/gift-cards` | Front desk gift cards: check a card number and see every card issued |
+| `/desk` | Front desk bookings: today at a glance (appointments, checked in, still to arrive, files missing ID), today’s schedule with one-click Check in / No-show / Undo, then every booking as a list or calendar, manual bookings, available times and booking details (no commission or amounts) |
+| `/desk/gift-cards` | Front desk gift cards: counts of cards not redeemed, redeemed and expired, check a card number, and every card issued |
 | `/desk/leads` | Front desk search/filter/export of bookings (CSV without commission or payout) |
 | `/privacy` | Draft privacy notice requiring clinic review |
 
