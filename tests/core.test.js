@@ -1341,3 +1341,8 @@ test('insurance details on the booking form are marked optional but highly recom
   const flow=readFileSync(new URL('../components/booking-flow.js',import.meta.url),'utf8');
   assert.ok(flow.includes('Insurance details <small className="bk-recommended">Optional, but highly recommended</small>'));
 });
+test('the clinic address is Unit 448-5015-111 ST Edmonton, Alberta T6H-4M6',()=>{
+  const cfg=readFileSync(new URL('../lib/config.js',import.meta.url),'utf8'),env=readFileSync(new URL('../.env.example',import.meta.url),'utf8');
+  assert.ok(cfg.includes("|| 'Unit 448-5015-111 ST Edmonton, Alberta T6H-4M6'")&&env.includes('NEXT_PUBLIC_CLINIC_ADDRESS=Unit 448-5015-111 ST Edmonton, Alberta T6H-4M6'));
+  assert.ok(!cfg.includes('304-5015')&&!env.includes('304-5015'),'the old unit number is gone');
+});
