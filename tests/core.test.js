@@ -1330,3 +1330,10 @@ test('booking page layout: prescription card first, one radio group, sticky phon
   assert.match(css,/@media \(max-width: 860px\) \{[^@]*\.bk-nav \{ position: sticky; bottom: 0;/);
   assert.ok(css.includes('prefers-reduced-motion')&&readFileSync(new URL('../app/layout.js',import.meta.url),'utf8').includes("import './booking.css';"));
 });
+test('complete your file: fine print beside the heading, the ID marked optional but highly recommended, and a clear note when saving without it',()=>{
+  const form=readFileSync(new URL('../components/documents-form.js',import.meta.url),'utf8');
+  assert.ok(form.includes('<small className="documents-fine">Optional · speeds up your check-in</small>'));
+  assert.ok(form.includes('Valid government ID <small>Optional, but highly recommended · 1 file</small>')&&!form.includes('Required, 1 file'));
+  assert.ok(form.includes("if (!id) { setError(canSkip ? 'To save your file, add your government ID. Or choose Skip for now"),'saving still needs the ID; skipping is the optional path');
+  assert.throws(()=>validateDocuments(filePayload([doc('health-card')])),/government ID/,'the server rule is unchanged');
+});

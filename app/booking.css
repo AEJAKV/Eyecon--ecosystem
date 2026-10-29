@@ -133,6 +133,7 @@
 .bk .bk-switch input:focus-visible + .bk-track { outline: 3px solid var(--gold-text); outline-offset: 3px; }
 .bk .privacy-note { display: flex; gap: .55rem; align-items: flex-start; line-height: 1.55; }
 .bk .privacy-note svg { color: var(--gold-text); flex: none; margin-top: 3px; }
+.bk .documents-card .privacy-note { display: block; }
 
 /* Back and Continue. The one-line summary and its sheet are for phones only. */
 .bk-nav { margin-top: 2rem; }
@@ -171,6 +172,10 @@
 .bk .confirmation-card .bk-line svg { color: var(--gold-text); flex: none; margin-top: 3px; }
 .bk .confirmation-card .calendar-inline .button { border-radius: 999px; }
 .bk .documents-card { border-radius: 22px; }
+/* "Complete your file": the fine print sits beside the heading (it wraps under it on narrow screens). */
+.documents-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: .35rem .9rem; }
+.documents-head h3 { margin-bottom: .5rem; }
+.documents-fine { padding: .15rem .65rem; border-radius: 999px; background: var(--tint); color: var(--gold-text); font-size: .78rem; white-space: nowrap; }
 .bk .file-prompt { border-radius: var(--bk-r); border-left: 0; }
 .bk .file-prompt-go { border-radius: 999px; }
 .bk .confirmation .gift { border-radius: var(--bk-r); }

@@ -30,6 +30,8 @@ export default function DocumentsForm({ token, canSkip = false, onState, skip = 
 
   async function submit(e) {
     e.preventDefault(); setError('');
+    // The file is optional as a whole (it can be skipped), but saving it means adding the ID: that is what it is for.
+    if (!id) { setError(canSkip ? 'To save your file, add your government ID. Or choose Skip for now and bring it to your visit.' : 'To save your file, add your government ID. Or bring it to your visit.'); return; }
     const files = [...(id ? [{ file: id, kind: 'government-id' }] : []), ...(card ? [{ file: card, kind: 'health-card' }] : [])];
     try {
       validateDocuments({ files: files.map(({ file, kind }) => ({ name: file.name, size: file.size, type: file.type, kind })) });
@@ -46,16 +48,16 @@ export default function DocumentsForm({ token, canSkip = false, onState, skip = 
   if (state === 'skipped') return <section className="documents-card"><h3 ref={heading} tabIndex={-1}>No problem</h3><p>Please bring your government ID and your Care Card / Alberta Health Card to your visit.</p></section>;
 
   return <section className="documents-card" id="complete-file" aria-labelledby="documents-title">
-    <h3 id="documents-title">Complete your file</h3>
+    <div className="documents-head"><h3 id="documents-title">Complete your file</h3><small className="documents-fine">Optional · speeds up your check-in</small></div>
     <p className="muted">Add a valid government ID, and your Care Card / Alberta Health Card if you have it. PDF, JPG or PNG, up to {DOCUMENT_MAX_BYTES / 1048576} MB each.</p>
     {DEMO && <p className="demo-label">Demo: only file names and sizes are kept, in this browser. File contents are never stored or sent.</p>}
     <Notice error>{error}</Notice>
     <form className="stack" onSubmit={submit} noValidate>
       <div className="field">
-        <label htmlFor="government-id">Valid government ID <small>Required, 1 file</small></label>
+        <label htmlFor="government-id">Valid government ID <small>Optional, but highly recommended · 1 file</small></label>
         {id
           ? <div className="file-row"><Icon name="check" size={18} /><span>{id.name}<small>{fileSize(id.size)}</small></span><button type="button" className="text-link" onClick={() => { setId(null); if (idInput.current) idInput.current.value = ''; }}>Remove</button></div>
-          : <input ref={idInput} id="government-id" type="file" accept={ACCEPT} required onChange={e => { setError(''); setId(e.target.files?.[0] || null); }} />}
+          : <input ref={idInput} id="government-id" type="file" accept={ACCEPT} onChange={e => { setError(''); setId(e.target.files?.[0] || null); }} />}
       </div>
       <div className="field">
         <label htmlFor="health-card">Care Card / Alberta Health Card <small>Optional, 1 file</small></label>
