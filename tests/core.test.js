@@ -1346,3 +1346,9 @@ test('the clinic address is Unit 448-5015-111 ST Edmonton, Alberta T6H-4M6',()=>
   assert.ok(cfg.includes("|| 'Unit 448-5015-111 ST Edmonton, Alberta T6H-4M6'")&&env.includes('NEXT_PUBLIC_CLINIC_ADDRESS=Unit 448-5015-111 ST Edmonton, Alberta T6H-4M6'));
   assert.ok(!cfg.includes('304-5015')&&!env.includes('304-5015'),'the old unit number is gone');
 });
+test('the footer shows the store hours, one line per day range',()=>{
+  assert.equal(clinic.hours,'Mon–Fri 10am–9pm · Sat 10am–7pm · Sun 11am–6pm');
+  const ui=readFileSync(new URL('../components/ui.js',import.meta.url),'utf8');
+  assert.ok(ui.includes('<ul className="footer-hours" aria-label="Store hours">')&&ui.includes("clinic.hours.split(' · ')"));
+  assert.ok(readFileSync(new URL('../.env.example',import.meta.url),'utf8').includes('NEXT_PUBLIC_CLINIC_HOURS=Mon–Fri 10am–9pm · Sat 10am–7pm · Sun 11am–6pm'));
+});
