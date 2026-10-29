@@ -1,5 +1,6 @@
 'use client';
 import { useMemo } from 'react';
+import Link from 'next/link';
 import { clinic, serviceName, doctorName } from '@/lib/config';
 import { deskDay, giftSummary } from '@/lib/front-desk';
 import { giftCardRows } from '@/lib/gift';
@@ -10,14 +11,15 @@ import { useCountUp, StatusPill, initials } from './affiliate-view';
 
 // The front desk (/desk) Bookings and Gift cards panels. Only frontDeskView's fields reach here: no money.
 
-function DeskStat({ icon, tone, label, value, note, bar, delay }) {
-  const n = Math.round(useCountUp(value, 900));
-  return <article className="stat-card rise" style={{ animationDelay: delay + 's' }}>
-    <div className="stat-top"><span className={'stat-icon ' + tone}><Icon name={icon} size={20} /></span></div>
+// One stat card. format turns the animated number into text (whole numbers unless given). href makes it a link.
+export function DeskStat({ icon, tone, label, value, note, bar, delay, format = n => Math.round(n), href, dark }) {
+  const n = format(useCountUp(value, 900)), Tag = href ? Link : 'article';
+  return <Tag className={'stat-card rise' + (dark ? ' dark' : '')} style={{ animationDelay: delay + 's' }} {...(href ? { href } : {})}>
+    <div className="stat-top"><span className={'stat-icon ' + tone}><Icon name={icon} size={20} /></span>{href && <Icon name="arrow" size={16} />}</div>
     <p>{label}</p><strong>{n}</strong>
     {bar != null && <div className="meter" aria-hidden="true"><span style={{ width: bar + '%' }} /></div>}
     <small>{note}</small>
-  </article>;
+  </Tag>;
 }
 const timeParts = iso => { const t = new Intl.DateTimeFormat('en-CA', { timeZone: clinic.timezone, hour: 'numeric', minute: '2-digit' }).format(new Date(iso)); const i = t.indexOf(' '); return i > 0 ? [t.slice(0, i), t.slice(i + 1)] : [t, '']; };
 const longDay = iso => new Intl.DateTimeFormat('en-CA', { timeZone: clinic.timezone, weekday: 'long', month: 'long', day: 'numeric' }).format(new Date(iso));
@@ -33,7 +35,12 @@ export function DeskToday({ bookings, busy, onStatus, onDetails }) {
       <DeskStat icon="clock" tone="gold" label="Still to arrive" value={day.toArrive} note="Booked for today" delay={0.16} />
       <DeskStat icon="receipt" tone={day.missingId ? 'red' : 'green'} label="Files missing ID" value={day.missingId} note={day.giftsOpen + ' upcoming gift card' + (day.giftsOpen === 1 ? '' : 's') + ' to redeem'} delay={0.22} />
     </div>
-    <section className="panel-card list-card schedule rise" style={{ animationDelay: '.28s' }} aria-labelledby="schedule-title">
+    <TodaySchedule day={day} busy={busy} onStatus={onStatus} onDetails={onDetails} />
+  </>;
+}
+// Today's schedule (or the next day with appointments) with one-click Check in / No-show / Undo and Details.
+export function TodaySchedule({ day, busy, onStatus, onDetails, extra }) {
+  return <section className="panel-card list-card schedule rise" style={{ animationDelay: '.28s' }} aria-labelledby="schedule-title">
       <div className="card-head"><h2 id="schedule-title">{day.isToday ? 'Today’s schedule' : 'Next appointments'}</h2><span className="quiet">{day.isToday ? longDay(new Date()) : day.nextDate ? longDay(day.nextDate) : ''} · {clinic.timezoneLabel}</span></div>
       {day.list.length ? <ol className="ref-list">{day.list.map(b => { const [time, half] = timeParts(b.start), open = day.isToday && b.status === 'Booked'; return <li key={b.id} className={'ref-row schedule-row ' + b.status.toLowerCase()}>
         <span className="slot-time"><strong>{time}</strong><small>{half}</small></span>
@@ -47,8 +54,8 @@ export function DeskToday({ bookings, busy, onStatus, onDetails }) {
           <button type="button" className="text-link" onClick={() => onDetails(b)}>Details<span className="sr-only"> for {b.name}</span></button>
         </span>
       </li>; })}</ol> : <Empty text="No upcoming appointments." />}
-    </section>
-  </>;
+      {extra}
+    </section>;
 }
 
 // Gift cards: how many cards are still to redeem, redeemed and expired.

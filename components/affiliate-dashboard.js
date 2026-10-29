@@ -9,7 +9,8 @@ import { csv } from '@/lib/validation';
 import { downloadFile } from '@/lib/calendar';
 import { Button, Field, Empty, Icon, Notice } from './ui';
 import Calculator from './calculator';
-import { AffiliateStats, AffiliateTable } from './affiliate-view';
+import { AffiliateStats, AffiliateTable, CopyButton, initials } from './affiliate-view';
+import { DeskStat } from './desk-view';
 
 // Staff affiliate performance. Everything here includes procedure amounts and is staff-only; the one exception is
 // "Preview as affiliate", which renders the affiliate's restricted rows through the same code the affiliate sees.
@@ -56,6 +57,47 @@ export function AffiliatesTable({ affiliates, bookings, busy, onToggle, onPhoto 
       </tr>; })}</tbody>
     </table>
   </div>;
+}
+
+// /admin/affiliates: totals, then each affiliate as a card (or the sortable table). Cards carry an Active switch,
+// their figures, how many bookings completed, Open performance, Copy link and Photo.
+export function AffiliatesView({ affiliates, bookings, busy, origin, onToggle, onPhoto, onCopied }) {
+  const [view, setView] = useState('cards'), [query, setQuery] = useState(''), [sort, setSort] = useState('completed');
+  const all = performanceTable(affiliates, bookings, { key: sort }), q = query.trim().toLowerCase();
+  const rows = all.filter(p => !q || (p.affiliate.name + ' ' + p.affiliate.slug).toLowerCase().includes(q));
+  const total = k => all.reduce((s, p) => s + p[k], 0);
+  return <>
+    <div className="stats stat-cards">
+      <DeskStat icon="users" tone="ink" label="Active affiliates" value={affiliates.filter(a => a.active).length} note={'of ' + affiliates.length} delay={0.04} />
+      <DeskStat icon="calendar" tone="gold" label="Referral bookings" value={total('total')} note={total('completed') + ' completed · ' + total('upcoming') + ' upcoming'} delay={0.1} />
+      <DeskStat icon="trend" tone="green" label="Billed through referrals" value={total('billed')} format={money} note="After discounts" delay={0.16} />
+      <DeskStat icon="wallet" tone="dark" dark label="Commission pending" value={total('pending')} format={money} note={money(total('paid')) + ' paid so far'} delay={0.22} />
+    </div>
+    <div className="list-tools rise">
+      <Field label="Search affiliates" id="affiliate-search" type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder="Name or page name" />
+      <div className="list-tools-right">
+        {view === 'cards' && <Field label="Sort by" id="affiliate-sort"><select id="affiliate-sort" value={sort} onChange={e => setSort(e.target.value)}><option value="completed">Completed</option><option value="pending">Commission pending</option><option value="paid">Commission paid</option><option value="billed">Billed</option></select></Field>}
+        <div className="segmented" role="group" aria-label="View">{[['cards', 'Cards'], ['table', 'Table']].map(([id, label]) => <button key={id} type="button" aria-pressed={view === id} onClick={() => setView(id)}>{label}</button>)}</div>
+      </div>
+    </div>
+    {view === 'table' ? <AffiliatesTable affiliates={rows.map(p => p.affiliate)} bookings={bookings} busy={busy} onToggle={onToggle} onPhoto={onPhoto} /> : rows.length ? <div className="affiliate-cards">{rows.map((p, i) => { const a = p.affiliate, rate = p.total ? Math.round(p.completed / p.total * 100) : 0; return <article key={a.id} className={'panel-card affiliate-card rise' + (a.active ? '' : ' inactive')} style={{ animationDelay: (0.26 + i * 0.05) + 's' }}>
+      <div className="affiliate-card-top">
+        {a.photo ? <img src={a.photo} alt="" width="56" height="56" /> : <span className="avatar big" aria-hidden="true">{initials(a.name)}</span>}
+        <div><Link href={href(a)} className="affiliate-card-name">{a.name}</Link><small>{a.commissionRate}% of net · /book/{a.slug}</small></div>
+        <button type="button" role="switch" aria-checked={a.active} className="switch" disabled={busy} onClick={() => onToggle(a)}><span className="switch-track"><span /></span>{a.active ? 'Active' : 'Inactive'}<span className="sr-only"> {a.name}</span></button>
+      </div>
+      <dl className="mini-stats">
+        <div><dt>Bookings</dt><dd>{p.total}</dd></div><div><dt>Completed</dt><dd>{p.completed}</dd></div><div><dt>Upcoming</dt><dd>{p.upcoming}</dd></div>
+        <div><dt>Billed</dt><dd>{money(p.billed)}</dd></div><div className="tint"><dt>Pending</dt><dd>{money(p.pending)}</dd></div><div><dt>Paid</dt><dd>{money(p.paid)}</dd></div>
+      </dl>
+      <div className="journey-row"><div>Bookings completed<strong>{rate}%</strong></div><div className="track"><span className="green" style={{ width: rate + '%' }} /></div></div>
+      <div className="affiliate-card-actions">
+        <Link className="mini-button" href={href(a)}>Open performance<Icon name="arrow" size={14} /></Link>
+        <CopyButton text={origin + '/book/' + a.slug} className="mini-button quiet-button" onDone={onCopied} />
+        <label className="mini-button quiet-button icon-only" title="Change photo"><Icon name="user" size={16} /><span className="sr-only">Change photo for {a.name}</span><input type="file" className="sr-only" accept="image/jpeg,image/png,image/webp" disabled={busy} onChange={e => { const f = e.target.files?.[0]; if (f) onPhoto(f, a); e.target.value = ''; }} /></label>
+      </div>
+    </article>; })}</div> : <Empty text="No affiliates match your search." />}
+  </>;
 }
 
 // The staff overview strip: who completed the most referrals this month.

@@ -1,6 +1,6 @@
 'use client';
 import { useMemo, useState } from 'react';
-import { Button, Field, Notice } from './ui';
+import { Button, Field, Notice, Icon } from './ui';
 import { clinic, services, formatDate } from '@/lib/config';
 import { slotTaken } from '@/lib/validation';
 import { WEEKDAYS, SLOT_LENGTHS, SLOT_DAYS, validateWeeklyHours, validateTimeOff, bookingsInTimeOff, inTimeOff, clinicDate, doctorSlugFrom } from '@/lib/schedule';
@@ -12,6 +12,11 @@ const short = n => WEEKDAYS[n - 1][1].slice(0, 3);
 const fullName = d => `${d.title} ${d.first} ${d.last}`;
 let keySeq = 0;
 const key = () => 'row-' + (++keySeq);
+
+// A doctor's week, Monday to Sunday, with each day's hours (or Closed).
+function WeekStrip({ hours }) {
+  return <ul className="week-strip" aria-label="Weekly hours">{WEEKDAYS.map(([n, name]) => { const day = hours.filter(h => h.weekday === n).sort((a, b) => a.start.localeCompare(b.start)); return <li key={n} className={day.length ? 'open' : ''}><strong>{name.slice(0, 3)}</strong>{day.length ? day.map(h => <span key={h.start}>{h.start}–{h.end}</span>) : <span>Closed</span>}</li>; })}</ul>;
+}
 
 export default function DoctorsAdmin({ data, doctors, busy, run, onAction, onPhoto }) {
   const [editing, setEditing] = useState('');
@@ -38,16 +43,22 @@ export default function DoctorsAdmin({ data, doctors, busy, run, onAction, onPho
         const hours = (data.weeklyHours || []).filter(h => h.doctor === d.slug), open = editing === d.slug, count = openTimes(d.slug);
         return <li key={d.slug} className="panel doctor-admin-card">
           <div className="doctor-admin-head">
-            <img src={d.photo} alt="" width="56" height="70" />
-            <div>
-              <h2>{fullName(d)} <span className={'badge ' + (d.visible === false ? 'no-show' : 'attended')}>{d.visible === false ? 'Hidden' : 'Shown'}</span></h2>
-              <p className="quiet">{summary(hours)} · {d.slotMinutes || 30}-minute appointments · {d.services?.length ? d.services.map(id => services.find(s => s.id === id)?.name).join(', ') : 'All services'}</p>
-              <p className="quiet">{d.visible === false ? 'Not bookable online.' : `${count} open time${count === 1 ? '' : 's'} in the next 14 days.`}</p>
+            <div className="doctor-order"><span aria-hidden="true">{i + 1}</span>
+              <button type="button" className="round-button" disabled={busy || i === 0} onClick={() => move(d.slug, -1)}><Icon name="chevron" size={16} /><span className="sr-only">Move up {fullName(d)}</span></button>
+              <button type="button" className="round-button down" disabled={busy || i === list.length - 1} onClick={() => move(d.slug, 1)}><Icon name="chevron" size={16} /><span className="sr-only">Move down {fullName(d)}</span></button>
             </div>
-            <div className="toolbar">
-              <button type="button" className="text-link" disabled={busy || i === 0} onClick={() => move(d.slug, -1)}>Move up<span className="sr-only"> {fullName(d)}</span></button>
-              <button type="button" className="text-link" disabled={busy || i === list.length - 1} onClick={() => move(d.slug, 1)}>Move down<span className="sr-only"> {fullName(d)}</span></button>
-              <Button secondary disabled={busy} aria-expanded={open} onClick={() => setEditing(open ? '' : d.slug)}>{open ? 'Close' : 'Edit'}<span className="sr-only"> {fullName(d)}</span></Button>
+            <img src={d.photo} alt="" width="96" height="120" />
+            <div className="doctor-admin-body">
+              <div className="doctor-title-row">
+                <div><h2>{fullName(d)}</h2><p className="quiet">{d.slotMinutes || 30}-minute appointments · {d.services?.length ? d.services.map(id => services.find(s => s.id === id)?.name).join(', ') : 'All services'}</p></div>
+                <button type="button" role="switch" aria-checked={d.visible !== false} className="switch" disabled={busy} onClick={() => run(() => onAction('doctor', { ...d, visible: d.visible === false }), d.visible === false ? fullName(d) + ' is shown on the website again.' : fullName(d) + ' is hidden from the website.')}><span className="switch-track"><span /></span>{d.visible === false ? 'Hidden' : 'Shown'} on the website<span className="sr-only"> {fullName(d)}</span></button>
+              </div>
+              <WeekStrip hours={hours} />
+              <div className="doctor-foot">
+                <div className="journey-row"><div>{d.visible === false ? 'Not bookable online' : 'Open times in the next 14 days'}<strong>{d.visible === false ? '—' : count}</strong></div><div className="track"><span style={{ width: (d.visible === false ? 0 : Math.min(100, count / 2)) + '%' }} /></div></div>
+                <Button secondary disabled={busy} aria-expanded={open} onClick={() => setEditing(open ? '' : d.slug)}>{open ? 'Close' : 'Edit profile & hours'}<span className="sr-only"> {fullName(d)}</span></Button>
+              </div>
+              <p className="sr-only">{summary(hours)}</p>
             </div>
           </div>
           {open && <div className="doctor-editor">

@@ -25,7 +25,7 @@ A complete Next.js project for the affiliate referral and appointment-booking ex
 - Staff-managed optometrists (Staff admin › Doctors): profiles, portraits, services, weekly hours, time off and extra days, with bookable times generated automatically 90 days ahead. See “Optometrist profiles and schedules” below.
 - Staff booking list/calendar showing each booking's optometrist, patient details, attendance status, manual bookings (free times grouped by optometrist), availability per optometrist, affiliate performance dashboard (per-affiliate bookings, completed, upcoming, billed and commission, sortable; a page per affiliate with every appointment amount, inline commission calculator, date and status filters, staff CSV, and “Preview as affiliate”; “Top affiliates this month” on the overview), leads, procedure pricing, calculated commission, payout recording and message templates.
 - Front desk workspace at `/desk` for clinic staff who run the front desk: Bookings (list and calendar, attendance, manual bookings, available times, patient details, insurance and documents), Gift cards (check, scan and redeem) and Leads. It never shows commissions, payouts, pricing or any procedure amount, and it cannot reach Doctors, Affiliates, Payouts, Pricing, Messages or Team; the server enforces this (`lib/front-desk.js`, migration 015). Staff admin invite front desk members, and turn their access off and on, in **Staff admin › Team**.
-- Workspace design: every sidebar item has an icon and the current page is shown in ink. The affiliate dashboard uses rounded cards, a dark featured card per page, gentle entrance and hover motion, and animated figures; all motion stops for visitors who prefer reduced motion (`app/workspace.css`, `components/affiliate-view.js`).
+- Workspace design: every sidebar item has an icon and the current page is shown in ink. The affiliate, front desk and staff dashboards use rounded cards, a dark featured card per page, gentle entrance and hover motion, and animated figures; all motion stops for visitors who prefer reduced motion (`app/workspace.css`, `components/affiliate-view.js`).
 - Supabase database schema, authentication and server-side role checks for live mode.
 - Turnstile booking verification, optional Resend email, Twilio SMS with opt-in, and an authenticated reminder endpoint.
 - Responsive layouts, keyboard controls, native form labels, focus handling, reduced-motion support and optimised local WebP images.
@@ -84,14 +84,14 @@ From November 1, 2026 Alberta stays on UTC−6 all year (“Alberta Time”, for
 | `/affiliate/link` | A share card (light or dark) with the QR code, the link with Copy, Download QR, Email link, Preview my page, and how the link works |
 | `/affiliate/earnings` | A paid-versus-awaiting ring, how commission is paid, and each completed referral opening to its progress (visit, calculated, paid) |
 | `/affiliate/profile` | Display name, introduction and portrait |
-| `/admin` | Staff bookings, availability, calendar and “Top affiliates this month” |
-| `/admin/doctors` | Optometrist profiles, portraits, services, weekly hours, appointment length, time off and extra days |
-| `/admin/affiliates` | Affiliate performance table (cards on phones), sortable by completed and commission; add, activate/deactivate and photograph affiliates |
+| `/admin` | Staff bookings: cards for today’s appointments, bookings this month, billed through referrals and commission to pay; today’s schedule with one-click Check in / No-show / Undo; “Top affiliates this month”; “Needs attention” (files missing ID, referrals to pay or calculate, unpriced procedures); then every booking as a list or calendar |
+| `/admin/doctors` | Optometrist profiles, portraits, services, weekly hours (shown as a Monday–Sunday strip), appointment length, time off and extra days; a Shown switch and up/down ordering |
+| `/admin/affiliates` | Affiliate totals, then a card per affiliate (Active switch, bookings, completed, upcoming, billed, pending, paid, completion bar, Copy link, Photo) or the sortable table; search and sort |
 | `/admin/affiliates/[slug]` | One affiliate: stats, appointments with gross, discount, operation cost, net and commission, inline calculator, filters, CSV, and “Preview as affiliate” (read-only) |
 | `/admin/leads` | Search/filter/export bookings |
-| `/admin/payouts` | Calculate commission for attended referrals and record payments |
-| `/admin/pricing` | Retail price and operation cost for each procedure |
-| `/admin/messages` | Edit templates and inspect live delivery activity |
+| `/admin/payouts` | Ready to pay, needs calculating and paid this month; calculate commission for attended referrals; select payments and record them from the bar below the list |
+| `/admin/pricing` | A tile per procedure with retail price and operation cost, what is left after cost, and Not set / Unsaved / Saved |
+| `/admin/messages` | Templates as tabs, an editor with fields to add, a live email preview with sample details, and live delivery activity |
 | `/admin/team` | Invite front desk members by name and email, and deactivate or reactivate them |
 | `/desk` | Front desk bookings: today at a glance (appointments, checked in, still to arrive, files missing ID), today’s schedule with one-click Check in / No-show / Undo, then every booking as a list or calendar, manual bookings, available times and booking details (no commission or amounts) |
 | `/desk/gift-cards` | Front desk gift cards: counts of cards not redeemed, redeemed and expired, check a card number, and every card issued |

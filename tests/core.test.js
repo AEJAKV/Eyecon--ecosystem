@@ -1182,7 +1182,7 @@ test('the workspace API, pages and sign-in route the front desk to /desk and ref
   assert.ok(readFileSync(new URL('../app/admin/[[...section]]/page.js',import.meta.url),'utf8').includes("'team'"));
   const ws=readFileSync(new URL('../components/workspace.js',import.meta.url),'utf8');
   assert.ok(ws.includes("const deskNav=[['','Bookings'],['gift-cards','Gift cards'],['leads','Leads']];")&&ws.includes("['team','Team']]"));
-  assert.ok(ws.includes('desk?frontDeskView(loaded):loaded')&&ws.includes("{!desk&&detail.status==='Attended'&&<Calculator")&&ws.includes("role==='staff'&&!section&&<TopAffiliates"));
+  assert.ok(ws.includes('desk?frontDeskView(loaded):loaded')&&ws.includes("{!desk&&detail.status==='Attended'&&<Calculator")&&ws.includes("{desk?<DeskToday bookings={data.bookings} busy={busy} onStatus={setAttendance} onDetails={openDetail}/>:<StaffOverview data={data}"));
   assert.ok(ws.includes("desk?['name','email','phone','start','doctor','service','source','status']:"),'the desk CSV has no commission or payout');
   const login=readFileSync(new URL('../components/login-form.js',import.meta.url),'utf8');
   assert.ok(login.includes("demoSignIn('front-desk');router.push(next||'/desk')")&&login.includes("(next||workspacePath(state.user.role))"));
@@ -1235,6 +1235,45 @@ test('the front desk panels stay money-free and use the allowed status action',(
   for(const f of ['commission','payout','grossAmount','operationCost','netAmount','money('])assert.equal(v.includes(f),false,f);
   assert.ok(v.includes("onStatus(b, 'Attended')")&&v.includes("onStatus(b, 'No-show')")&&v.includes("onStatus(b, 'Booked')"));
   const ws=readFileSync(new URL('../components/workspace.js',import.meta.url),'utf8');
-  assert.ok(ws.includes("{desk&&!section&&<><DeskToday bookings={data.bookings}")&&ws.includes("run(()=>action('status',{id:b.id,status:s})")&&ws.includes("{desk&&section==='gift-cards'&&<GiftSummary data={data}/>}"));
-  assert.ok(ws.includes("className={'workspace'+(desk?' desk':'')}"),'front desk styles are scoped to the desk');
+  assert.ok(ws.includes("{clinicUi&&!section&&<>{desk?<DeskToday bookings={data.bookings}")&&ws.includes("run(()=>action('status',{id:b.id,status:s})")&&ws.includes("{clinicUi&&section==='gift-cards'&&<GiftSummary data={data}/>}"));
+  assert.ok(ws.includes("className={'workspace'+(clinicUi?' clinic':'')+(desk?' desk':'')}"),'clinic styles are scoped to the staff and front desk workspaces');
+});
+
+// The staff admin redesign (front end only): overview figures, payouts, pricing tiles, messages preview, doctors.
+import { staffOverview } from '../lib/performance.js';
+test('the staff overview counts this month, commission to pay, files missing ID and unpriced procedures',()=>{
+  const now=new Date('2026-10-29T18:00:00Z'),b=(o)=>({id:Math.random()+'',name:'S',start:'2026-10-10T16:00:00Z',status:'Booked',commission:0,payout:'Pending',...o});
+  const data={bookings:[
+    b({start:'2026-10-29T20:00:00Z',affiliateId:'a'}),
+    b({status:'Attended',affiliateId:'a',grossAmount:600,discountAmount:0,commission:40}),
+    b({status:'Attended',affiliateId:'a',grossAmount:500,discountAmount:50,commission:30,payout:'Paid',paidAt:'2026-10-20T00:00:00Z'}),
+    b({status:'Attended',affiliateId:'a'}),
+    b({status:'Cancelled',affiliateId:'a'}),
+    b({start:'2026-11-02T16:00:00Z',documents:[{kind:'government-id'}]}),
+    b({start:'2026-09-01T16:00:00Z',status:'Attended',affiliateId:'a',grossAmount:100,commission:5})
+  ],procedureCosts:[{service:'eye-exam',retailPrice:150},{service:'contacts',retailPrice:0}]};
+  const o=staffOverview(data,services,now);
+  assert.deepEqual([o.today,o.monthBookings,o.monthAffiliate,o.completedMonth,o.billedMonth],[1,4,4,3,1050],'cancelled and other months left out');
+  assert.deepEqual([o.toPay,o.toPayCount,o.needsCalculating,o.paidMonth],[45,2,1,30]);
+  assert.equal(o.missingId,1,'only upcoming booked visits without government ID');
+  assert.equal(o.unpriced,services.length-1);
+});
+test('the staff pages use the redesigned components and keep the same actions',()=>{
+  const ws=readFileSync(new URL('../components/workspace.js',import.meta.url),'utf8');
+  assert.ok(ws.includes(':<StaffOverview data={data} busy={busy} onStatus={setAttendance} onDetails={openDetail}/>')&&ws.includes("const setAttendance=(b,s)=>run(()=>action('status',{id:b.id,status:s})"));
+  assert.ok(ws.includes('<AffiliatesView affiliates={data.affiliates}')&&ws.includes("onToggle={a=>run(()=>action('toggle-affiliate',{id:a.id})"));
+  assert.ok(ws.includes("<PayoutBar count={selected.length} total={total} busy={busy} onRecord={()=>setModal('payout')}/>"),'recording still goes through the confirm dialog');
+  assert.ok(ws.includes("<PriceTile key=")&&ws.includes("onSave={p=>run(()=>action('pricing',p)")&&ws.includes('validate={validatePricing}'));
+  assert.ok(ws.includes("<MessagesAdmin templates={data.templates} busy={busy} onSave={p=>save('template',p,'Template saved.')}/>"));
+  const d=readFileSync(new URL('../components/doctors-admin.js',import.meta.url),'utf8');
+  assert.ok(d.includes("onAction('doctor', { ...d, visible: d.visible === false })")&&d.includes('<WeekStrip hours={hours} />')&&d.includes("move(d.slug, -1)")&&d.includes("move(d.slug, 1)"));
+  const css=readFileSync(new URL('../app/workspace.css',import.meta.url),'utf8');
+  assert.ok(css.includes('.payout-bar.active { position: sticky;')&&!css.includes('.desk .'),'clinic styles shared by staff and front desk');
+});
+test('the Messages preview fills in sample details and keeps unknown fields as typed',()=>{
+  const v=readFileSync(new URL('../components/staff-view.js',import.meta.url),'utf8');
+  const sample=v.slice(v.indexOf('const SAMPLE = '),v.indexOf('\n',v.indexOf('const SAMPLE = ')));
+  for(const k of ['name','doctor','date','address','phone','instructions','gift','documents_link','reference','lookup_link'])assert.ok(sample.includes(k+':'),k);
+  assert.ok(/\[[^\]]+\]/.test(sample)&&!/@(?!example\.com)/.test(sample),'placeholders in square brackets, no real-looking details');
+  assert.ok(v.includes("replace(/\\{([a-z_]+)\\}/g, (m, k) => SAMPLE[k] ?? m)"));
 });
