@@ -9,6 +9,7 @@ import { parseGiftNumber, giftCardPath, giftState } from '@/lib/gift';
 import { RedeemGift } from './gift-status';
 import { downloadGiftCard } from './gift-download';
 import { clinic, doctorName, formatDate, services } from '@/lib/config';
+import { isClinic } from '@/lib/front-desk';
 
 // Staff see the card's state as a word, not only a colour. A card that can still be used reads "Valid".
 function state(card) {
@@ -92,7 +93,7 @@ export default function GiftCardPage({ number }) {
   const [origin, setOrigin] = useState('');
   useEffect(() => { setOrigin(window.location.origin); }, []);
   const serial = parseGiftNumber(number), shown = String(number).toUpperCase();
-  const staff = ready && user?.role === 'staff';
+  const staff = ready && isClinic(user);
   // Checked again when the workspace data changes, so a card staff have just redeemed shows as used straight away.
   const [status, setStatus] = useState({ loading: true });
   useEffect(() => {

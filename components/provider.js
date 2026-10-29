@@ -21,7 +21,7 @@ export function Provider({children}){
   // Demo data is saved under v5 (v2 added doctors, v3 references, v4 pricing and commission amounts, v5 doctor profiles
   // and schedules); older saved data is not loaded.
   useEffect(()=>{
-    if(DEMO){try{const saved=JSON.parse(localStorage.getItem('eyecon-demo-v5')||'null');setData(saved?.affiliates&&saved?.bookings&&saved?.doctors?saved:seedDemo());const u=JSON.parse(sessionStorage.getItem('eyecon-demo-user')||'null');if(u&&['staff','affiliate'].includes(u.role))setUser(u);}catch{setData(seedDemo());}setReady(true);return;}
+    if(DEMO){try{const saved=JSON.parse(localStorage.getItem('eyecon-demo-v5')||'null');setData(saved?.affiliates&&saved?.bookings&&saved?.doctors?saved:seedDemo());const u=JSON.parse(sessionStorage.getItem('eyecon-demo-user')||'null');if(u&&['staff','front-desk','affiliate'].includes(u.role))setUser(u);}catch{setData(seedDemo());}setReady(true);return;}
     let active=true,subscription;
     // A password-reset or invitation link signs the person in. Whatever page it lands on (a link sent from the Supabase
     // dashboard lands on the home page), they are taken to the form that sets their password. Read before the client
@@ -65,7 +65,7 @@ export function Provider({children}){
   }
   // /my-booking. The demo searches this browser's demo data with the same checks and the same limited result.
   async function lookupBooking(payload){if(DEMO)return {booking:demoLookup(data,payload)};const res=await fetch('/api/lookup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const result=await res.json();if(!res.ok)throw new Error(result.error);return result;}
-  function demoSignIn(role){const u={role,affiliateId:role==='affiliate'?'demo-alex':null};setUser(u);sessionStorage.setItem('eyecon-demo-user',JSON.stringify(u));}
+  function demoSignIn(role){const u={role,affiliateId:role==='affiliate'?'demo-alex':null,...(role==='front-desk'?{teamId:'demo-desk'}:{})};setUser(u);sessionStorage.setItem('eyecon-demo-user',JSON.stringify(u));}
   async function signOut(){if(DEMO)sessionStorage.removeItem('eyecon-demo-user');else await browserClient().auth.signOut();setUser(null);}
   function reset(){clearStoredGifts();setData(seedDemo());sessionStorage.removeItem('eyecon-demo-user');setUser(null);}
   // Staff admin > Doctors. Live: /api/doctors (staff only), then the workspace reloads. Demo: the same rules in lib/demo.js.

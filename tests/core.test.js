@@ -82,7 +82,7 @@ test('migration 007 calculates commission in the database',()=>{const sql=readFi
 // The affiliate workspace's restricted view
 const FORBIDDEN=['gross_amount','discount_amount','operation_cost','net_amount','commission_rate','grossAmount','discountAmount','operationCost','netAmount','commissionRate','email','phone','service','insurance','policy','policy_encrypted','documents','residencyStatus','residency_status','documentsToken','brands','doctor','giftCard','gift_serial','affiliateId','affiliate_id','reference'];
 test('affiliate rows never contain procedure amounts, contact details, service, insurance or documents',()=>{let data=seedDemo();data=applyDemo(data,'pricing',{service:'eye-exam',retailPrice:400,operationCost:200},staff);data=applyDemo(data,'complete',{id:'sample-1',gross:400,discount:25},staff);const rows=affiliateRows(data.bookings,'demo-alex');assert.ok(rows.length>=3);assert.ok(data.bookings.find(b=>b.id==='sample-1').grossAmount>0,'the source booking does carry amounts');for(const row of rows){assert.deepEqual(Object.keys(row).sort(),[...AFFILIATE_FIELDS].sort());for(const key of FORBIDDEN)assert.equal(key in row,false,key);}const dbRow={id:'x',name:'Sample P.',status:'Attended',start:'2026-10-01T15:00:00Z',commission:'20.00',payout:'Pending',paid_at:null,email:'a@example.com',phone:'+1',service:'eye-exam',insurance:'X',policy_encrypted:'enc',gross_amount:'400',discount_amount:'0',operation_cost:'200',net_amount:'200',commission_rate:'10',residency_status:'[x]',affiliate_id:'a',reference:'7K2M9QXB',documents:[{}]};const safe=restrictAffiliateRow(dbRow);assert.deepEqual(Object.keys(safe).sort(),[...AFFILIATE_FIELDS].sort());assert.equal(safe.commission,20);for(const key of FORBIDDEN)assert.equal(key in safe,false,key);});
-test('the live affiliate query selects only the agreed columns',()=>{assert.equal(AFFILIATE_COLUMNS,'id,name,status,start,commission,payout,paid_at');for(const key of FORBIDDEN)assert.equal(AFFILIATE_COLUMNS.split(',').includes(key),false,key);const route=readFileSync(new URL('../app/api/workspace/route.js',import.meta.url),'utf8');const branch=route.slice(route.indexOf("if(u.role==='affiliate'){"),route.indexOf('requireStaff(u);'));assert.ok(branch.includes(".from('bookings').select(AFFILIATE_COLUMNS)"));assert.ok(branch.includes('bookings:b.data.map(restrictAffiliateRow)'));for(const t of ['booking_documents','procedure_costs',"select('*').eq('affiliate_id'"])assert.equal(branch.includes(t),false,t);});
+test('the live affiliate query selects only the agreed columns',()=>{assert.equal(AFFILIATE_COLUMNS,'id,name,status,start,commission,payout,paid_at');for(const key of FORBIDDEN)assert.equal(AFFILIATE_COLUMNS.split(',').includes(key),false,key);const route=readFileSync(new URL('../app/api/workspace/route.js',import.meta.url),'utf8');const branch=route.slice(route.indexOf("if(u.role==='affiliate'){"),route.indexOf('requireClinic(u);'));assert.ok(branch.includes(".from('bookings').select(AFFILIATE_COLUMNS)"));assert.ok(branch.includes('bookings:b.data.map(restrictAffiliateRow)'));for(const t of ['booking_documents','procedure_costs',"select('*').eq('affiliate_id'"])assert.equal(branch.includes(t),false,t);});
 test('booked referrals are excluded from completed counts and earnings',()=>{const now=new Date('2026-10-14T12:00:00Z'),row=(status,start,commission=0,payout='Pending')=>({id:status+start,name:'P',status,start,commission,payout,paidAt:null});const rows=[row('Attended','2026-10-03T15:00:00Z',20),row('Attended','2026-09-10T15:00:00Z',30,'Paid'),row('Booked','2026-10-20T15:00:00Z',99),row('Booked','2026-10-05T15:00:00Z',5),row('No-show','2026-10-06T15:00:00Z',7),row('Cancelled','2026-10-21T15:00:00Z')];const st=affiliateStats(rows,now);assert.equal(st.completedThisMonth,1);assert.equal(st.completedAllTime,2);assert.equal(st.upcoming,1);assert.equal(st.earned,50);assert.equal(st.paid,30);assert.equal(st.awaitingPayment,20);const csvRows=affiliateCsvRows(rows);for(const r of csvRows)assert.deepEqual(Object.keys(r),AFFILIATE_CSV_FIELDS);assert.equal(csvRows[0].yourCommission,'20.00');assert.equal(csvRows[2].yourCommission,'');assert.equal(csvRows[4].yourCommission,'');});
 
 // Staff affiliate performance dashboard
@@ -862,9 +862,9 @@ test('staff scans show name, email and the booking, or name, email and number fo
 });
 test('the gift card page, scan route and sign-in return are staff-gated',()=>{
   const route=readFileSync(new URL('../app/api/gift/scan/route.js',import.meta.url),'utf8');
-  assert.ok(route.includes('identity(request);requireStaff(user)')&&route.includes('sameOrigin(request)')&&route.includes("audit(user.db,user.id,'gift-card-scan',serial)"));
+  assert.ok(route.includes('identity(request);requireClinic(user)')&&route.includes('sameOrigin(request)')&&route.includes("audit(user.db,user.id,'gift-card-scan',serial)"));
   const page=readFileSync(new URL('../components/gift-card-page.js',import.meta.url),'utf8');
-  assert.ok(page.includes("ready && user?.role === 'staff'")&&page.includes('<StaffView number={shown} />'),'details only for signed-in staff');
+  assert.ok(page.includes("ready && isClinic(user)")&&page.includes('<StaffView number={shown} />'),'details only for signed-in staff');
   assert.ok(readFileSync(new URL('../app/gift/[number]/page.js',import.meta.url),'utf8').includes('robots:{index:false,follow:false}'));
   const login=readFileSync(new URL('../components/login-form.js',import.meta.url),'utf8');
   assert.ok(login.includes("/^\\/gift\\/[A-Za-z0-9-]{6,20}$/.test(params.get('next')||'')"),'only a gift card page is accepted as the return address');
@@ -1026,7 +1026,7 @@ test('staff Gift cards page lists booking and prescription cards, newest first, 
   const route=readFileSync(new URL('../app/api/workspace/route.js',import.meta.url),'utf8');
   assert.ok(route.includes(".select('id,affiliate_id,serial,name,email,issued_at,expires_at,status,redeemed_at')"),'never selects health card or policy');
   const ws=readFileSync(new URL('../components/workspace.js',import.meta.url),'utf8');
-  assert.ok(ws.includes("['gift-cards','Gift cards']")&&ws.includes("role==='staff'&&section==='gift-cards'&&<GiftCardsAdmin"));
+  assert.ok(ws.includes("['gift-cards','Gift cards']")&&ws.includes("clinicUi&&section==='gift-cards'&&<GiftCardsAdmin"));
   assert.ok(readFileSync(new URL('../app/admin/[[...section]]/page.js',import.meta.url),'utf8').includes("'gift-cards'"));
 });
 test('affiliate profile photo: crop before upload, then it shows straight away with a saved note',()=>{
@@ -1086,4 +1086,108 @@ test('the complete-your-file banner can be skipped, which skips the form too',()
   assert.ok(flow.includes("onClick={() => setFileState('skipped')}>Skip for now</button>")&&flow.includes("skip={fileState === 'skipped'}"));
   const form=readFileSync(new URL('../components/documents-form.js',import.meta.url),'utf8');
   assert.ok(form.includes("if (skip) setState('skipped')")&&form.includes('Please bring your government ID'));
+});
+
+// The front desk (/desk, migration 015): Bookings, Gift cards and Leads, patient details kept, never any money.
+import { frontDeskView, deskBooking, canAct, FRONT_DESK_ACTIONS, MONEY_FIELDS, workspacePath, isClinic, validateTeamMember } from '../lib/front-desk.js';
+test('the front desk view keeps patient details but drops every commission, payout and procedure amount',()=>{
+  const data=seedDemo(),view=frontDeskView(data),text=JSON.stringify(view);
+  assert.equal(view.user.role,'front-desk');
+  for(const b of view.bookings)for(const f of MONEY_FIELDS)assert.equal(f in b,false,f);
+  for(const f of ['grossAmount','operationCost','netAmount','commissionRate','paidAt'])assert.ok(!text.includes('"'+f+'"'),f);
+  const full=data.bookings.find(b=>b.id==='sample-2'),desk=view.bookings.find(b=>b.id==='sample-2');
+  assert.equal(full.grossAmount,600);assert.equal(desk.email,full.email);assert.equal(desk.phone,full.phone);assert.deepEqual(desk.giftCard,full.giftCard);
+  assert.deepEqual(Object.keys(view.affiliates[0]).sort(),['active','code','id','name','slug'],'no affiliate email, rate or terms');
+  for(const k of ['procedureCosts','team','jobs','weeklyHours'])assert.equal(k in view,false,k);
+  assert.deepEqual(view.templates,[]);
+  assert.deepEqual(deskBooking({id:'x',name:'A',commission:5,payout:'Paid',insurance:'[Insurer]'}),{id:'x',name:'A',insurance:'[Insurer]'});
+});
+test('the front desk may only change status, redeem gift cards, add times, book and open documents',()=>{
+  assert.deepEqual(FRONT_DESK_ACTIONS,['status','gift-redeem','slot','booking','document-url']);
+  for(const a of FRONT_DESK_ACTIONS){assert.equal(canAct('front-desk',a),true,a);assert.equal(canAct('staff',a),true,a);}
+  for(const a of ['complete','pricing','payout','affiliate','toggle-affiliate','template','profile','photo','team-invite','team-toggle','doctor'])assert.equal(canAct('front-desk',a),false,a);
+  for(const a of ['status','complete'])assert.equal(canAct('affiliate',a),false,a);
+  assert.equal(workspacePath('staff'),'/admin');assert.equal(workspacePath('front-desk'),'/desk');assert.equal(workspacePath('affiliate'),'/affiliate');
+  assert.equal(isClinic({role:'front-desk'}),true);assert.equal(isClinic({role:'affiliate'}),false);assert.equal(isClinic(null),false);
+});
+test('demo: the front desk books, updates attendance and redeems, but cannot reach money, affiliates or the team',()=>{
+  const desk={role:'front-desk',teamId:'demo-desk'};let data=seedDemo();
+  data=applyDemo(data,'booking',validateBooking({...at(data.slots[3])},true),desk);assert.equal(data.bookings[0].status,'Booked');
+  data=applyDemo(data,'status',{id:'sample-1',status:'Attended'},desk);assert.equal(data.bookings.find(b=>b.id==='sample-1').status,'Attended');
+  data=applyDemo(data,'gift-redeem',{number:'EYC-AMO-7K2M9Q'},desk);assert.equal(data.bookings.find(b=>b.id==='sample-1').giftCard.status,'Redeemed');
+  const later=new Date(Date.now()+86400000*30);later.setUTCMinutes(7,0,0);
+  data=applyDemo(data,'slot',{doctor:data.doctors[0].slug,start:later.toISOString(),duration:30},desk);
+  for(const [a,p] of [['complete',{id:'sample-1',gross:100,discount:0}],['pricing',{service:'eye-exam',retailPrice:1,operationCost:0}],['payout',{ids:['sample-2']}],['affiliate',{slug:'new-one'}],['toggle-affiliate',{id:'demo-alex'}],['template',{id:'confirmation'}],['team-invite',{name:'A B',email:'a@example.com'}],['team-toggle',{id:'demo-desk'}],['doctor',{}],['profile',{id:'demo-alex',name:'X'}]])
+    assert.throws(()=>applyDemo(data,a,p,desk),/Staff access is required|Please sign in/,a);
+  const off=applyDemo(data,'team-toggle',{id:'demo-desk'},{role:'staff'});
+  assert.equal(off.team[0].active,false);
+  assert.throws(()=>applyDemo(off,'status',{id:'sample-1',status:'Booked'},desk),/inactive/,'a deactivated front desk member is refused');
+});
+test('demo: staff admin invite front desk members and turn their access off and on',()=>{
+  const staff={role:'staff'};let data=seedDemo();
+  assert.equal(data.team[0].name,'[Front desk team member]','placeholder member in square brackets');
+  data=applyDemo(data,'team-invite',{name:'  Sample Desk ',email:'Desk@Example.com'},staff);
+  assert.deepEqual([data.team[1].name,data.team[1].email,data.team[1].active],['Sample Desk','desk@example.com',true]);
+  assert.throws(()=>applyDemo(data,'team-invite',{name:'Other',email:'desk@example.com'},staff),/already has an account/);
+  assert.throws(()=>validateTeamMember({name:'A',email:'bad'}),/valid email/);
+  assert.throws(()=>applyDemo(data,'team-invite',{name:'Sample',email:'x@example.com'},{role:'affiliate',affiliateId:'demo-alex'}),/Staff access/);
+  data=applyDemo(data,'team-toggle',{id:data.team[1].id},staff);assert.equal(data.team[1].active,false);
+  data=applyDemo(data,'team-toggle',{id:data.team[1].id},staff);assert.equal(data.team[1].active,true);
+});
+test('the server invites, lists and deactivates front desk members, refuses inactive ones, and sends the desk no money',()=>{
+  const script=`
+    const s = await import(${JSON.stringify(new URL('../lib/server.js',import.meta.url).href)});
+    const { frontDeskView } = await import(${JSON.stringify(new URL('../lib/front-desk.js',import.meta.url).href)});
+    const calls = [], profiles = { p1: { id: 'p1', role: 'front-desk', active: true }, admin: { id: 'admin', role: 'staff', active: true } };
+    const db = {
+      auth: { admin: { inviteUserByEmail: async (email, opts) => { calls.push(['invite', email, opts.redirectTo]); return email === 'taken@example.com' ? { error: { code: 'email_exists' } } : { data: { user: { id: 'new1' } }, error: null }; } } },
+      from: table => { let id; const q = { select: () => q, order: async () => ({ data: [{ id: 'p1', name: 'Sample Desk', email: 'd@example.com', active: false, created_at: '2026-10-01T00:00:00Z' }], error: null }),
+        eq: (k, v) => { if (k === 'id') id = v; return q; }, maybeSingle: async () => ({ data: profiles[id] || null }), single: async () => ({ data: { active: false } }),
+        insert: async row => { calls.push(['insert', table, row]); return { error: null }; },
+        update: fields => ({ eq: async (k, v) => { calls.push(['update', table, fields, v]); return { error: null }; } }) }; return q; }
+    };
+    const invited = await s.inviteTeamMember(db, { name: ' Sample Desk ', email: 'D@Example.com' }, 'https://x.test/login?set-password=1');
+    let taken = ''; try { await s.inviteTeamMember(db, { name: 'Other', email: 'taken@example.com' }, 'r'); } catch (e) { taken = e.message; }
+    const team = await s.loadTeam(db);
+    const toggled = await s.setTeamActive(db, 'p1');
+    let staffRefused = ''; try { await s.setTeamActive(db, 'admin'); } catch (e) { staffRefused = e.message; }
+    const refuse = async p => { try { await s.checkProfile(db, p); return ''; } catch (e) { return e.message; } };
+    const access = { inactive: await refuse({ role: 'front-desk', active: false }), active: await refuse({ role: 'front-desk', active: true }), beforeMigration: await refuse({ role: 'front-desk' }), none: await refuse(null), staff: await refuse({ role: 'staff' }) };
+    const gate = {}; for (const r of ['staff', 'front-desk', 'affiliate']) { try { s.requireClinic({ role: r }); gate[r] = 'ok'; } catch { gate[r] = 'refused'; } try { s.requireStaff({ role: r }); gate[r] += '/ok'; } catch { gate[r] += '/refused'; } }
+    const row = { id: 'b1', name: 'Sample', email: 'p@example.com', phone: '+14165550100', start: '2026-11-02T16:00:00Z', status: 'Attended', commission: '30', payout: 'Paid', paid_at: '2026-11-03T00:00:00Z', gross_amount: '500', discount_amount: '50', operation_cost: '150', net_amount: '300', commission_rate: '10', insurance: '[Insurer]' };
+    const desk = frontDeskView({ bookings: [s.mapBooking(row)], affiliates: [s.mapAffiliate({ id: 'a1', name: 'A', slug: 'a', email: 'a@example.com', active: true, commission_rate: 10, commission_note: 'terms' })] });
+    console.log(JSON.stringify({ invited, taken, team, toggled, staffRefused, access, gate, desk, calls }));`;
+  const out=JSON.parse(execFileSync(process.execPath,['--conditions=react-server','--input-type=module','-e',script],{encoding:'utf8'}).trim().split('\n').pop());
+  assert.deepEqual(out.invited,{id:'new1',name:'Sample Desk',email:'d@example.com',active:true});
+  assert.deepEqual(out.calls[0],['invite','d@example.com','https://x.test/login?set-password=1']);
+  assert.deepEqual(out.calls[1],['insert','profiles',{id:'new1',role:'front-desk',name:'Sample Desk',email:'d@example.com',active:true}]);
+  assert.match(out.taken,/already has an account/);assert.equal(out.calls.filter(c=>c[0]==='insert').length,1,'no profile when the invite fails');
+  assert.deepEqual(out.team,[{id:'p1',name:'Sample Desk',email:'d@example.com',active:false,createdAt:'2026-10-01T00:00:00Z'}]);
+  assert.deepEqual(out.toggled,{id:'p1',active:false});assert.deepEqual(out.calls.at(-1),['update','profiles',{active:false},'p1']);
+  assert.equal(out.staffRefused,'Team member not found.','staff admin accounts are never changed from the Team page');
+  assert.match(out.access.inactive,/front desk account is inactive/);assert.equal(out.access.active,'');assert.equal(out.access.beforeMigration,'');assert.match(out.access.none,/does not have access/);assert.equal(out.access.staff,'');
+  assert.deepEqual(out.gate,{staff:'ok/ok','front-desk':'ok/refused',affiliate:'refused/refused'});
+  const b=out.desk.bookings[0];for(const f of MONEY_FIELDS)assert.equal(f in b,false,f);assert.equal(b.email,'p@example.com');assert.equal(b.insurance,'[Insurer]');
+  assert.deepEqual(Object.keys(out.desk.affiliates[0]).sort(),['active','code','id','name','slug']);
+});
+test('the workspace API, pages and sign-in route the front desk to /desk and refuse it everything else',()=>{
+  const route=readFileSync(new URL('../app/api/workspace/route.js',import.meta.url),'utf8');
+  assert.ok(route.includes('requireClinic(u);const desk=u.role===FRONT_DESK_ROLE')&&route.includes('if(desk)return Response.json(frontDeskView({'),'the desk gets frontDeskView only');
+  const get=route.slice(route.indexOf('if(desk)return'),route.indexOf('export async function POST'));assert.ok(get.indexOf('frontDeskView')<get.indexOf('procedure_costs'),'returns before pricing is loaded');
+  assert.ok(route.includes("if(u.role===FRONT_DESK_ROLE)throw refused();\n      const form=await request.formData()"),'no photo uploads');
+  assert.ok(route.includes("if(u.role===FRONT_DESK_ROLE&&!canAct(u.role,action))throw refused();"),'checked before the affiliate profile action');
+  assert.ok(route.includes("action==='team-invite'")&&route.includes("action==='team-toggle'"));
+  const desk=readFileSync(new URL('../app/desk/[[...section]]/page.js',import.meta.url),'utf8');
+  assert.ok(desk.includes("['','gift-cards','leads']")&&desk.includes('<Workspace role="front-desk"')&&desk.includes('robots:{index:false,follow:false}'));
+  assert.ok(readFileSync(new URL('../app/admin/[[...section]]/page.js',import.meta.url),'utf8').includes("'team'"));
+  const ws=readFileSync(new URL('../components/workspace.js',import.meta.url),'utf8');
+  assert.ok(ws.includes("const deskNav=[['','Bookings'],['gift-cards','Gift cards'],['leads','Leads']];")&&ws.includes("['team','Team']]"));
+  assert.ok(ws.includes('desk?frontDeskView(loaded):loaded')&&ws.includes("{!desk&&detail.status==='Attended'&&<Calculator")&&ws.includes("role==='staff'&&!section&&<TopAffiliates"));
+  assert.ok(ws.includes("desk?['name','email','phone','start','doctor','service','source','status']:"),'the desk CSV has no commission or payout');
+  const login=readFileSync(new URL('../components/login-form.js',import.meta.url),'utf8');
+  assert.ok(login.includes("demoSignIn('front-desk');router.push(next||'/desk')")&&login.includes("(next||workspacePath(state.user.role))"));
+  assert.ok(readFileSync(new URL('../app/robots.js',import.meta.url),'utf8').includes("'/desk'"));
+  const m=readFileSync(new URL('../supabase/migrations/015_front_desk.sql',import.meta.url),'utf8');
+  assert.ok(m.startsWith('-- ')&&m.includes('after 014_health_card_documents.sql')&&m.includes("check (role in ('staff','front-desk','affiliate'))")&&m.includes('add column if not exists active boolean'));
+  assert.ok(readFileSync(new URL('../app/api/gift/scan/route.js',import.meta.url),'utf8').includes('requireClinic(user)'),'the desk can scan cards');
 });
