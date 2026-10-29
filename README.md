@@ -25,6 +25,7 @@ A complete Next.js project for the affiliate referral and appointment-booking ex
 - Staff-managed optometrists (Staff admin › Doctors): profiles, portraits, services, weekly hours, time off and extra days, with bookable times generated automatically 90 days ahead. See “Optometrist profiles and schedules” below.
 - Staff booking list/calendar showing each booking's optometrist, patient details, attendance status, manual bookings (free times grouped by optometrist), availability per optometrist, affiliate performance dashboard (per-affiliate bookings, completed, upcoming, billed and commission, sortable; a page per affiliate with every appointment amount, inline commission calculator, date and status filters, staff CSV, and “Preview as affiliate”; “Top affiliates this month” on the overview), leads, procedure pricing, calculated commission, payout recording and message templates.
 - Front desk workspace at `/desk` for clinic staff who run the front desk: Bookings (list and calendar, attendance, manual bookings, available times, patient details, insurance and documents), Gift cards (check, scan and redeem) and Leads. It never shows commissions, payouts, pricing or any procedure amount, and it cannot reach Doctors, Affiliates, Payouts, Pricing, Messages or Team; the server enforces this (`lib/front-desk.js`, migration 015). Staff admin invite front desk members, and turn their access off and on, in **Staff admin › Team**.
+- Workspace design: every sidebar item has an icon and the current page is shown in ink. The affiliate dashboard uses rounded cards, a dark featured card per page, gentle entrance and hover motion, and animated figures; all motion stops for visitors who prefer reduced motion (`app/workspace.css`, `components/affiliate-view.js`).
 - Supabase database schema, authentication and server-side role checks for live mode.
 - Turnstile booking verification, optional Resend email, Twilio SMS with opt-in, and an authenticated reminder endpoint.
 - Responsive layouts, keyboard controls, native form labels, focus handling, reduced-motion support and optimised local WebP images.
@@ -78,10 +79,10 @@ From November 1, 2026 Alberta stays on UTC−6 all year (“Alberta Time”, for
 | `/documents#t=…` | “Complete your file” from the confirmation email’s single-use link |
 | `/my-booking` | Find my booking: reference and email lookup |
 | `/login` | Demo exploration or live sign-in/password reset |
-| `/affiliate` | Affiliate overview |
-| `/affiliate/referrals` | Patient name, appointment date, status and “Your commission” (blank until completed); CSV export of the same fields |
-| `/affiliate/link` | Personal link and downloadable QR code |
-| `/affiliate/earnings` | Commission per completed appointment and its payout status |
+| `/affiliate` | Affiliate overview: greeting, stat cards with icons and count-up numbers, the referral link card (copy, email, QR), “Referral journey” (booked, attended, paid) and recent referrals with All / Upcoming / Completed tabs |
+| `/affiliate/referrals` | Patient name, appointment date, status and “Your commission” (blank until completed), with status chips, name search and a date filter; CSV export of the same fields |
+| `/affiliate/link` | A share card (light or dark) with the QR code, the link with Copy, Download QR, Email link, Preview my page, and how the link works |
+| `/affiliate/earnings` | A paid-versus-awaiting ring, how commission is paid, and each completed referral opening to its progress (visit, calculated, paid) |
 | `/affiliate/profile` | Display name, introduction and portrait |
 | `/admin` | Staff bookings, availability, calendar and “Top affiliates this month” |
 | `/admin/doctors` | Optometrist profiles, portraits, services, weekly hours, appointment length, time off and extra days |

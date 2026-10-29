@@ -1191,3 +1191,28 @@ test('the workspace API, pages and sign-in route the front desk to /desk and ref
   assert.ok(m.startsWith('-- ')&&m.includes('after 014_health_card_documents.sql')&&m.includes("check (role in ('staff','front-desk','affiliate'))")&&m.includes('add column if not exists active boolean'));
   assert.ok(readFileSync(new URL('../app/api/gift/scan/route.js',import.meta.url),'utf8').includes('requireClinic(user)'),'the desk can scan cards');
 });
+
+// The affiliate dashboard redesign (front end only): journey, paid share, next visit and the Referrals filters.
+import { affiliateJourney, paidShare, nextUpcoming, filterReferrals } from '../lib/affiliate.js';
+test('affiliate dashboard figures come from the restricted rows only',()=>{
+  const rows=affiliateRows(seedDemo().bookings,'demo-alex');
+  assert.deepEqual(affiliateJourney(rows),{booked:1,attended:2,paid:1,max:2});
+  assert.equal(paidShare(affiliateStats(rows)),43);assert.equal(paidShare({earned:0,paid:0}),0);
+  assert.equal(nextUpcoming(rows).id,'sample-1');assert.equal(nextUpcoming(rows,new Date(Date.now()+86400000*400)),null);
+  assert.equal(filterReferrals(rows,{status:'Attended'}).length,2);
+  assert.deepEqual(filterReferrals(rows,{query:' patient 04 '}).map(r=>r.id),['sample-4']);
+  assert.equal(filterReferrals(rows,{status:'Booked',query:'04'}).length,0);
+  assert.equal(filterReferrals(rows).length,rows.length);
+});
+test('the redesigned affiliate views show only the agreed fields, with commission blank until completed',()=>{
+  const v=readFileSync(new URL('../components/affiliate-view.js',import.meta.url),'utf8');
+  for(const f of ['email','phone','service','insurance','doctor','giftCard','grossAmount','operationCost','netAmount','documents'])assert.equal(new RegExp('\\bb\\.'+f+'\\b').test(v),false,f);
+  assert.equal((v.match(/completed\(b\) \? /g)||[]).length,2,'rows and table both blank the commission until completed');
+  assert.ok(v.includes("prefers-reduced-motion: reduce")&&v.includes('export function AffiliateStats')&&v.includes('export function AffiliateTable'),'staff preview still uses the same components');
+  const ws=readFileSync(new URL('../components/workspace.js',import.meta.url),'utf8');
+  assert.ok(ws.includes('<RecentReferrals rows={rows}/>')&&ws.includes('<StatusChips rows={rows} statuses={statuses} value={status} onChange={setStatus}/>')&&ws.includes('<EarningsList rows={rows.filter(completed)}/>')&&ws.includes('<ShareKit url={referralUrl}'));
+  assert.ok(ws.includes("role==='affiliate'?filterReferrals(rows,{status,query,date})"),'Export CSV uses the filtered referrals');
+  assert.ok(readFileSync(new URL('../app/layout.js',import.meta.url),'utf8').includes("import './workspace.css';"));
+  const css=readFileSync(new URL('../app/workspace.css',import.meta.url),'utf8');
+  assert.ok(css.includes('@media (prefers-reduced-motion: reduce)')&&css.includes('.sidebar-bottom > a { display: none; }'));
+});
