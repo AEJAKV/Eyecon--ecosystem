@@ -113,6 +113,8 @@
 .bk .optional-fields summary::-webkit-details-marker { display: none; }
 .bk .optional-fields summary::after { display: none; }
 .bk .optional-fields summary > svg { color: var(--gold-text); flex: none; }
+.bk .optional-fields summary .bk-recommended { margin-left: 0; padding: .15rem .65rem; border-radius: 999px; background: var(--tint); color: var(--gold-text); font-size: .78rem; }
+@media (max-width: 480px) { .bk .optional-fields summary { flex-wrap: wrap; row-gap: .3rem; padding-block: .7rem; } .bk .optional-fields summary .bk-recommended { order: 3; flex-basis: auto; margin-left: calc(18px + .7rem); } }
 .bk-chevron { margin-left: auto; display: inline-flex; color: var(--muted); transition: transform .3s var(--ease); }
 .bk .optional-fields[open] .bk-chevron { transform: rotate(180deg); }
 .bk .optional-fields .stack { margin: 0; padding: .25rem 1rem 1rem; animation: step-in .35s var(--ease) both; }

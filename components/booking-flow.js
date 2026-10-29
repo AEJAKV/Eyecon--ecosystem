@@ -327,7 +327,7 @@ export default function BookingFlow() {
             <fieldset className="choice-field bk-cards"><legend>Is this your first visit to Eyecon?</legend>
               {['yes', 'no'].map(v => <label key={v}><input type="radio" name="first-visit" required checked={details.firstVisit === v} onChange={() => change('firstVisit', v)} /><span className="bk-tile" aria-hidden="true"><Icon name={v === 'yes' ? 'star' : 'repeat'} size={18} /></span>{v === 'yes' ? 'Yes, first visit' : 'I’ve been before'}</label>)}
             </fieldset>
-            <details className="optional-fields"><summary><Icon name="shield" size={18} />Insurance details <small>Optional</small><span className="bk-chevron" aria-hidden="true"><Icon name="chevron" size={18} /></span></summary>
+            <details className="optional-fields"><summary><Icon name="shield" size={18} />Insurance details <small className="bk-recommended">Optional, but highly recommended</small><span className="bk-chevron" aria-hidden="true"><Icon name="chevron" size={18} /></span></summary>
               <div className="stack">
                 <IconField label="Insurance company" id="insurance" icon="shield" value={details.insurance} maxLength={120} onChange={e => change('insurance', e.target.value)} list={clinic.insurers.length ? 'insurer-options' : undefined} />
                 {clinic.insurers.length > 0 && <datalist id="insurer-options">{clinic.insurers.map(i => <option key={i} value={i} />)}</datalist>}

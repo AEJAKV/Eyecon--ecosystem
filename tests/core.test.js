@@ -1337,3 +1337,7 @@ test('complete your file: fine print beside the heading, the ID marked optional 
   assert.ok(form.includes("if (!id) { setError(canSkip ? 'To save your file, add your government ID. Or choose Skip for now"),'saving still needs the ID; skipping is the optional path');
   assert.throws(()=>validateDocuments(filePayload([doc('health-card')])),/government ID/,'the server rule is unchanged');
 });
+test('insurance details on the booking form are marked optional but highly recommended',()=>{
+  const flow=readFileSync(new URL('../components/booking-flow.js',import.meta.url),'utf8');
+  assert.ok(flow.includes('Insurance details <small className="bk-recommended">Optional, but highly recommended</small>'));
+});
