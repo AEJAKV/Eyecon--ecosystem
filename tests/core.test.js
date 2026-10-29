@@ -1359,3 +1359,7 @@ test('every service shows how long it takes, on the cards and in booking',()=>{
   const flow=readFileSync(new URL('../components/booking-flow.js',import.meta.url),'utf8');
   assert.ok(flow.includes('<small className="bk-length"><Icon name="clock" size={14} />{s.length}</small>')&&flow.includes('{chosenService.length && <> · {chosenService.length}</>}'));
 });
+test('skin tightening has its own photographs: the treatment for the service, the XERF device for its card',()=>{
+  for(const f of ['skin-tightening','skin-tightening-xerf']){const b=readFileSync(new URL('../public/images/services/'+f+'.webp',import.meta.url));assert.equal(b.subarray(8,12).toString(),'WEBP',f);assert.ok(b.length>20000,f+' is a real photograph, not the old placeholder');}
+  assert.equal(skinTechnologies[0].image,'/images/services/skin-tightening-xerf.webp');
+});
