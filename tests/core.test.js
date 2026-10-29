@@ -1294,3 +1294,39 @@ test('on phones wide tables become labelled cards instead of scrolling sideways'
   for(const f of ['workspace.js','affiliate-view.js','gift-cards-admin.js','team-admin.js']){const src=readFileSync(new URL('../components/'+f,import.meta.url),'utf8');assert.ok(src.includes('card-table')&&src.includes('data-main=""'),f);
     const cells=(src.match(/<td[ >]/g)||[]).length,labelled=(src.match(/<td[^>]*data-label=/g)||[]).length;assert.equal(labelled,cells,f+': every cell has a label');}
 });
+
+// Booking flow redesign: helpers for parts of the day, day dots, the live summary and field ticks.
+import { dayPart, groupByPart, loadDots, summaryRows, miniSummary, nameOk as bkName, phoneOk as bkPhone, emailOk as bkEmail } from '../lib/booking-ui.js';
+test('booking times group into morning, afternoon and evening in clinic time',()=>{
+  const tz='America/Edmonton';
+  assert.equal(dayPart('2026-11-02T16:00:00Z',tz),'Morning');
+  assert.equal(dayPart('2026-11-02T20:30:00Z',tz),'Afternoon');
+  assert.equal(dayPart('2026-11-03T01:00:00Z',tz),'Evening');
+  const g=groupByPart([['2026-11-02T20:30:00Z',['a']],['2026-11-02T16:00:00Z',['a','b']],['2026-11-02T21:00:00Z',['b']]],tz);
+  assert.deepEqual(g.map(x=>[x.label,x.items.length,x.icon]),[['Morning',1,'sun'],['Afternoon',2,'sunset']]);
+  assert.deepEqual(groupByPart([],tz),[]);
+  assert.deepEqual([0,1,3,4,7,8,20].map(loadDots),[0,1,1,2,2,3,3]);
+});
+test('the live appointment summary shows pending rows until chosen, and the claim rows never show a time',()=>{
+  const empty=summaryRows({});
+  assert.deepEqual(empty.map(r=>[r.label,r.value,r.filled]),[['Appointment','Not chosen yet',false],['Optometrist','Not chosen yet',false],['Date and time','Not chosen yet',false]]);
+  const full=summaryRows({serviceName:'Comprehensive eye exam',serviceIcon:'eye',doctorLabel:'Dr. [First] [Last]',when:'Oct 29, 2026, 1:00 p.m.'});
+  assert.ok(full.every(r=>r.filled));assert.equal(full[0].icon,'eye');
+  const claim=summaryRows({claim:true,email:' Claim@Example.com '});
+  assert.deepEqual(claim.map(r=>r.value),['Already have a prescription','Claim@Example.com']);
+  assert.equal(summaryRows({claim:true,email:'nope'})[1].value,'Your email address');
+  assert.deepEqual(miniSummary({}),{title:'Nothing chosen yet',sub:'Choose the care you need'});
+  assert.equal(miniSummary({serviceName:'Dry eye consultation'}).sub,'Pick a date and time next');
+  assert.ok(bkName('Al')&&!bkName(' A ')&&bkPhone('780 555 0123')&&!bkPhone('555 0123')&&bkEmail('a@b.co')&&!bkEmail('a@b'));
+});
+test('booking page layout: prescription card first, one radio group, sticky phone bar, submit buttons tied to their forms',()=>{
+  const flow=readFileSync(new URL('../components/booking-flow.js',import.meta.url),'utf8');
+  const group=flow.slice(flow.indexOf('<div className="service-choices" role="radiogroup"'),flow.indexOf('{path === \'book\' && service === \'skin-tightening\''));
+  assert.ok(group.indexOf('prescription-choice')<group.indexOf('<p className="bk-or"')&&group.indexOf('<p className="bk-or"')<group.indexOf('services.map('),'prescription card, then the divider, then the services');
+  assert.ok(flow.includes('<form id="booking-details"')&&flow.includes('type="submit" form="booking-details"')&&flow.includes('<form id="claim-details"')&&flow.includes('type="submit" form="claim-details"'));
+  assert.ok(!flow.includes('rangeList')&&flow.includes('className="day-grid bk-days"'),'days scroll sideways instead of week tabs');
+  assert.ok(!/free at \{timeText\(start\)\}\./.test(flow),'no double full stop after p.m.');
+  const css=readFileSync(new URL('../app/booking.css',import.meta.url),'utf8');
+  assert.match(css,/@media \(max-width: 860px\) \{[^@]*\.bk-nav \{ position: sticky; bottom: 0;/);
+  assert.ok(css.includes('prefers-reduced-motion')&&readFileSync(new URL('../app/layout.js',import.meta.url),'utf8').includes("import './booking.css';"));
+});

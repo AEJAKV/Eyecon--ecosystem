@@ -1,0 +1,247 @@
+/* Booking flow redesign (/booking and /book/[slug]): softer cards with icon tiles and ticks, a live appointment summary
+   on the right, a sideways day scroller, times grouped by part of the day, icon fields that tick when filled, and on
+   phones a Continue bar that stays at the bottom with the appointment so far. Everything is scoped under .bk. */
+.bk { --bk-r: 18px; --bk-r-sm: 14px; --bk-sel: #fbf8f1; --bk-gold-soft: #d8c49a; --bk-green: #4f7a48; }
+.bk.booking-shell { grid-template-columns: minmax(0, 1fr) 340px; gap: 3.5rem; margin-top: 2.25rem; }
+.bk .booking-panel { display: flex; flex-direction: column; }
+.bk .booking-panel > .step { display: flex; flex-direction: column; }
+
+/* Header pieces: the affiliate chip, the steps and the title */
+.bk .booking-ref { align-self: flex-start; gap: .6rem; padding: .35rem .9rem .35rem .35rem; margin-bottom: 1.5rem; border-radius: 999px; background: var(--white); border: 1px solid #e6e4de; color: #3a3f45; animation: step-in .5s var(--ease) both; }
+.bk-pill { padding: .15rem .6rem; border-radius: 999px; background: var(--tint); color: var(--gold-text); font-size: .78rem; white-space: nowrap; }
+.bk .progress { margin-bottom: 2rem; }
+.bk-stepper { list-style: none; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .5rem; padding: 0; margin: 0; }
+.bk-stepper.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.bk-stepper li { display: flex; flex-direction: column; gap: .65rem; min-width: 0; }
+.bk-bar { display: block; height: 4px; border-radius: 999px; background: #e6e4de; overflow: hidden; }
+.bk-bar span { display: block; height: 100%; border-radius: inherit; background: var(--gold); transition: width .6s var(--ease); }
+.bk-stepper li.done .bk-bar span { background: var(--ink); }
+.bk-stepper button { display: flex; align-items: center; gap: .6rem; padding: 0; border: 0; background: none; color: var(--muted); font-size: .88rem; text-align: left; min-height: 32px; min-width: 0; }
+.bk-stepper button:not(:disabled) { cursor: pointer; }
+.bk-stepper button:disabled { opacity: 1; cursor: default; }
+.bk-step-now { display: none; margin: .75rem 0 0; font-size: .85rem; color: var(--muted); }
+.bk-stepper button:not(:disabled):hover .bk-step-label { text-decoration: underline; text-underline-offset: 3px; }
+.bk-stepper li[aria-current] button, .bk-stepper li.done button { color: var(--ink); }
+.bk-stepper li[aria-current] button { font-weight: 500; }
+.bk-stepper .num { width: 30px; height: 30px; flex: none; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; border: 1px solid #c9c8c1; font: 400 .82rem var(--sans); margin: 0; transition: background .3s, color .3s, border-color .3s; }
+.bk-stepper li[aria-current] .num { border-color: var(--ink); background: var(--white); }
+.bk-stepper li.done .num { background: var(--ink); border-color: var(--ink); color: var(--bk-gold-soft); animation: bk-pop .35s var(--ease) both; }
+.bk-step-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bk .bk-title { font-size: clamp(2.2rem, 4vw, 3.2rem); line-height: 1.08; margin: 0 0 .5rem; outline: none; }
+.bk-sub { margin: 0 0 1.75rem; color: var(--muted); }
+.bk .notice { border-radius: var(--bk-r-sm); }
+
+/* Step 1: the prescription card, the divider and the services */
+.bk .service-choices { grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: .9rem; }
+.bk .service-choice { flex-direction: column; align-items: flex-start; gap: .8rem; min-height: 0; padding: 1.25rem 3.25rem 1.25rem 1.25rem; border: 1.5px solid #e1e0da; border-radius: var(--bk-r); animation: step-in .55s var(--ease) both; transition: transform .3s var(--ease), box-shadow .3s, border-color .25s, background .25s; }
+.bk .service-choice::after { display: none; }
+.bk .service-choice:hover { transform: translateY(-3px); border-color: #cdbf9f; box-shadow: 0 18px 36px -24px rgba(20, 24, 29, .4); }
+.bk .service-choice.selected { border-color: var(--ink); background: var(--bk-sel); box-shadow: none; }
+.bk .service-choice svg { color: inherit; }
+.bk-tile { width: 46px; height: 46px; flex: none; border-radius: 14px; display: inline-flex; align-items: center; justify-content: center; background: var(--tint); color: var(--gold-text); transition: background .25s, color .25s; }
+.bk .selected .bk-tile, .bk label:has(input:checked) .bk-tile { background: var(--ink); color: var(--bk-gold-soft); }
+.bk-tick { position: absolute; top: 1.15rem; right: 1.15rem; width: 24px; height: 24px; border-radius: 50%; border: 1.5px solid #c9c8c1; display: inline-flex; align-items: center; justify-content: center; color: var(--ink); transition: background .25s, border-color .25s; }
+.bk-tick svg { animation: bk-pop .3s var(--ease) both; }
+.bk .selected > .bk-tick { background: var(--bk-gold-soft); border-color: var(--gold); }
+.bk .service-choice.prescription-choice { grid-column: 1 / -1; margin: 0; flex-direction: row; align-items: center; gap: 1rem; border-style: dashed; border-color: var(--gold); background: #fdfbf6; }
+.bk .service-choice.prescription-choice.selected { border-color: var(--ink); background: var(--bk-sel); }
+.bk .service-choice.prescription-choice .bk-tick { top: 50%; margin-top: -12px; }
+.bk .prescription-choice .bk-tile { width: 52px; height: 52px; border-radius: 16px; }
+.bk .prescription-choice:not(.selected) .shimmer { background: linear-gradient(100deg, var(--tint) 30%, #f7f1e4 50%, var(--tint) 70%); background-size: 200% 100%; animation: bk-shimmer 3s linear infinite; }
+.bk-or { grid-column: 1 / -1; display: flex; align-items: center; gap: .9rem; margin: .25rem 0; font-size: .78rem; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.bk-or::before, .bk-or::after { content: ''; flex: 1; height: 1px; background: var(--line); }
+.bk .urgent-note { display: flex; align-items: center; gap: .5rem; }
+.bk .urgent-note svg { color: var(--danger); flex: none; }
+
+/* Step 2: how to choose, optometrists, days and times */
+.bk .mode-toggle { margin: 0 0 1.5rem; background: #ebe9e3; }
+.bk .mode-toggle button { display: inline-flex; align-items: center; justify-content: center; gap: .5rem; }
+.bk .mode-toggle .active { box-shadow: 0 4px 14px -6px rgba(20, 24, 29, .3); }
+.bk .time-label { display: flex; align-items: center; gap: .5rem; font-size: .9rem; }
+.bk .time-label svg { color: var(--gold-text); flex: none; }
+.bk .time-label small { margin-left: auto; font-weight: 400; color: var(--muted); font-size: .8rem; }
+.bk .doctor-choice { border: 1.5px solid #e1e0da; border-radius: var(--bk-r); padding: .75rem 3.25rem .75rem .75rem; transition: transform .3s var(--ease), box-shadow .3s, border-color .25s, background .25s; }
+.bk .doctor-choice::after { display: none; }
+.bk .doctor-choice:not(.unavailable):hover { transform: translateY(-2px); border-color: #cdbf9f; box-shadow: 0 16px 32px -24px rgba(20, 24, 29, .4); }
+.bk .doctor-choice.selected { border-color: var(--ink); background: var(--bk-sel); box-shadow: none; }
+.bk .doctor-choice img { border-radius: 12px; }
+.bk .doctor-choice .bk-tick { top: 50%; margin-top: -12px; }
+.bk .doctor-choice-open::before { content: ''; display: inline-block; width: 6px; height: 6px; margin-right: .4rem; border-radius: 50%; background: var(--bk-green); vertical-align: middle; }
+.bk .doctor-choice.unavailable .doctor-choice-open::before { background: #b9b8b2; }
+.bk-days-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: .7rem; }
+.bk-days-head .time-label { margin: 0; }
+.bk-days-arrows { display: flex; gap: .4rem; }
+.bk-days-arrows button { width: 40px; height: 40px; border-radius: 50%; border: 1px solid #c9c8c1; background: var(--white); color: var(--ink); display: inline-flex; align-items: center; justify-content: center; transition: border-color .2s, background .2s; }
+.bk-days-arrows button:hover { border-color: var(--ink); }
+.bk-days-arrows button:first-child svg { transform: rotate(90deg); }
+.bk-days-arrows button:last-child svg { transform: rotate(-90deg); }
+.bk .bk-days { display: flex; gap: .6rem; overflow-x: auto; scroll-snap-type: x mandatory; overscroll-behavior-x: contain; scrollbar-width: none; margin: 0 0 1.75rem; padding: 2px 2px 6px; }
+.bk .bk-days::-webkit-scrollbar { display: none; }
+.bk .bk-days button { flex: 0 0 82px; scroll-snap-align: start; border: 1.5px solid #e1e0da; border-radius: 16px; padding: .75rem .3rem .6rem; gap: .05rem; transition: border-color .2s, background .25s, color .25s, transform .2s; }
+.bk .bk-days button:hover { border-color: var(--ink); }
+.bk .bk-days button span { font-size: 1.6rem; }
+.bk .bk-days .active { animation: bk-pop .3s var(--ease) both; }
+.bk-dots { display: flex; gap: 3px; height: 5px; margin-top: .35rem; font-style: normal; }
+.bk-dots b { width: 5px; height: 5px; border-radius: 50%; background: var(--gold); }
+.bk .bk-days .active .bk-dots b { background: var(--bk-gold-soft); }
+.bk-part { margin-bottom: 1.25rem; animation: step-in .4s var(--ease) both; }
+.bk .time-grid { margin-bottom: 0; }
+.bk .time-grid button { border: 1.5px solid #e1e0da; border-radius: var(--bk-r-sm); animation: bk-pop .3s var(--ease) both; transition: border-color .2s, background .25s, color .25s, transform .2s, box-shadow .2s; }
+.bk .time-grid button:hover { border-color: var(--ink); transform: translateY(-2px); }
+.bk .time-grid .active { box-shadow: 0 12px 24px -16px rgba(20, 24, 29, .7); }
+.bk .doctor-pick { padding: 1rem; margin: .25rem 0 1.25rem; border-radius: var(--bk-r); background: var(--tint); animation: bk-pop .35s var(--ease) both; }
+.bk .doctor-pick .doctor-choices { margin-bottom: 0; }
+.bk .empty-range { border-radius: var(--bk-r-sm); }
+.bk .selection-summary { border-radius: var(--bk-r-sm); border: 1px solid #e1e0da; border-left: 3px solid var(--gold); }
+
+/* Step 3: icon fields, first visit cards, insurance, designers, the text switch */
+.bk-input { position: relative; display: flex; align-items: center; gap: .6rem; min-height: 52px; padding: 0 .9rem; border: 1.5px solid #c9c8c1; border-radius: var(--bk-r-sm); background: var(--white); transition: border-color .2s, box-shadow .2s; }
+.bk-input > svg { color: var(--muted); flex: none; }
+.bk-input:focus-within { border-color: var(--gold-text); box-shadow: 0 0 0 3px rgba(180, 154, 103, .22); }
+.bk .bk-input input { flex: 1; min-width: 0; min-height: 48px; border: 0; padding: 0; background: transparent; font-size: 1rem; }
+.bk .bk-input input:focus { outline: none; }
+.bk-ok { display: inline-flex; color: var(--bk-green); animation: bk-pop .3s var(--ease) both; }
+.bk .bk-cards { display: grid; grid-template-columns: 1fr 1fr; gap: .7rem; }
+.bk .bk-cards legend { grid-column: 1 / -1; }
+.bk .bk-cards label { min-height: 62px; gap: .75rem; border: 1.5px solid #e1e0da; border-radius: 16px; padding: .6rem 1rem; transition: border-color .25s, background .25s; }
+.bk .bk-cards label:has(input:checked) { border-color: var(--ink); background: var(--bk-sel); box-shadow: none; }
+.bk .bk-cards input { position: absolute; opacity: 0; pointer-events: none; }
+.bk .bk-cards label:has(input:focus-visible) { outline: 3px solid var(--gold-text); outline-offset: 3px; }
+.bk .bk-cards .bk-tile { width: 36px; height: 36px; border-radius: 11px; }
+.bk .optional-fields { border: 1px solid #e1e0da; border-radius: 16px; background: var(--white); }
+.bk .optional-fields summary { display: flex; align-items: center; gap: .7rem; min-height: 56px; padding: 0 1rem; cursor: pointer; font-weight: 500; list-style: none; }
+.bk .optional-fields summary::-webkit-details-marker { display: none; }
+.bk .optional-fields summary::after { display: none; }
+.bk .optional-fields summary > svg { color: var(--gold-text); flex: none; }
+.bk-chevron { margin-left: auto; display: inline-flex; color: var(--muted); transition: transform .3s var(--ease); }
+.bk .optional-fields[open] .bk-chevron { transform: rotate(180deg); }
+.bk .optional-fields .stack { margin: 0; padding: .25rem 1rem 1rem; animation: step-in .35s var(--ease) both; }
+.bk .brand-field { display: block; padding: 1.1rem 1.25rem; border: 1px solid #e1e0da; border-radius: 16px; background: var(--white); }
+.bk .brand-field legend { float: left; width: 100%; margin: 0; }
+.bk .brand-field legend small { margin-left: .4rem; font-size: .85rem; font-weight: 400; color: var(--muted); }
+.bk .brand-chips { clear: both; padding-top: .9rem; margin-top: 0; }
+.bk .brand-chips button { transition: background .2s, color .2s, border-color .2s, transform .15s; }
+.bk .brand-chips button:active { transform: scale(.96); }
+.bk .brand-chips button svg { color: var(--bk-gold-soft); animation: bk-pop .3s var(--ease) both; }
+.bk-brand-note { margin: .8rem 0 0; }
+.bk .bk-switch { position: relative; padding: 1rem 1.1rem; border: 1px solid #e1e0da; border-radius: 16px; background: var(--white); cursor: pointer; gap: .9rem; }
+.bk .bk-switch input { position: absolute; opacity: 0; width: 44px; height: 26px; margin: 0; }
+.bk-track { position: relative; width: 44px; height: 26px; flex: none; border-radius: 999px; background: #c9c8c1; transition: background .25s; }
+.bk-track::after { content: ''; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: var(--white); box-shadow: 0 1px 3px rgba(0, 0, 0, .25); transition: transform .25s var(--ease); }
+.bk .bk-switch input:checked + .bk-track { background: var(--bk-green); }
+.bk .bk-switch input:checked + .bk-track::after { transform: translateX(18px); }
+.bk .bk-switch input:focus-visible + .bk-track { outline: 3px solid var(--gold-text); outline-offset: 3px; }
+.bk .privacy-note { display: flex; gap: .55rem; align-items: flex-start; line-height: 1.55; }
+.bk .privacy-note svg { color: var(--gold-text); flex: none; margin-top: 3px; }
+
+/* Back and Continue. The one-line summary and its sheet are for phones only. */
+.bk-nav { margin-top: 2rem; }
+.bk-nav .form-actions { margin-top: 0; }
+.bk-nav .button { border-radius: 999px; }
+.bk-nav .button:not(.secondary) { padding-inline: 1.75rem; }
+.bk-arrow { display: inline-flex; transform: rotate(-90deg); transition: transform .25s var(--ease); }
+.bk-nav .button:hover .bk-arrow { transform: rotate(-90deg) translateY(3px); }
+.bk-back-icon { display: inline-flex; transform: rotate(90deg); }
+.bk-mini, .bk-sheet { display: none; }
+.bk-spin { width: 16px; height: 16px; border-radius: 50%; border: 2px solid currentColor; border-right-color: transparent; animation: bk-spin .8s linear infinite; }
+
+/* The right-hand column: the live summary, the gift offer, help and reviews */
+.bk .booking-aside { display: flex; flex-direction: column; gap: 1.25rem; top: 6.5rem; }
+.bk-summary { padding: 1.25rem; border-radius: 22px; background: var(--white); border: 1px solid #e1e0da; display: flex; flex-direction: column; gap: .75rem; }
+.bk-summary-head { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
+.bk-summary-head strong, .bk-sheet-title { font-family: var(--serif); font-weight: 400; font-size: 1.35rem; }
+.bk-badge { padding: .15rem .65rem; border-radius: 999px; background: #e3ecdf; color: #2f5a2a; font-size: .78rem; animation: bk-pop .35s var(--ease) both; }
+.bk-summary-rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .5rem; }
+.bk-summary-rows li { display: flex; align-items: center; gap: .75rem; padding: .6rem; border-radius: var(--bk-r-sm); background: var(--paper); transition: background .3s; }
+.bk-summary-rows li.filled { background: var(--bk-sel); }
+.bk-summary-rows li > span:last-child { display: flex; flex-direction: column; min-width: 0; }
+.bk-summary-rows small { font-size: .76rem; color: var(--muted); }
+.bk-summary-rows strong { font-size: .95rem; font-weight: 400; color: var(--muted); overflow-wrap: anywhere; }
+.bk-summary-rows li.filled strong { font-weight: 500; color: var(--ink); }
+.bk-summary-icon { width: 38px; height: 38px; flex: none; border-radius: 11px; display: inline-flex; align-items: center; justify-content: center; background: #eeede9; color: #9a9ea3; transition: background .3s, color .3s; }
+.bk-summary-rows li.filled .bk-summary-icon, .bk-summary-icon.filled { background: var(--ink); color: var(--bk-gold-soft); }
+.bk .booking-aside .gift { border-radius: var(--bk-r); }
+.bk .booking-help { margin-top: 0; padding: 1rem 1.1rem; border: 0; border-radius: var(--bk-r); background: var(--tint); }
+.bk .booking-reviews { margin-top: 0; }
+
+/* The confirmation */
+.bk .success-mark { box-shadow: 0 0 0 8px var(--tint); color: var(--bk-gold-soft); animation: bk-ring .7s var(--ease) both; }
+.bk .confirmation-card { border-radius: 22px; border-color: #e1e0da; }
+.bk .confirmation-card .bk-line { display: flex; align-items: flex-start; gap: .6rem; }
+.bk .confirmation-card .bk-line svg { color: var(--gold-text); flex: none; margin-top: 3px; }
+.bk .confirmation-card .calendar-inline .button { border-radius: 999px; }
+.bk .documents-card { border-radius: 22px; }
+.bk .file-prompt { border-radius: var(--bk-r); border-left: 0; }
+.bk .file-prompt-go { border-radius: 999px; }
+.bk .confirmation .gift { border-radius: var(--bk-r); }
+.bk-before { margin: 0 0 1.5rem; padding: 1.25rem 1.4rem; border-radius: 22px; background: var(--tint); }
+.bk-before .plain { margin-top: 0; font-family: var(--serif); font-weight: 400; font-size: 1.35rem; }
+.bk-before .check-list { margin: 0; }
+.bk-before .check-list li { align-items: center; }
+.bk-before .bk-tile { width: 34px; height: 34px; border-radius: 10px; background: rgba(255, 255, 255, .7); }
+.bk-before .check-list svg { margin: 0; }
+.bk .confirmation > .button { align-self: flex-start; border-radius: 999px; }
+
+@keyframes bk-pop { 0% { transform: scale(.7); opacity: 0; } 100% { transform: none; opacity: 1; } }
+@keyframes bk-ring { 0% { transform: scale(.6); opacity: 0; } 60% { transform: scale(1.06); opacity: 1; } 100% { transform: none; } }
+@keyframes bk-shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+@keyframes bk-spin { to { transform: rotate(360deg); } }
+@keyframes bk-sheet { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+
+@media (max-width: 1100px) {
+  .bk.booking-shell { grid-template-columns: minmax(0, 1fr) 300px; gap: 2.5rem; }
+}
+/* Tablets and phones: one column, the summary moves into the bottom bar. */
+@media (max-width: 860px) {
+  .bk.booking-shell { grid-template-columns: 1fr; max-width: 640px; margin: 1.5rem auto 3rem; gap: 2rem; }
+  .bk .booking-aside { display: none; }
+  .bk .service-choices { grid-template-columns: 1fr; gap: .7rem; }
+  .bk .service-choice { flex-direction: row; align-items: center; gap: .9rem; padding: .9rem 3.25rem .9rem .9rem; }
+  .bk .service-choice .bk-tick { top: 50%; margin-top: -12px; }
+  .bk .service-choice small { font-size: .82rem; }
+  .bk .bk-tile { width: 44px; height: 44px; border-radius: 13px; }
+  .bk-nav { position: sticky; bottom: 0; z-index: 20; margin: 1.5rem -1.5rem 0; padding: .6rem 1.5rem calc(1rem + env(safe-area-inset-bottom)); background: rgba(246, 245, 242, .96); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-top: 1px solid #e6e4de; }
+  .bk-mini { display: flex; align-items: center; gap: .7rem; width: 100%; min-height: 44px; margin-bottom: .55rem; padding: 0; border: 0; background: none; color: var(--ink); text-align: left; cursor: pointer; }
+  .bk-mini .bk-summary-icon { width: 34px; height: 34px; border-radius: 10px; }
+  .bk-mini-text { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.3; }
+  .bk-mini-text strong, .bk-mini-text small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bk-mini-text strong { font-weight: 500; font-size: .92rem; }
+  .bk-mini-text small { font-size: .8rem; color: var(--muted); }
+  .bk-mini-chevron { display: inline-flex; color: var(--muted); transform: rotate(180deg); transition: transform .3s var(--ease); }
+  .bk-mini[aria-expanded=true] .bk-mini-chevron { transform: none; }
+  .bk-sheet { display: flex; flex-direction: column; gap: .6rem; margin: 0 0 .75rem; padding: 1rem; border-radius: var(--bk-r); background: var(--white); border: 1px solid #e6e4de; box-shadow: 0 -18px 40px -28px rgba(20, 24, 29, .5); animation: bk-sheet .35s var(--ease) both; }
+  .bk-sheet .bk-summary-icon { width: 34px; height: 34px; }
+  .bk-nav .form-actions { gap: .6rem; }
+  .bk-nav .form-actions .button:not(.bk-back) { flex: 1; }
+  .bk-nav .bk-back { flex: none; width: 52px; padding: 0; }
+  .bk-nav .bk-back-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .bk-before, .bk .confirmation-card { border-radius: var(--bk-r); }
+}
+@media (max-width: 480px) {
+  .bk.booking-shell { margin-top: 1.25rem; }
+  .bk-nav { margin-inline: -1.25rem; padding-inline: 1.25rem; }
+  .bk .booking-ref { font-size: .85rem; }
+  .bk-stepper { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .35rem; }
+  .bk-stepper.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .bk-stepper li, .bk-stepper li:not([aria-current]) { display: flex; }
+  .bk-stepper .bk-step-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .bk-step-now { display: block; }
+  .bk-stepper .num { width: 26px; height: 26px; }
+  .bk .bk-title { font-size: 2rem; }
+  .bk .bk-days button { flex-basis: 66px; padding-block: .6rem .5rem; }
+  .bk .bk-days button span { font-size: 1.35rem; }
+  .bk-days-arrows { display: none; }
+  .bk .bk-days { margin-inline: -1.25rem; padding-inline: 1.25rem; scroll-padding-inline: 1.25rem; }
+  .bk .bk-cards label { flex-direction: column; align-items: flex-start; padding: .75rem; gap: .5rem; min-width: 0; }
+  .bk .brand-field { padding: 1rem; }
+  .bk .brand-chips button { min-height: 40px; padding-inline: .8rem; font-size: .86rem; }
+  .bk .doctor-choice img { width: 52px; height: 64px; }
+  .bk .confirmation-card { padding: 1.25rem; }
+}
+@media (hover: none) {
+  .bk .service-choice:hover, .bk .doctor-choice:hover, .bk .time-grid button:hover { transform: none; box-shadow: none; }
+  .bk .service-choice:not(.selected):hover { border-color: #e1e0da; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bk *, .bk *::before, .bk *::after { animation: none !important; transition: none !important; }
+}

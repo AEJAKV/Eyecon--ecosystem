@@ -10,10 +10,14 @@ import BookedGift from './booked-gift';
 import Image from 'next/image';
 import { DEMO, clinic, services, brands, brandFromParam, doctorName, findDoctor, formatDate, instructions, serviceOptions, serviceOptionName } from '@/lib/config';
 import { websiteList, offersService, inTimeOff } from '@/lib/schedule';
+import { groupByPart, loadDots, nameOk, phoneOk, emailOk, summaryRows, miniSummary } from '@/lib/booking-ui';
 import SkinTechnologies from './skin-technologies';
 import { BookingReviews } from './reviews';
 import { validateBooking, slotTaken } from '@/lib/validation';
-import { Header, Footer, Button, Field, Gift, Icon, Notice, Loading, Referral } from './ui';
+import { Header, Footer, Button, Gift, Icon, Notice, Loading } from './ui';
+
+// The round tick on a choice card. It fills and shows a check when the card is chosen.
+const Tick = ({ on }) => <span className="bk-tick" aria-hidden="true">{on && <Icon name="check" size={14} />}</span>;
 
 // Optometrist cards: photo, name and focus. With counts, each card says how many online times they have and
 // a card with none cannot be chosen.
@@ -25,26 +29,49 @@ function DoctorChoices({ name, label, list, value, counts, onChange }) {
         <input type="radio" name={name} value={d.slug} checked={value === d.slug} disabled={none} onChange={() => onChange(d.slug)} />
         <Image src={d.photo} alt={d.alt || ''} width={64} height={80} sizes="64px" />
         <span><strong>{doctorName(d.slug)}</strong><small>{d.focus}</small>{counts && <small className="doctor-choice-open">{none ? 'No online times' : `${open} open time${open === 1 ? '' : 's'}`}</small>}</span>
+        <Tick on={value === d.slug} />
       </label>;
     })}
   </div>;
 }
 
+// A details field with an icon, and a green tick once the value looks right.
+function IconField({ label, id, icon, ok, hint, ...props }) {
+  return <div className="field bk-field">
+    <label htmlFor={id}>{label}</label>
+    <span className="bk-input"><Icon name={icon} size={18} /><input id={id} aria-describedby={hint ? id + '-hint' : undefined} {...props} />{ok && <span className="bk-ok"><Icon name="check" size={18} /><span className="sr-only">Looks good</span></span>}</span>
+    {hint && <small id={id + '-hint'}>{hint}</small>}
+  </div>;
+}
+
+// The steps across the top. Finished steps can be clicked to go back, until the booking is confirmed.
+function Stepper({ labels, step, done, onGo }) {
+  return <div className="progress" aria-label={`Step ${step + 1} of ${labels.length}: ${labels[step]}`}>
+    <ol className={`stepper bk-stepper ${labels.length === 3 ? 'three' : ''}`}>{labels.map((l, i) => {
+      const finished = i < step || done, current = i === step && !done, canGo = i < step && !done;
+      return <li key={l} className={finished ? 'done' : ''} aria-current={i === step ? 'step' : undefined}>
+        <span className="bk-bar" aria-hidden="true"><span style={{ width: finished ? '100%' : current ? '45%' : '0%' }} /></span>
+        <button type="button" disabled={!canGo} onClick={() => onGo(i)}><span className="num">{finished ? <Icon name="check" size={14} /> : i + 1}</span><span className="bk-step-label">{l}</span>{canGo && <span className="sr-only"> (go back to this step)</span>}</button>
+      </li>;
+    })}</ol>
+    <p className="bk-step-now" aria-hidden="true">{done ? 'All done' : `Step ${step + 1} of ${labels.length} · ${labels[step]}`}</p>
+  </div>;
+}
+
+function SummaryRows({ rows }) {
+  return <ul className="bk-summary-rows">{rows.map(r => <li key={r.key} className={r.filled ? 'filled' : ''}>
+    <span className="bk-summary-icon" aria-hidden="true"><Icon name={r.icon} size={18} /></span>
+    <span><small>{r.label}</small><strong>{r.value}</strong></span>
+  </li>)}</ul>;
+}
+
 const LABELS = ['Appointment', 'Date and time', 'Your details', 'Confirmed'];
 const TITLES = ['What would you like to book?', 'When works for you?', 'Your details', 'You’re booked'];
+const SUBTITLES = ['Choose the care you need. It takes about a minute.', '', 'So the clinic can confirm your visit and remind you before it.', ''];
 // "Already have a prescription" (affiliate links only): no appointment, just the $50 card emailed to use in store.
 const CLAIM_LABELS = ['Choose', 'Your details', 'Gift card ready'];
-const CLAIM_TITLES = ['What would you like to book?', 'Claim your gift card', 'Your gift card is ready'];
-// Date ranges in days from today. "This week" ends on Sunday so it matches how people say it.
-function ranges() {
-  const now = new Date(), toSunday = 7 - ((now.getDay() + 6) % 7 + 1) + 1;
-  return [
-    { label: 'This week', from: 0, to: toSunday },
-    { label: 'Next week', from: toSunday, to: toSunday + 7 },
-    { label: 'In 2–3 weeks', from: toSunday + 7, to: toSunday + 21 },
-    { label: 'Later', from: toSunday + 21, to: Infinity }
-  ];
-}
+const CLAIM_TITLES = ['What would you like to book?', 'Where should we send your gift card?', 'Your gift card is ready'];
+const CLAIM_SUBTITLES = ['Choose the care you need. It takes about a minute.', 'Bring your prescription to the clinic and use the card on your eyewear.', ''];
 
 export default function BookingFlow() {
   const params = useSearchParams(), slug = params.get('affiliate'), { data, ready, book, claimGift, doctors: allDoctors, doctorsReady } = useApp();
@@ -66,12 +93,13 @@ export default function BookingFlow() {
   const [serviceOption, setServiceOption] = useState(() => serviceOptions[params.get('service')]?.find(o => o.slug === params.get('option'))?.slug || '');
   const [day, setDay] = useState('');
   const [start, setStart] = useState('');
-  const [range, setRange] = useState(0);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [confirmation, setConfirmation] = useState(null);
   const [captcha, setCaptcha] = useState('');
   const [captchaKey, setCaptchaKey] = useState(0);
+  // On phones the appointment summary folds into one line above Continue; this opens it.
+  const [sheet, setSheet] = useState(false);
   // A brand passed in the link (from the collections carousel) arrives already chosen; unknown names are ignored.
   const linkedBrand = brandFromParam(params.get('brand'));
   const [details, setDetails] = useState({ name: '', email: '', phone: '', firstVisit: '', insurance: '', policy: '', brands: linkedBrand ? [linkedBrand] : [], smsConsent: false, website: '' });
@@ -88,7 +116,7 @@ export default function BookingFlow() {
     if (!doctorsReady || !doctor || bookable.some(d => d.slug === doctor)) return;
     setDoctor(''); setDay(''); setStart(''); setMode('time');
   }, [doctorsReady, bookable]);
-  const titleRef = useRef(null), firstRender = useRef(true);
+  const titleRef = useRef(null), firstRender = useRef(true), daysRef = useRef(null);
 
   useEffect(() => {
     if (DEMO) {
@@ -108,6 +136,7 @@ export default function BookingFlow() {
   useEffect(() => { if (!loading && !affiliate && path === 'claim') { setPath('book'); setStep(0); } }, [loading, affiliate]);
   useEffect(() => {
     if (firstRender.current) { firstRender.current = false; return; }
+    setSheet(false);
     titleRef.current?.focus({ preventScroll: true });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [step]);
@@ -118,23 +147,18 @@ export default function BookingFlow() {
   const offered = useMemo(() => slots.filter(s => bookable.some(d => d.slug === s.doctor)), [slots, bookable]);
   const pool = useMemo(() => mode === 'doctor' ? offered.filter(s => s.doctor === doctor) : offered, [offered, mode, doctor]);
   const openCount = useMemo(() => Object.fromEntries(bookable.map(d => [d.slug, offered.filter(s => s.doctor === d.slug).length])), [offered, bookable]);
-  const days = useMemo(() => [...new Map(pool.map(s => [dayKey(s.start), s.start])).entries()], [pool]);
+  // Each day with open times, in order, with how many start times it has (for the dots under the date).
+  const days = useMemo(() => {
+    const m = new Map();
+    for (const s of pool) { const k = dayKey(s.start), d = m.get(k) || { iso: s.start, starts: new Set() }; d.starts.add(s.start); m.set(k, d); }
+    return [...m.entries()].map(([key, d]) => [key, d.iso, d.starts.size]);
+  }, [pool]);
   // Each start time on the chosen day, with the optometrists free at that moment.
   const times = useMemo(() => { const m = new Map(); for (const s of pool) if (dayKey(s.start) === day) m.set(s.start, [...(m.get(s.start) || []), s.doctor]); return [...m.entries()]; }, [pool, day]);
+  const parts = useMemo(() => groupByPart(times, clinic.timezone), [times]);
   const freeAtStart = times.find(([iso]) => iso === start)?.[1] || [];
-  const rangeList = useMemo(ranges, []);
-  const today = new Date(); today.setHours(0, 0, 0, 0);
-  const inRange = (iso, r) => { const d = (new Date(iso) - today) / 86400000; return d >= r.from && d < r.to; };
-  const visibleDays = days.filter(([, iso]) => inRange(iso, rangeList[range]));
   const chosenService = services.find(s => s.id === service);
   const chosen = !!(start && doctor && offered.some(s => s.doctor === doctor && s.start === start));
-
-  // Open on the first range that has times, so nobody lands on an empty week.
-  useEffect(() => {
-    if (!pool.length || step !== 1 || visibleDays.length) return;
-    const first = rangeList.findIndex(r => days.some(([, iso]) => inRange(iso, r)));
-    if (first > -1 && first !== range) setRange(first);
-  }, [step, pool.length, mode, doctor]);
 
   function change(key, value) { setDetails(d => ({ ...d, [key]: value })); }
   function toggleBrand(b) { setDetails(d => ({ ...d, brands: d.brands.includes(b) ? d.brands.filter(x => x !== b) : [...d.brands, b] })); }
@@ -143,6 +167,7 @@ export default function BookingFlow() {
   function switchMode(m) { if (m === mode) return; setError(''); setMode(m); setDay(''); setStart(''); if (m === 'time') setDoctor(''); }
   function pickDoctor(slug) { setError(''); setDoctor(slug); setDay(''); setStart(''); }
   function pickTime(iso, free) { setError(''); setStart(iso); if (mode === 'time') setDoctor(free.length === 1 ? free[0] : ''); }
+  function scrollDays(dir) { const el = daysRef.current; if (el) el.scrollBy({ left: dir * el.clientWidth * .8, behavior: 'smooth' }); }
   function next() {
     setError('');
     if (step === 0 && path === 'book' && !chosenService) { setError('Choose the care you need.'); return; }
@@ -176,81 +201,99 @@ export default function BookingFlow() {
   if (loadError) return <><Header /><main className="container empty-page" id="main-content"><h1>Arrange your visit</h1><Notice error>{loadError}</Notice>{slug ? <Button href="/booking">Book directly</Button> : <Button onClick={() => window.location.reload()}>Try again</Button>}</main><Footer /></>;
 
   const optionName = serviceOptionName(service, serviceOption);
-  const summary = (action = null) => <div className="selection-summary"><Icon name="calendar" /><div><strong>{chosenService?.name}{optionName && <> · {optionName}</>}</strong><small>With {doctorName(doctor)}</small><small>{formatDate(start, { dateStyle: 'full', timeStyle: 'short' })}</small></div>{action}</div>;
-  const labels = path === 'claim' ? CLAIM_LABELS : LABELS, titles = path === 'claim' ? CLAIM_TITLES : TITLES;
+  const isClaim = path === 'claim';
+  const labels = isClaim ? CLAIM_LABELS : LABELS, titles = isClaim ? CLAIM_TITLES : TITLES, subtitles = isClaim ? CLAIM_SUBTITLES : SUBTITLES;
   const done = step === labels.length - 1;
   const timeText = iso => formatDate(iso, { dateStyle: undefined, timeStyle: 'short' });
   const shortName = slug => { const d = findDoctor(slug); return d ? `${d.title} ${d.last}` : ''; };
+  const dayText = (iso, opts) => formatDate(iso, { dateStyle: undefined, timeStyle: undefined, ...opts });
+  // After booking, the summary reads from the saved booking: its time is no longer in the open list.
+  const booked = confirmation?.booking;
+  const when = booked ? formatDate(booked.start, { dateStyle: 'medium', timeStyle: 'short' }) : chosen ? formatDate(start, { dateStyle: 'medium', timeStyle: 'short' }) : '';
+  const serviceName = chosenService ? chosenService.name + (optionName ? ' · ' + optionName : '') : '';
+  const rows = summaryRows({ claim: isClaim, serviceName, serviceIcon: chosenService?.icon, doctorLabel: booked ? doctorName(booked.doctor) : doctor && (mode === 'doctor' || chosen) ? doctorName(doctor) : '', when, email: claim.email });
+  const mini = miniSummary({ claim: isClaim, serviceName, when });
+  const first = (confirmation?.booking.name || '').split(' ')[0];
+  const title = !isClaim && done && first ? `You’re booked, ${first}` : titles[step];
+  // The months the open days cover, first and last only: "October – January".
+  const months = [...new Set(days.map(([, iso]) => dayText(iso, { month: 'long' })))];
+  const monthSpan = months.length > 1 ? months[0] + ' – ' + months[months.length - 1] : months[0] || '';
+  const summary = (action = null) => <div className="selection-summary"><Icon name="calendar" /><div><strong>{chosenService?.name}{optionName && <> · {optionName}</>}</strong><small>With {doctorName(doctor)}</small><small>{formatDate(start, { dateStyle: 'full', timeStyle: 'short' })}</small></div>{action}</div>;
+
+  // Back and Continue. On phones this bar stays at the bottom of the screen, with the appointment so far above it.
+  const nav = (backTo, action) => <div className="bk-nav">
+    {sheet && <div className="bk-sheet" id="bk-sheet"><strong className="bk-sheet-title">Your appointment</strong><SummaryRows rows={rows} /></div>}
+    <button type="button" className="bk-mini" aria-expanded={sheet} aria-controls="bk-sheet" onClick={() => setSheet(o => !o)}>
+      <span className={`bk-summary-icon ${isClaim || chosenService ? 'filled' : ''}`} aria-hidden="true"><Icon name={isClaim ? 'gift' : chosenService?.icon || 'calendar'} size={16} /></span>
+      <span className="bk-mini-text"><strong>{mini.title}</strong><small>{mini.sub}</small></span>
+      <span className="bk-mini-chevron" aria-hidden="true"><Icon name="chevron" size={18} /></span>
+      <span className="sr-only">{sheet ? 'Hide' : 'Show'} your appointment</span>
+    </button>
+    <div className="form-actions">{backTo !== null && <Button type="button" secondary className="bk-back" onClick={() => back(backTo)}><span className="bk-back-icon" aria-hidden="true"><Icon name="chevron" size={18} /></span><span className="bk-back-label">Back</span></Button>}{action}</div>
+  </div>;
+  const arrow = <span className="bk-arrow" aria-hidden="true"><Icon name="chevron" size={18} /></span>;
+
   return <>
     <Header bookingHref={affiliate ? '/book/' + affiliate.slug : '/'} bookingLabel="Back to Eyecon" bookingShort="Back" />
-    <main className="booking-shell" id="main-content">
-      <aside className="booking-aside">
-        <h1>A little time, a clearer view.</h1>
-        <p>Choose your appointment and a time that suits you. It takes about a minute.</p>
-        {affiliate && <><Referral affiliate={affiliate} />{!done && <Gift compact affiliate={affiliate} />}</>}
-        <div className="booking-help">
-          <Icon name="phone" />
-          <h3>Prefer to talk to us?</h3>
-          {clinic.phone ? <a href={clinic.phoneHref}>{clinic.phone}</a> : <p>The clinic phone number will be added before launch.</p>}
-        </div>
-        <BookingReviews />
-      </aside>
-
+    <main className="booking-shell bk" id="main-content">
       <section className="booking-panel">
-        {affiliate && <p className="booking-ref"><img src={affiliate.photo || '/images/affiliate.webp'} alt="" width="32" height="32" /><span>Booking through <strong>{affiliate.name}</strong>{!done && <>, with a $50 gift card</>}</span></p>}
-        <div className="progress" aria-label={`Step ${step + 1} of ${labels.length}: ${labels[step]}`}>
-          <div className="progress-track"><div className="progress-fill" style={{ width: ((step + 1) / labels.length) * 100 + '%' }} /></div>
-          <ol className={`stepper ${labels.length === 3 ? 'three' : ''}`} aria-hidden="true">{labels.map((l, i) => <li key={l} className={i < step ? 'done' : ''} aria-current={i === step ? 'step' : undefined}><span className="num">{i + 1}</span>{l}</li>)}</ol>
-        </div>
-        <h2 ref={titleRef} tabIndex={-1}>{titles[step]}</h2>
+        {affiliate && <p className="booking-ref"><img src={affiliate.photo || '/images/affiliate.webp'} alt="" width="32" height="32" /><span>Booking through <strong>{affiliate.name}</strong></span>{!done && <span className="bk-pill">$50 gift card</span>}</p>}
+        <Stepper labels={labels} step={step} done={done} onGo={back} />
+        {done && <div className="success-mark"><Icon name="check" size={34} /></div>}
+        <h1 className="bk-title" ref={titleRef} tabIndex={-1}>{title}</h1>
+        {subtitles[step] && <p className="bk-sub">{subtitles[step]}</p>}
+        {step === 1 && !isClaim && chosenService && <p className="bk-sub">{serviceName}</p>}
         <Notice error>{error}</Notice>
 
         {step === 0 && <div className="step" key="s0">
           <div className="service-choices" role="radiogroup" aria-label="Appointment type">
-            {services.map(s => <label key={s.id} className={`service-choice ${path === 'book' && service === s.id ? 'selected' : ''}`}>
-              <input type="radio" name="service" value={s.id} checked={path === 'book' && service === s.id} onChange={() => { choose('book'); setService(s.id); if (!serviceOptions[s.id]) setServiceOption(''); }} />
-              <Icon name={s.icon} />
-              <span><strong>{s.name}</strong><small>{s.description}</small></span>
-            </label>)}
-            {affiliate && <label className={`service-choice prescription-choice ${path === 'claim' ? 'selected' : ''}`}>
-              <input type="radio" name="service" value="prescription" checked={path === 'claim'} onChange={() => choose('claim')} />
-              <Icon name="gift" />
-              <span><strong>Already have a prescription</strong><small>Skip the exam. We’ll email your $50 gift card to use on eyewear in store.</small></span>
+            {/* The prescription card comes first, right under the question, so nobody has to scroll past the services to find it. */}
+            {affiliate && <label className={`service-choice prescription-choice ${isClaim ? 'selected' : ''}`}>
+              <input type="radio" name="service" value="prescription" checked={isClaim} onChange={() => choose('claim')} />
+              <span className="bk-tile shimmer" aria-hidden="true"><Icon name="gift" /></span>
+              <span><strong>Already have a prescription?</strong><small>Skip the exam. We’ll email your $50 gift card to use on eyewear in store.</small></span>
+              <Tick on={isClaim} />
             </label>}
+            {affiliate && <p className="bk-or" aria-hidden="true"><span>Or book a visit</span></p>}
+            {services.map((s, i) => { const on = path === 'book' && service === s.id; return <label key={s.id} className={`service-choice ${on ? 'selected' : ''}`} style={{ animationDelay: i * 40 + 'ms' }}>
+              <input type="radio" name="service" value={s.id} checked={on} onChange={() => { choose('book'); setService(s.id); if (!serviceOptions[s.id]) setServiceOption(''); }} />
+              <span className="bk-tile" aria-hidden="true"><Icon name={s.icon} /></span>
+              <span><strong>{s.name}</strong><small>{s.description}</small></span>
+              <Tick on={on} />
+            </label>; })}
           </div>
           {path === 'book' && service === 'skin-tightening' && <SkinTechnologies value={serviceOption} onChange={setServiceOption} />}
-          <p className="urgent-note">Urgent eye concern? {clinic.phone ? <a href={clinic.phoneHref}>Call the clinic</a> : 'Please call the clinic for guidance.'}</p>
-          <div className="form-actions"><Button onClick={next} disabled={path === 'book' && !chosenService}>Continue</Button></div>
+          <p className="urgent-note"><Icon name="info" size={18} />Urgent eye concern? {clinic.phone ? <a href={clinic.phoneHref}>Call the clinic</a> : 'Please call the clinic for guidance.'}</p>
+          {nav(null, <Button onClick={next} disabled={path === 'book' && !chosenService}>Continue{arrow}</Button>)}
         </div>}
 
         {path === 'book' && step === 1 && <div className="step" key="s1">
-          <p className="muted">{chosenService?.name}</p>
           <div className="mode-toggle" role="group" aria-label="How would you like to choose?">
-            {[['doctor', 'Choose a doctor'], ['time', 'Choose a time']].map(([m, label]) => <button type="button" key={m} className={mode === m ? 'active' : ''} aria-pressed={mode === m} onClick={() => switchMode(m)}>{label}</button>)}
+            {[['doctor', 'Choose a doctor', 'user'], ['time', 'Choose a time', 'clock']].map(([m, label, icon]) => <button type="button" key={m} className={mode === m ? 'active' : ''} aria-pressed={mode === m} onClick={() => switchMode(m)}><Icon name={icon} size={18} />{label}</button>)}
           </div>
           {!slots.length ? <Notice>No online times are available right now. Please call the clinic or check back later.</Notice> : <>
             {mode === 'doctor' && <>
-              <p className="time-label">Your optometrist</p>
+              <p className="time-label"><Icon name="user" size={16} />Your optometrist</p>
               <DoctorChoices name="doctor" label="Optometrist" list={bookable} value={doctor} counts={openCount} onChange={pickDoctor} />
               {!doctor && <p className="quiet">Pick an optometrist to see the days they are available.</p>}
             </>}
             {(mode === 'time' || doctor) && (pool.length ? <>
-              <div className="week-tabs" role="group" aria-label="When">
-                {rangeList.map((r, i) => <button type="button" key={r.label} className={range === i ? 'active' : ''} aria-pressed={range === i} onClick={() => { setRange(i); clearTime(); }}>{r.label}</button>)}
+              <div className="bk-days-head">
+                <p className="time-label"><Icon name="calendar" size={16} />{monthSpan}</p>
+                <div className="bk-days-arrows"><button type="button" aria-label="Earlier days" onClick={() => scrollDays(-1)}><Icon name="chevron" size={18} /></button><button type="button" aria-label="Later days" onClick={() => scrollDays(1)}><Icon name="chevron" size={18} /></button></div>
               </div>
-              {visibleDays.length
-                ? <div className="day-grid" role="group" aria-label={mode === 'doctor' ? 'Days ' + doctorName(doctor) + ' is available' : 'Available days'}>
-                    {visibleDays.map(([key, iso]) => <button type="button" key={key} className={day === key ? 'active' : ''} aria-pressed={day === key} onClick={() => clearTime(key)}>
-                      <small>{formatDate(iso, { dateStyle: undefined, timeStyle: undefined, weekday: 'short' })}</small>
-                      <span>{formatDate(iso, { dateStyle: undefined, timeStyle: undefined, day: 'numeric' })}</span>
-                      <small>{formatDate(iso, { dateStyle: undefined, timeStyle: undefined, month: 'short' })}</small>
-                    </button>)}
-                  </div>
-                : <p className="empty-range">No open times in this range. Try another.</p>}
-              {day && <>
-                <p className="time-label">Available times</p>
-                <div className={`time-grid ${mode === 'time' ? 'with-doctors' : ''}`} role="group" aria-label="Available times" key={mode + day}>
-                  {times.map(([iso, free], i) => {
+              <div className="day-grid bk-days" ref={daysRef} role="group" aria-label={mode === 'doctor' ? 'Days ' + doctorName(doctor) + ' is available' : 'Available days'}>
+                {days.map(([key, iso, count]) => <button type="button" key={key} className={day === key ? 'active' : ''} aria-pressed={day === key} onClick={() => clearTime(key)} aria-label={`${dayText(iso, { weekday: 'long', month: 'long', day: 'numeric' })}, ${count} open time${count === 1 ? '' : 's'}`}>
+                  <small>{dayText(iso, { weekday: 'short' })}</small>
+                  <span>{dayText(iso, { day: 'numeric' })}</span>
+                  <small>{dayText(iso, { month: 'short' })}</small>
+                  <i className="bk-dots" aria-hidden="true">{Array.from({ length: loadDots(count) }, (_, j) => <b key={j} />)}</i>
+                </button>)}
+              </div>
+              {day && parts.map(g => <div className="bk-part" key={mode + day + g.label}>
+                <p className="time-label"><Icon name={g.icon} size={16} />{g.label}<small>{g.items.length} open</small></p>
+                <div className={`time-grid ${mode === 'time' ? 'with-doctors' : ''}`} role="group" aria-label={g.label + ' times'}>
+                  {g.items.map(([iso, free], i) => {
                     const names = free.map(doctorName).join(' and ');
                     return <button type="button" key={iso} style={{ animationDelay: i * 30 + 'ms' }} aria-pressed={start === iso} className={start === iso ? 'active' : ''} onClick={() => pickTime(iso, free)}
                       aria-label={mode === 'time' ? `${timeText(iso)}, with ${names}` : undefined} title={mode === 'time' ? names : undefined}>
@@ -262,51 +305,51 @@ export default function BookingFlow() {
                     </button>;
                   })}
                 </div>
-              </>}
-              {!day && visibleDays.length > 0 && <p className="quiet">Pick a day to see the times.</p>}
+              </div>)}
+              {!day && <p className="quiet">Pick a day to see the times.</p>}
               {mode === 'time' && start && freeAtStart.length > 1 && <div className="doctor-pick">
-                <p className="time-label">Who would you like to see? {freeAtStart.length} optometrists are free at {timeText(start)}</p>
+                <p className="time-label"><Icon name="users" size={16} />Who would you like to see? {freeAtStart.length} optometrists are free at {timeText(start)}</p>
                 <DoctorChoices name="doctor-at-time" label={'Optometrist at ' + timeText(start)} list={bookable.filter(d => freeAtStart.includes(d.slug))} value={doctor} onChange={slug => { setError(''); setDoctor(slug); }} />
               </div>}
-              {chosen && summary()}
             </> : <p className="empty-range">{doctorName(doctor)} has no online times right now. Choose another optometrist, or switch to “Choose a time”.</p>)}
           </>}
-          <div className="form-actions"><Button secondary onClick={() => back(0)}>Back</Button><Button onClick={next} disabled={!chosen}>Continue</Button></div>
+          {nav(0, <Button onClick={next} disabled={!chosen}>Continue{arrow}</Button>)}
         </div>}
 
-        {path === 'book' && step === 2 && <form onSubmit={submit} className="stack step" key="s2">
-          {summary(<button type="button" className="text-link" onClick={() => back(1)}>Change</button>)}
-          <Field label="Full name" id="patient-name" autoComplete="name" required maxLength={120} value={details.name} onChange={e => change('name', e.target.value)} />
-          <div className="form-grid">
-            <Field label="Mobile number" id="patient-phone" type="tel" autoComplete="tel" required maxLength={32} placeholder="780 555 0123" value={details.phone} onChange={e => change('phone', e.target.value)} />
-            <Field label="Email address" id="patient-email" type="email" autoComplete="email" required value={details.email} onChange={e => change('email', e.target.value)} />
-          </div>
-          <fieldset className="choice-field"><legend>Is this your first visit to Eyecon?</legend>
-            {['yes', 'no'].map(v => <label key={v}><input type="radio" name="first-visit" required checked={details.firstVisit === v} onChange={() => change('firstVisit', v)} />{v === 'yes' ? 'Yes, first visit' : 'I’ve been before'}</label>)}
-          </fieldset>
-          <details className="optional-fields"><summary>Insurance details <small>Optional</small></summary>
-            <div className="stack">
-              <Field label="Insurance company" id="insurance" value={details.insurance} maxLength={120} onChange={e => change('insurance', e.target.value)} list={clinic.insurers.length ? 'insurer-options' : undefined} />
-              {clinic.insurers.length > 0 && <datalist id="insurer-options">{clinic.insurers.map(i => <option key={i} value={i} />)}</datalist>}
-              <Field label="Policy number" id="policy" value={details.policy} maxLength={120} onChange={e => change('policy', e.target.value)} hint="Only clinic staff can see this. You can bring your insurance card instead." />
+        {path === 'book' && step === 2 && <div className="step" key="s2">
+          <form id="booking-details" onSubmit={submit} className="stack">
+            {summary(<button type="button" className="text-link" onClick={() => back(1)}>Change</button>)}
+            <IconField label="Full name" id="patient-name" icon="user" ok={nameOk(details.name)} autoComplete="name" required maxLength={120} value={details.name} onChange={e => change('name', e.target.value)} />
+            <div className="form-grid">
+              <IconField label="Mobile number" id="patient-phone" icon="phone" ok={phoneOk(details.phone)} type="tel" autoComplete="tel" required maxLength={32} placeholder="780 555 0123" value={details.phone} onChange={e => change('phone', e.target.value)} />
+              <IconField label="Email address" id="patient-email" icon="mail" ok={emailOk(details.email)} type="email" autoComplete="email" required value={details.email} onChange={e => change('email', e.target.value)} />
             </div>
-          </details>
-          <fieldset className="choice-field brand-field"><legend>Designers you love <small>Choose at least one</small></legend>
-            <div className="brand-chips" role="group" aria-label="Favourite designers">
-              {brands.map(b => <button type="button" key={b} aria-pressed={details.brands.includes(b)} onClick={() => toggleBrand(b)}>{details.brands.includes(b) && <Icon name="check" size={14} />}{b}</button>)}
-            </div>
-            <p className="quiet" style={{ marginTop: '.8rem' }}>We’ll have these ready for you to try.</p>
-          </fieldset>
-          <label className="checkbox-label"><input type="checkbox" checked={details.smsConsent} onChange={e => change('smsConsent', e.target.checked)} /><span>Text me appointment reminders{affiliate ? ' and my gift card details' : ''}.<small>Optional. Message and data rates may apply. Contact the clinic to stop.</small></span></label>
-          <p className="privacy-note">{affiliate ? `${affiliate.name} can see your name and booking status. Your appointment type and insurance stay with the clinic. ` : ''}Read our <Link href="/privacy">privacy notice</Link>.</p>
-          <div className="honeypot" aria-hidden="true"><label htmlFor="website">Leave this blank</label><input id="website" value={details.website} onChange={e => change('website', e.target.value)} tabIndex={-1} autoComplete="off" /></div>
-          {!DEMO && <Captcha key={captchaKey} action="booking" onToken={setCaptcha} />}
-          <div className="form-actions"><Button type="button" secondary onClick={() => back(1)}>Back</Button><Button disabled={busy} type="submit">{busy ? 'Booking…' : 'Confirm booking'}</Button></div>
-        </form>}
+            <fieldset className="choice-field bk-cards"><legend>Is this your first visit to Eyecon?</legend>
+              {['yes', 'no'].map(v => <label key={v}><input type="radio" name="first-visit" required checked={details.firstVisit === v} onChange={() => change('firstVisit', v)} /><span className="bk-tile" aria-hidden="true"><Icon name={v === 'yes' ? 'star' : 'repeat'} size={18} /></span>{v === 'yes' ? 'Yes, first visit' : 'I’ve been before'}</label>)}
+            </fieldset>
+            <details className="optional-fields"><summary><Icon name="shield" size={18} />Insurance details <small>Optional</small><span className="bk-chevron" aria-hidden="true"><Icon name="chevron" size={18} /></span></summary>
+              <div className="stack">
+                <IconField label="Insurance company" id="insurance" icon="shield" value={details.insurance} maxLength={120} onChange={e => change('insurance', e.target.value)} list={clinic.insurers.length ? 'insurer-options' : undefined} />
+                {clinic.insurers.length > 0 && <datalist id="insurer-options">{clinic.insurers.map(i => <option key={i} value={i} />)}</datalist>}
+                <IconField label="Policy number" id="policy" icon="receipt" value={details.policy} maxLength={120} onChange={e => change('policy', e.target.value)} hint="Only clinic staff can see this. You can bring your insurance card instead." />
+              </div>
+            </details>
+            <fieldset className="choice-field brand-field"><legend>Designers you love <small>Choose at least one</small></legend>
+              <div className="brand-chips" role="group" aria-label="Favourite designers">
+                {brands.map(b => <button type="button" key={b} aria-pressed={details.brands.includes(b)} onClick={() => toggleBrand(b)}>{details.brands.includes(b) && <Icon name="check" size={14} />}{b}</button>)}
+              </div>
+              <p className="quiet bk-brand-note" aria-live="polite">{details.brands.length ? `${details.brands.length} selected · we’ll have these ready for you to try.` : 'We’ll have these ready for you to try.'}</p>
+            </fieldset>
+            <label className="checkbox-label bk-switch"><input type="checkbox" role="switch" checked={details.smsConsent} onChange={e => change('smsConsent', e.target.checked)} /><span className="bk-track" aria-hidden="true" /><span>Text me appointment reminders{affiliate ? ' and my gift card details' : ''}.<small>Optional. Message and data rates may apply. Contact the clinic to stop.</small></span></label>
+            <p className="privacy-note"><Icon name="lock" size={16} /><span>{affiliate ? `${affiliate.name} can see your name and booking status. Your appointment type and insurance stay with the clinic. ` : ''}Read our <Link href="/privacy">privacy notice</Link>.</span></p>
+            <div className="honeypot" aria-hidden="true"><label htmlFor="website">Leave this blank</label><input id="website" value={details.website} onChange={e => change('website', e.target.value)} tabIndex={-1} autoComplete="off" /></div>
+            {!DEMO && <Captcha key={captchaKey} action="booking" onToken={setCaptcha} />}
+          </form>
+          {nav(1, <Button disabled={busy} type="submit" form="booking-details">{busy && <span className="bk-spin" aria-hidden="true" />}{busy ? 'Booking…' : 'Confirm booking'}{!busy && arrow}</Button>)}
+        </div>}
 
         {path === 'book' && step === 3 && confirmation && <div className="confirmation step" key="s3">
-          <div className="success-mark"><Icon name="check" size={34} /></div>
-          <p className="confirmation-lead">We look forward to seeing you, {confirmation.booking.name.split(' ')[0]}.{affiliate && confirmation.booking.giftCard && <> Your $50 gift card is ready below.</>}</p>
+          <p className="confirmation-lead">We look forward to seeing you. A confirmation is on its way to your inbox.{affiliate && confirmation.booking.giftCard && <> Your $50 gift card is ready below.</>}</p>
           {/* The file speeds up check-in, so it is the first thing asked for, right under the confirmation. */}
           {confirmation.booking.documentsToken && fileState === 'form' && <a className="file-prompt" href="#complete-file" onClick={e => { e.preventDefault(); const el = document.getElementById('complete-file'); el?.scrollIntoView({ behavior: 'smooth', block: 'start' }); setTimeout(() => el?.querySelector('input')?.focus({ preventScroll: true }), 500); }}>
             <span className="file-prompt-icon" aria-hidden="true"><Icon name="scan" size={22} /></span>
@@ -318,48 +361,68 @@ export default function BookingFlow() {
             <h3>{services.find(s => s.id === confirmation.booking.service)?.name}</h3>
             {serviceOptionName(confirmation.booking.service, confirmation.booking.serviceOption) && <p>{serviceOptionName(confirmation.booking.service, confirmation.booking.serviceOption)}</p>}
             <p className="ref">Reference<strong>{confirmation.booking.reference}</strong></p>
-            <p>With {doctorName(confirmation.booking.doctor)}</p>
-            <p>{formatDate(confirmation.booking.start, { dateStyle: 'full', timeStyle: 'short' })}</p>
-            <p className="muted">{clinic.address || 'The clinic will confirm the location with you.'}</p>
+            <p className="bk-line"><Icon name="calendar" size={18} />{formatDate(confirmation.booking.start, { dateStyle: 'full', timeStyle: 'short' })}</p>
+            <p className="bk-line"><Icon name="user" size={18} />With {doctorName(confirmation.booking.doctor)}</p>
+            <p className="bk-line muted"><Icon name="pin" size={18} />{clinic.address || 'The clinic will confirm the location with you.'}</p>
             <CalendarCard booking={confirmation.booking} compact />
             {affiliate && confirmation.booking.giftCard && <BookedGift affiliate={affiliate} card={confirmation.booking.giftCard} emailed={confirmation.notifications?.email} email={confirmation.booking.email} />}
           </div>
 
           <DocumentsForm token={confirmation.booking.documentsToken} canSkip onState={setFileState} skip={fileState === 'skipped'} />
 
-          <h3 className="plain">Before your visit</h3>
-          <ul className="check-list">{instructions.map(t => <li key={t}><Icon name="check" size={18} />{t}</li>)}</ul>
+          <div className="bk-before">
+            <h3 className="plain">Before your visit</h3>
+            <ul className="check-list">{instructions.map(t => <li key={t}><span className="bk-tile" aria-hidden="true"><Icon name="check" size={16} /></span>{t}</li>)}</ul>
+          </div>
           <Notice>{DEMO ? 'Demo booking saved in this browser. No email or SMS was sent.' : confirmation.notifications?.email === 'sent' ? 'Your confirmation email is on its way. Check your inbox.' : 'Your booking is saved. Keep your reference and add it to your calendar above.'}</Notice>
           <Button secondary href={affiliate ? '/book/' + affiliate.slug : '/'}>Return to Eyecon</Button>
         </div>}
-        {path === 'claim' && step === 1 && <form onSubmit={submitClaim} className="stack step" key="c1">
-          <div className="selection-summary"><Icon name="gift" /><div><strong>Already have a prescription</strong><small>We’ll email your $50 gift card. Bring your prescription to the clinic and use the card on your eyewear.</small></div><button type="button" className="text-link" onClick={() => back(0)}>Change</button></div>
-          <Field label="Full name" id="claim-name" autoComplete="name" required maxLength={120} value={claim.name} onChange={e => changeClaim('name', e.target.value)} />
-          <Field label="Email address" id="claim-email" type="email" autoComplete="email" required value={claim.email} onChange={e => changeClaim('email', e.target.value)} hint="Your gift card is sent here." />
-          <details className="optional-fields"><summary>Health card or insurance <small>Optional</small></summary>
-            <div className="stack">
-              <Field label="Alberta health card number" id="claim-health-card" inputMode="numeric" maxLength={40} value={claim.healthCard} onChange={e => changeClaim('healthCard', e.target.value)} hint="Only clinic staff can see this." />
-              <Field label="Insurance company" id="claim-insurance" value={claim.insurance} maxLength={120} onChange={e => changeClaim('insurance', e.target.value)} list={clinic.insurers.length ? 'claim-insurer-options' : undefined} />
-              {clinic.insurers.length > 0 && <datalist id="claim-insurer-options">{clinic.insurers.map(i => <option key={i} value={i} />)}</datalist>}
-              <Field label="Policy number" id="claim-policy" value={claim.policy} maxLength={120} onChange={e => changeClaim('policy', e.target.value)} hint="Only clinic staff can see this. You can bring your insurance card instead." />
-            </div>
-          </details>
-          <p className="privacy-note">{affiliate?.name} is not told your details. One gift card per email address. Read our <Link href="/privacy">privacy notice</Link> and the <Link href="/gift-card-terms" target="_blank">gift card terms</Link>.</p>
-          <div className="honeypot" aria-hidden="true"><label htmlFor="claim-website">Leave this blank</label><input id="claim-website" value={claim.website} onChange={e => changeClaim('website', e.target.value)} tabIndex={-1} autoComplete="off" /></div>
-          {!DEMO && <Captcha key={captchaKey} action="claim" onToken={setCaptcha} />}
-          <div className="form-actions"><Button type="button" secondary onClick={() => back(0)}>Back</Button><Button disabled={busy} type="submit">{busy ? 'Sending…' : 'Send my gift card'}</Button></div>
-        </form>}
 
-        {path === 'claim' && step === 2 && claimed && <div className="confirmation step" key="c2">
-          <div className="success-mark"><Icon name="check" size={34} /></div>
+        {isClaim && step === 1 && <div className="step" key="c1">
+          <form id="claim-details" onSubmit={submitClaim} className="stack">
+            <div className="selection-summary"><Icon name="gift" /><div><strong>Already have a prescription</strong><small>We’ll email your $50 gift card. Bring your prescription to the clinic and use the card on your eyewear.</small></div><button type="button" className="text-link" onClick={() => back(0)}>Change</button></div>
+            <IconField label="Full name" id="claim-name" icon="user" ok={nameOk(claim.name)} autoComplete="name" required maxLength={120} value={claim.name} onChange={e => changeClaim('name', e.target.value)} />
+            <IconField label="Email address" id="claim-email" icon="mail" ok={emailOk(claim.email)} type="email" autoComplete="email" required value={claim.email} onChange={e => changeClaim('email', e.target.value)} hint="Your gift card is sent here." />
+            <details className="optional-fields"><summary><Icon name="shield" size={18} />Health card or insurance <small>Optional</small><span className="bk-chevron" aria-hidden="true"><Icon name="chevron" size={18} /></span></summary>
+              <div className="stack">
+                <IconField label="Alberta health card number" id="claim-health-card" icon="receipt" inputMode="numeric" maxLength={40} value={claim.healthCard} onChange={e => changeClaim('healthCard', e.target.value)} hint="Only clinic staff can see this." />
+                <IconField label="Insurance company" id="claim-insurance" icon="shield" value={claim.insurance} maxLength={120} onChange={e => changeClaim('insurance', e.target.value)} list={clinic.insurers.length ? 'claim-insurer-options' : undefined} />
+                {clinic.insurers.length > 0 && <datalist id="claim-insurer-options">{clinic.insurers.map(i => <option key={i} value={i} />)}</datalist>}
+                <IconField label="Policy number" id="claim-policy" icon="receipt" value={claim.policy} maxLength={120} onChange={e => changeClaim('policy', e.target.value)} hint="Only clinic staff can see this. You can bring your insurance card instead." />
+              </div>
+            </details>
+            <p className="privacy-note"><Icon name="lock" size={16} /><span>{affiliate?.name} is not told your details. One gift card per email address. Read our <Link href="/privacy">privacy notice</Link> and the <Link href="/gift-card-terms" target="_blank">gift card terms</Link>.</span></p>
+            <div className="honeypot" aria-hidden="true"><label htmlFor="claim-website">Leave this blank</label><input id="claim-website" value={claim.website} onChange={e => changeClaim('website', e.target.value)} tabIndex={-1} autoComplete="off" /></div>
+            {!DEMO && <Captcha key={captchaKey} action="claim" onToken={setCaptcha} />}
+          </form>
+          {nav(0, <Button disabled={busy} type="submit" form="claim-details">{busy && <span className="bk-spin" aria-hidden="true" />}{busy ? 'Sending…' : 'Send my gift card'}{!busy && arrow}</Button>)}
+        </div>}
+
+        {isClaim && step === 2 && claimed && <div className="confirmation step" key="c2">
           <p className="confirmation-lead">Thank you, {claimed.card.name.split(' ')[0]}. Here is your $50 gift card.</p>
           <Gift affiliate={affiliate} card={claimed.card} />
-          <h3 className="plain">How to use it</h3>
-          <ul className="check-list">{['Bring your prescription to the clinic.', 'Show this card number, or the email we sent you.', 'We apply the $50 to your eyewear.'].map(t => <li key={t}><Icon name="check" size={18} />{t}</li>)}</ul>
+          <div className="bk-before">
+            <h3 className="plain">How to use it</h3>
+            <ul className="check-list">{['Bring your prescription to the clinic.', 'Show this card number, or the email we sent you.', 'We apply the $50 to your eyewear.'].map(t => <li key={t}><span className="bk-tile" aria-hidden="true"><Icon name="check" size={16} /></span>{t}</li>)}</ul>
+          </div>
           <Notice>{DEMO ? 'Demo gift card saved in this browser. No email was sent.' : claimed.notifications?.email === 'sent' ? 'Your gift card is on its way to your inbox.' : 'Your gift card is saved. Keep this card number to show at the clinic.'}</Notice>
           <Button secondary href={'/book/' + affiliate.slug}>Return to Eyecon</Button>
         </div>}
       </section>
+
+      <aside className="booking-aside" aria-label="Your appointment">
+        <div className="bk-summary">
+          <div className="bk-summary-head"><strong>Your appointment</strong>{done && <span className="bk-badge">Confirmed</span>}</div>
+          <SummaryRows rows={rows} />
+        </div>
+        {affiliate && !done && <Gift compact affiliate={affiliate} />}
+        <div className="booking-help">
+          <Icon name="phone" />
+          <h3>Prefer to talk to us?</h3>
+          {clinic.phone ? <a href={clinic.phoneHref}>{clinic.phone}</a> : <p>The clinic phone number will be added before launch.</p>}
+        </div>
+        <BookingReviews />
+      </aside>
     </main>
     <Footer />
   </>;

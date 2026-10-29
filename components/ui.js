@@ -31,7 +31,14 @@ export function Icon({name='eye',size=24}){const paths={eye:<><path d="M2 12s4-7
   receipt:<><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 7h6M9 11h6M9 15h3"/></>,
   list:<path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/>,
   tag:<><path d="M3 12V4a1 1 0 0 1 1-1h8l9 9-9 9z"/><circle cx="7.5" cy="7.5" r="1.5"/></>,
-  more:<><circle cx="5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="19" cy="12" r="1.4"/></>};return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]||paths.eye}</svg>;}
+  more:<><circle cx="5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="19" cy="12" r="1.4"/></>,
+  sun:<><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></>,
+  sunset:<><path d="M12 3v3M4.2 7.2l1.4 1.4M19.8 7.2l-1.4 1.4M8 15a4 4 0 0 1 8 0M3 15h18M6 19h12"/></>,
+  moon:<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5Z"/>,
+  shield:<path d="M12 3l8 3v6c0 4.5-3.4 8-8 9-4.6-1-8-4.5-8-9V6z"/>,
+  lock:<><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></>,
+  star:<path d="m12 3 2.6 5.6 6.1.6-4.6 4.1 1.3 6-5.4-3.1-5.4 3.1 1.3-6-4.6-4.1 6.1-.6z"/>,
+  repeat:<path d="M4 12a8 8 0 1 0 2.3-5.7M4 4v4h4"/>};return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]||paths.eye}</svg>;}
 // The wordmark with Eyecon's mark: a thin gold outlined rectangle, 3:2, to the right of EYECON. It is drawn inline so it
 // stays sharp at any size, sits on the baseline at the height of the capitals, and is decorative (the link is labelled).
 export function Logo(){return <Link href="/" className="logo" aria-label="Eyecon Optometry home"><span>EYECON<svg className="logo-mark" viewBox="0 0 30 20" aria-hidden="true" focusable="false"><rect x="1" y="1" width="28" height="18" fill="none" stroke="currentColor" strokeWidth="2"/></svg></span><small>Optometry</small></Link>;}
