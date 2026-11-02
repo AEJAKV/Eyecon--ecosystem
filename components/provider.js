@@ -1,7 +1,8 @@
 'use client';
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { DEMO, placeholderDoctors, setDoctorDirectory } from '@/lib/config';
-import { seedDemo, applyDemo, demoLookup, demoReleaseGift, demoScanGift, demoGiftStatus } from '@/lib/demo';
+import { seedDemo, applyDemo, demoLookup, demoReleaseGift, demoScanGift, demoGiftStatus, seedBlog, demoBlogUser } from '@/lib/demo';
+import { canSeePost, isReviewer } from '@/lib/blog';
 import { browserClient, passwordLinkType, onPasswordForm, passwordFormPath } from '@/lib/supabase';
 import { clearStoredGifts } from '@/lib/gift-browser';
 const Context=createContext(null);
@@ -21,7 +22,7 @@ export function Provider({children}){
   // Demo data is saved under v5 (v2 added doctors, v3 references, v4 pricing and commission amounts, v5 doctor profiles
   // and schedules); older saved data is not loaded.
   useEffect(()=>{
-    if(DEMO){try{const saved=JSON.parse(localStorage.getItem('eyecon-demo-v5')||'null');setData(saved?.affiliates&&saved?.bookings&&saved?.doctors?saved:seedDemo());const u=JSON.parse(sessionStorage.getItem('eyecon-demo-user')||'null');if(u&&['staff','front-desk','affiliate'].includes(u.role))setUser(u);}catch{setData(seedDemo());}setReady(true);return;}
+    if(DEMO){try{const saved=JSON.parse(localStorage.getItem('eyecon-demo-v5')||'null');setData(saved?.affiliates&&saved?.bookings&&saved?.doctors?(saved.blogPosts?saved:{...saved,...seedBlog()}):seedDemo());const u=JSON.parse(sessionStorage.getItem('eyecon-demo-user')||'null');if(u&&['staff','front-desk','affiliate'].includes(u.role))setUser(u);}catch{setData(seedDemo());}setReady(true);return;}
     let active=true,subscription;
     // A password-reset or invitation link signs the person in. Whatever page it lands on (a link sent from the Supabase
     // dashboard lands on the home page), they are taken to the form that sets their password. Read before the client
@@ -77,6 +78,25 @@ export function Provider({children}){
     if(DEMO){const url=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=reject;reader.readAsDataURL(file);});const d=doctors.find(d=>d.slug===doctor);return action('doctor',{...d,photo:url});}
     const form=new FormData();form.set('file',file);form.set('doctor',doctor);const response=await fetch('/api/doctors',{method:'POST',headers:await headers(),body:form});const result=await response.json();if(!response.ok)throw new Error(result.error);await reload();return result;
   }
-  return <Context.Provider value={{data,user,ready,error,reload,action,book,releaseGift,claimGift,scanGift,giftStatus,photo,documentsLinkValid,submitDocuments,lookupBooking,demoSignIn,signOut,reset,doctors,doctorsReady,doctorAction,doctorPhoto}}>{children}</Context.Provider>;
+  // The blog (migration 016). Live: /api/blog for the signed-in author or staff admin, /api/blog/comments for readers.
+  // Demo: the same rules in lib/demo.js on this browser's data, where a picture's stored name is the picture itself.
+  async function blogLoad(){
+    if(DEMO){const me=demoBlogUser(latest.current,user);if(!me)throw new Error('Please sign in.');const d=latest.current;return {me:{id:me.id,role:me.role},posts:(d.blogPosts||[]).filter(p=>canSeePost(p,me)),images:{},comments:isReviewer(me)?(d.blogComments||[]):[]};}
+    const response=await fetch('/api/blog',{headers:await headers(),cache:'no-store'});const result=await response.json();if(!response.ok)throw new Error(result.error);return result;
+  }
+  async function blogAction(name,payload={}){
+    if(DEMO){const next=applyDemo(latest.current,'blog-'+name,payload,user);latest.current=next;setData(next);const id=name==='create'?next.blogPosts[0].id:payload.id;return {post:(next.blogPosts||[]).find(p=>p.id===id)||null};}
+    const response=await fetch('/api/blog',{method:'POST',headers:{...await headers(),'Content-Type':'application/json'},body:JSON.stringify({action:name,payload})});const result=await response.json();if(!response.ok)throw new Error(result.error);return result;
+  }
+  // file is already shrunk by the editor. Returns { key, url }.
+  async function blogUpload(postId,file){
+    if(DEMO){const url=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=reject;reader.readAsDataURL(file);});return {key:url,url};}
+    const form=new FormData();form.set('post',postId);form.set('file',file);const response=await fetch('/api/blog',{method:'POST',headers:await headers(),body:form});const result=await response.json().catch(()=>({error:'The upload was interrupted. Please try again.'}));if(!response.ok)throw new Error(result.error);return result;
+  }
+  async function blogComment(payload){
+    if(DEMO){const next=applyDemo(latest.current,'blog-comment',payload,null);latest.current=next;setData(next);return {ok:true};}
+    const response=await fetch('/api/blog/comments',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const result=await response.json();if(!response.ok)throw new Error(result.error);return result;
+  }
+  return <Context.Provider value={{blogLoad,blogAction,blogUpload,blogComment,data,user,ready,error,reload,action,book,releaseGift,claimGift,scanGift,giftStatus,photo,documentsLinkValid,submitDocuments,lookupBooking,demoSignIn,signOut,reset,doctors,doctorsReady,doctorAction,doctorPhoto}}>{children}</Context.Provider>;
 }
 export function useApp(){return useContext(Context);}

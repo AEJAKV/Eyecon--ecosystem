@@ -1178,10 +1178,10 @@ test('the workspace API, pages and sign-in route the front desk to /desk and ref
   assert.ok(route.includes("if(u.role===FRONT_DESK_ROLE&&!canAct(u.role,action))throw refused();"),'checked before the affiliate profile action');
   assert.ok(route.includes("action==='team-invite'")&&route.includes("action==='team-toggle'"));
   const desk=readFileSync(new URL('../app/desk/[[...section]]/page.js',import.meta.url),'utf8');
-  assert.ok(desk.includes("['','gift-cards','leads']")&&desk.includes('<Workspace role="front-desk"')&&desk.includes('robots:{index:false,follow:false}'));
+  assert.ok(desk.includes("['','gift-cards','leads','blog']")&&desk.includes('<Workspace role="front-desk"')&&desk.includes('robots:{index:false,follow:false}'));
   assert.ok(readFileSync(new URL('../app/admin/[[...section]]/page.js',import.meta.url),'utf8').includes("'team'"));
   const ws=readFileSync(new URL('../components/workspace.js',import.meta.url),'utf8');
-  assert.ok(ws.includes("const deskNav=[['','Bookings'],['gift-cards','Gift cards'],['leads','Leads']];")&&ws.includes("['team','Team']]"));
+  assert.ok(ws.includes("const deskNav=[['','Bookings'],['gift-cards','Gift cards'],['leads','Leads'],['blog','Blog']];")&&ws.includes("['team','Team']]"));
   assert.ok(ws.includes('desk?frontDeskView(loaded):loaded')&&ws.includes("{!desk&&detail.status==='Attended'&&<Calculator")&&ws.includes("{desk?<DeskToday bookings={data.bookings} busy={busy} onStatus={setAttendance} onDetails={openDetail}/>:<StaffOverview data={data}"));
   assert.ok(ws.includes("desk?['name','email','phone','start','doctor','service','source','status']:"),'the desk CSV has no commission or payout');
   const login=readFileSync(new URL('../components/login-form.js',import.meta.url),'utf8');
@@ -1364,4 +1364,210 @@ test('skin tightening has its own photographs: the treatment for the service, th
   assert.equal(skinTechnologies[0].image,'/images/services/skin-tightening-xerf.webp');
   assert.equal(services.find(s=>s.id==='skin-tightening').photo,'/images/services/skin-tightening-treatment.webp');
   assert.ok(readFileSync(new URL('../components/landing.js',import.meta.url),'utf8').includes("const servicePhoto = s => s.photo || '/images/services/' + s.id + '.webp';"));
+});
+
+// ---------- The blog (migration 016) ----------
+import * as blog from '../lib/blog.js';
+import * as searchModule from '../lib/search.js';
+import { demoPublicPosts, demoApprovedComments, demoBlogUser, seedBlog } from '../lib/demo.js';
+const filledDraft=(extra={})=>({title:'[Sample title]',excerpt:'[Sample summary of the post]',category:'Eye health',tags:['Sample','sample','Frames!'],cover:{key:'/images/hero.webp',alt:'[Picture description]'},blocks:[{id:'abcd1234',type:'paragraph',text:[{t:'[Text] '},{t:'[bold]',b:true}]},{type:'image',key:'/images/hero.webp',alt:'[A picture]',caption:''},{type:'button',label:''}],schedule:'asap',comments:true,...extra});
+test('blog bylines show the first name and the first letter of the last name',()=>{
+  assert.equal(blog.bylineName('Rodgen Lastname'),'Rodgen L.');assert.equal(blog.bylineName('  alex   van morgan '),'alex M.');
+  assert.equal(blog.bylineName('Cher'),'Cher');assert.equal(blog.bylineName(''),'Eyecon Optometry');assert.equal(blog.bylineName('Zoë Élan'),'Zoë É.');
+  assert.equal(blog.bylineName('[Front desk team member]'),'[Front desk team member]','placeholders stay whole');
+  assert.equal(blog.bylineInitials('Alex M.'),'AM');
+});
+test('blog text is stored as runs, never HTML: links are checked and everything is escaped',()=>{
+  assert.deepEqual(blog.cleanRuns([{t:'a'},{t:'b'},{t:'c',b:true},{t:''},{t:'d',b:true,x:1}]),[{t:'ab'},{t:'cd',b:true}]);
+  for(const bad of ['javascript:alert(1)','//evil.example','http://plain.example','data:text/html,x','/x" onclick="y'])assert.throws(()=>blog.cleanRuns([{t:'x',href:bad}]),/Links must start/,bad);
+  assert.deepEqual(blog.cleanRuns([{t:'x',href:'/booking'},{t:'y',href:'https://example.com/a?b=1'}]).map(r=>r.href),['/booking','https://example.com/a?b=1']);
+  assert.equal(blog.runsToHtml([{t:'<script>&"',b:true,href:'/a'},{t:'x\ny',i:true}]),'<a href="/a"><strong>&lt;script&gt;&amp;&quot;</strong></a><em>x<br>y</em>');
+  const el=(tag,kids,attrs={})=>({nodeType:1,tagName:tag,childNodes:kids,getAttribute:k=>attrs[k]??null}),tx=t=>({nodeType:3,textContent:t});
+  const root=el('div',[tx('Hi '),el('b',[tx('bold '),el('i',[tx('both')])]),el('span',[tx(' plain')]),el('a',[tx('bad')],{href:'javascript:x'}),el('a',[tx('ok')],{href:'/booking'}),el('br',[]),el('script',[tx('x')]),el('div',[tx('next line')])]);
+  assert.deepEqual(blog.nodesToRuns(root),[{t:'Hi '},{t:'bold ',b:true},{t:'both',b:true,i:true},{t:' plainbad'},{t:'ok',href:'/booking'},{t:'\nx\nnext line'}]);
+});
+test('blog drafts are cleaned on save; pictures must be stored names; the checklist decides submission',()=>{
+  const d=blog.validateDraft(filledDraft(),{keyOk:blog.demoKeyOk});
+  assert.deepEqual(d.tags,['sample','frames']);assert.equal(d.blocks[2].label,'Book an appointment');assert.match(d.blocks[1].id,/^[a-z0-9]{8}$/);
+  assert.equal(blog.validateDraft({...filledDraft(),category:'Made up'},{keyOk:blog.demoKeyOk}).category,'');
+  assert.throws(()=>blog.validateDraft(filledDraft()),/picture/,'live keys must be storage names, not image paths');
+  assert.ok(blog.storageKeyOk('0b8f6d4e-1111-2222-3333-444455556666/0b8f6d4e-1111-2222-3333-444455556666.webp'));
+  for(const k of ['../x.webp','a/b.svg','https://x/y.png'])assert.equal(blog.storageKeyOk(k),false,k);
+  assert.throws(()=>blog.validateDraft({...filledDraft(),tags:['a','b','c','d','e','f','g']},{keyOk:blog.demoKeyOk}),/6 tags/);
+  assert.throws(()=>blog.validateDraft({blocks:[{type:'html',text:'<b>'}]}),/does not know/);
+  assert.equal(blog.readyToSubmit(d),true);
+  const missing=blog.submitChecks({...d,cover:null,blocks:[{type:'image',key:'',alt:''}]}).filter(c=>!c.ok).map(c=>c.label);
+  assert.deepEqual(missing,['Cover picture with a description','Every picture uploaded and described','Some writing in the post']);
+  const now=new Date('2026-11-02T12:00:00Z');
+  assert.equal(blog.readyToSubmit({...d,schedule:'later',publishAt:'2026-11-01T00:00:00Z'},now),false,'a past date cannot be scheduled');
+  assert.equal(blog.fromLocalInput('2026-11-05T09:30','Etc/GMT+6'),'2026-11-05T15:30:00.000Z');assert.equal(blog.toLocalInput('2026-11-05T15:30:00.000Z','Etc/GMT+6'),'2026-11-05T09:30');
+  assert.equal(blog.readMinutes({title:'',blocks:[{type:'paragraph',text:[{t:'word '.repeat(450)}]}]}),2);
+});
+test('blog review steps: authors submit and edit their own posts; only staff admin publish, send back, refuse or unpublish',()=>{
+  const now=new Date('2026-11-02T12:00:00Z'),author={id:'u1',role:'affiliate'},other={id:'u2',role:'front-desk'},staff={id:'s1',role:'staff'};
+  const draft=blog.validateDraft(filledDraft(),{keyOk:blog.demoKeyOk}),post={id:'p1',authorId:'u1',status:'draft',draft,published:null,publishedAt:null,reviewNote:''};
+  assert.equal(blog.canEditPost(post,author),true);assert.equal(blog.canEditPost(post,other),false);assert.equal(blog.canEditPost(post,staff),false);
+  assert.throws(()=>blog.blogStep(post,'submit',other,{confirm:true}),/not found/);
+  assert.throws(()=>blog.blogStep(post,'submit',author,{now}),/patient information/,'the author must confirm');
+  const review={...post,...blog.blogStep(post,'submit',author,{confirm:true,now})};assert.equal(review.status,'review');
+  assert.equal(blog.canEditPost(review,author),false,'locked while in review');assert.equal(blog.canEditPost(review,staff),true,'staff may tidy it');
+  assert.throws(()=>blog.blogStep(review,'approve',author,{now}),/Only staff admin/);assert.throws(()=>blog.blogStep(review,'approve',other,{now}),/not found/);
+  assert.throws(()=>blog.blogStep(review,'changes',staff,{note:'',now}),/Add a note/);
+  assert.equal(blog.blogStep(review,'changes',staff,{note:' Shorten the title ',now}).reviewNote,'Shorten the title');
+  const live={...review,...blog.blogStep(review,'approve',staff,{now})};assert.equal(live.status,'approved');assert.equal(live.publishedAt,now.toISOString());assert.equal(blog.postState(live,now).label,'Published');
+  const later=new Date('2026-11-09T15:00:00Z').toISOString(),sched={...review,draft:{...draft,schedule:'later',publishAt:later}};
+  const s={...sched,...blog.blogStep(sched,'approve',staff,{now})};assert.equal(s.publishedAt,later);assert.equal(blog.postState(s,now).label,'Scheduled');
+  const editing={...live,...blog.blogStep(live,'revise',author,{now})};assert.equal(editing.status,'draft');assert.equal(editing.published,live.published,'the live copy stays');assert.equal(blog.postState(editing,now).live,true);
+  const resub={...editing,status:'review'},again={...resub,...blog.blogStep(resub,'approve',staff,{now:new Date('2026-12-01T00:00:00Z')})};assert.equal(again.publishedAt,live.publishedAt,'a live post keeps its date');
+  const off={...live,...blog.blogStep(live,'unpublish',staff,{now})};assert.equal(off.published,null);assert.equal(off.status,'draft');
+  assert.throws(()=>blog.blogStep(live,'unpublish',author,{now}),/Only staff admin/);
+  assert.equal(blog.canDeletePost(post,author),true);assert.equal(blog.canDeletePost(live,author),false);assert.equal(blog.canDeletePost(review,author),false);assert.equal(blog.canDeletePost(live,staff),true);
+});
+test('readers receive only the published copy, the short byline and the booking link',()=>{
+  const now=new Date('2026-11-02T12:00:00Z'),draft=blog.validateDraft(filledDraft(),{keyOk:blog.demoKeyOk});
+  const post={id:'p1',slug:'sample',authorId:'u1',authorRole:'affiliate',authorName:'Alex Morgan',authorAffiliate:'a1',status:'draft',reviewNote:'secret note',draft:{...draft,title:'[Unreviewed edit]'},published:draft,publishedAt:'2026-11-01T00:00:00Z'};
+  const p=blog.publicPost(post,{imageUrl:k=>'https://cdn.test/'+k,affiliateSlug:'alex-morgan',now});
+  assert.equal(p.title,'[Sample title]','never the working copy');assert.equal(p.byline,'Alex M.');assert.equal(p.bookingHref,'/booking?affiliate=alex-morgan');
+  assert.equal(p.cover.url,'https://cdn.test//images/hero.webp');assert.equal(p.blocks[1].url,'https://cdn.test//images/hero.webp');assert.equal('key' in p.blocks[1],false);
+  const json=JSON.stringify(p);for(const hidden of ['Alex Morgan','u1','affiliate"','secret note','Unreviewed','a1"'])assert.equal(json.includes(hidden),false,hidden);
+  assert.equal(blog.publicPost({...post,publishedAt:'2026-12-01T00:00:00Z'},{imageUrl:k=>k,now}),null,'scheduled posts are hidden until their date');
+  assert.equal(blog.publicPost({...post,published:null,publishedAt:null},{imageUrl:k=>k,now}),null);
+  assert.equal(blog.publicPost(post,{imageUrl:k=>k,now}).bookingHref,'/booking','no referral once the affiliate is inactive');
+  const list=[{...p,slug:'a',publishedAt:'2026-10-01T00:00:00Z'},{...p,slug:'b',category:'Clinic news',tags:['lenses']}];
+  assert.deepEqual(blog.filterPosts(list).map(x=>x.slug),['b','a']);assert.deepEqual(blog.filterPosts(list,{category:'clinic-news'}).map(x=>x.slug),['b']);assert.deepEqual(blog.filterPosts(list,{tag:'lenses'}).map(x=>x.slug),['b']);
+  assert.equal(blog.categoryFromSlug('frames-and-style'),'Frames & style');
+});
+test('blog comments: a first name and the comment, no links, honeypot refused',()=>{
+  assert.deepEqual(blog.validateComment({name:' Sam ',body:' Great read.\n\n\n\nThanks '}),{name:'Sam',body:'Great read.\n\nThanks'});
+  assert.throws(()=>blog.validateComment({name:'Sam',body:'see https://spam.example'}),/links/);
+  assert.throws(()=>blog.validateComment({name:'Sam',body:'<script>'}),/links or code/);
+  assert.throws(()=>blog.validateComment({name:'',body:'Hello'}),/first name/);
+  assert.throws(()=>blog.validateComment({name:'Sam',body:'Hello',website:'x'}),/could not be sent/);
+});
+test('demo blog: write, submit, review, publish, revise and moderate comments with the live rules',()=>{
+  const aff={role:'affiliate',affiliateId:'demo-alex'},desk={role:'front-desk',teamId:'demo-desk'},staff={role:'staff'};
+  let d=seedDemo();assert.deepEqual(Object.keys(seedBlog()),['blogPosts','blogComments']);
+  for(const p of d.blogPosts)assert.ok(p.draft.title.startsWith('['),'sample posts are placeholders');
+  assert.equal(demoBlogUser(d,desk).name,'[Front desk team member]');assert.equal(demoBlogUser(d,null),null);
+  d=applyDemo(d,'blog-create',{},desk);const id=d.blogPosts[0].id;
+  assert.throws(()=>applyDemo(d,'blog-save',{id,draft:filledDraft()},aff),/not found/,'an affiliate cannot open the front desk’s post');
+  d=applyDemo(d,'blog-save',{id,draft:filledDraft()},desk);
+  assert.throws(()=>applyDemo(d,'blog-step',{id,step:'approve'},staff),/not waiting/);
+  d=applyDemo(d,'blog-step',{id,step:'submit',confirm:true},desk);
+  assert.throws(()=>applyDemo(d,'blog-save',{id,draft:filledDraft()},desk),/can’t be edited/);
+  d=applyDemo(d,'blog-step',{id,step:'approve'},staff);
+  const mine=d.blogPosts.find(p=>p.id===id);assert.equal(mine.slug,'sample-title');assert.equal(mine.status,'approved');
+  assert.deepEqual(demoPublicPosts(d).map(p=>p.slug).sort(),['sample-post','sample-title']);
+  d=applyDemo(d,'blog-step',{id,step:'revise'},desk);d=applyDemo(d,'blog-save',{id,draft:filledDraft({title:'[Changed title]'})},desk);
+  assert.equal(demoPublicPosts(d).find(p=>p.slug==='sample-title').title,'[Sample title]','the live copy waits for approval');
+  assert.throws(()=>applyDemo(d,'blog-comment',{slug:'sample-title',name:'Sam',body:'x'}),/1,000/);
+  d=applyDemo(d,'blog-comment',{slug:'sample-title',name:'Sam',body:'Thank you'},null);
+  assert.deepEqual(demoApprovedComments(d,'sample-title'),[],'waits for approval');
+  assert.throws(()=>applyDemo(d,'blog-comment-approve',{id:d.blogComments[0].id},aff),/Only staff/);
+  d=applyDemo(d,'blog-comment-approve',{id:d.blogComments[0].id},staff);assert.equal(demoApprovedComments(d,'sample-title')[0].body,'Thank you');
+  d=applyDemo(d,'blog-step',{id,step:'unpublish'},staff);assert.deepEqual(demoPublicPosts(d).map(p=>p.slug),['sample-post']);
+  assert.throws(()=>applyDemo(d,'blog-comment',{slug:'sample-title',name:'Sam',body:'Again'},null),/closed/);
+  d=applyDemo(d,'blog-delete',{id},desk);assert.equal(d.blogPosts.some(p=>p.id===id),false);
+});
+test('migration 016 adds the blog tables and buckets after 015, with row level security',()=>{
+  const m=readFileSync(new URL('../supabase/migrations/016_blog.sql',import.meta.url),'utf8');
+  assert.ok(m.startsWith('-- ')&&m.includes('after 015_front_desk.sql'));
+  for(const s of ['create table if not exists public.blog_posts','create table if not exists public.blog_comments','alter table public.blog_posts enable row level security','alter table public.blog_comments enable row level security',"('blog-drafts', 'blog-drafts', false","('blog-images', 'blog-images', true","check (status in ('draft','review','changes','approved','rejected'))"])assert.ok(m.includes(s),s);
+  assert.equal(readFileSync(new URL('../supabase/schema.sql',import.meta.url),'utf8').includes('blog_'),false,'schema.sql is not edited');
+});
+// The live blog code in lib/blog-server.js runs against an in-memory stand-in for the database and storage, loaded the
+// way Next loads server code: write, upload, submit, publish (pictures copied to the public bucket), read, comment.
+test('the blog server writes, reviews, publishes and serves posts, and keeps authors and readers apart',()=>{
+  const script=`
+    const s = await import(${JSON.stringify(new URL('../lib/blog-server.js',import.meta.url).href)});
+    const tables = { blog_posts: [], blog_comments: [], audit_logs: [], affiliates: [{ id: 'a1', slug: 'alex-morgan', active: true, name: 'Alex Morgan', email: 'alex@example.com' }], profiles: [{ id: 'd1', name: 'Sam Desk', email: 'd@example.com' }] };
+    const files = { 'blog-drafts': {}, 'blog-images': {} };
+    const from = t => { let op = 'select', vals = null, head = false; const filters = [];
+      const q = { select: (c, o) => { if (o?.head) head = true; return q; }, insert: v => { op = 'insert'; vals = v; return q; }, update: v => { op = 'update'; vals = v; return q; }, delete: () => { op = 'delete'; return q; },
+        eq: (k, v) => { filters.push(r => r[k] === v); return q; }, in: (k, v) => { filters.push(r => v.includes(r[k])); return q; }, gte: (k, v) => { filters.push(r => r[k] >= v); return q; }, lte: (k, v) => { filters.push(r => r[k] <= v); return q; },
+        not: k => { filters.push(r => r[k] != null); return q; }, order: () => q, limit: () => q,
+        run() { if (op === 'insert') { const now = new Date().toISOString(), row = { id: crypto.randomUUID(), created_at: now, updated_at: now, slug: null, published: null, published_at: null, review_note: '', ...vals }; tables[t].push(row); return [row]; }
+          const rows = tables[t].filter(r => filters.every(f => f(r)));
+          if (op === 'update') rows.forEach(r => Object.assign(r, vals)); if (op === 'delete') tables[t] = tables[t].filter(r => !rows.includes(r)); return rows; },
+        maybeSingle: async () => ({ data: q.run()[0] || null, error: null }), single: async () => { const d = q.run()[0]; return { data: d || null, error: d ? null : { code: 'PGRST116' } }; },
+        then: (ok, no) => { const d = q.run(); return Promise.resolve(head ? { count: d.length, error: null } : { data: d, error: null }).then(ok, no); } };
+      return q; };
+    const db = { from, storage: { from: b => ({
+      createSignedUrls: async keys => ({ data: keys.map(k => ({ path: k, signedUrl: 'https://signed.test/' + k })), error: null }),
+      upload: async (k, bytes, o) => { if (files[b][k] && !o?.upsert) return { error: { message: 'exists' } }; files[b][k] = Buffer.from(bytes); return { error: null }; },
+      download: async k => files[b][k] ? { data: new Blob([files[b][k]]), error: null } : { data: null, error: { message: 'missing' } },
+      getPublicUrl: k => ({ data: { publicUrl: 'https://public.test/' + k } }),
+      list: async p => ({ data: Object.keys(files[b]).filter(k => k.startsWith(p + '/')).map(k => ({ name: k.slice(p.length + 1) })) }),
+      remove: async ks => { ks.forEach(k => delete files[b][k]); return { error: null }; } }) } };
+    const aff = { id: 'u-a', role: 'affiliate', affiliateId: 'a1' }, desk = { id: 'd1', role: 'front-desk' }, staff = { id: 's1', role: 'staff' };
+    const tryIt = async f => { try { await f(); return 'ok'; } catch (e) { return e.message; } };
+    const png = Buffer.from('89504e470d0a1a0a0000000d49484452', 'hex');
+    const post = await s.createPost(db, aff);
+    const img = await s.uploadImage(db, aff, post.id, new File([png], 'p.png', { type: 'image/png' }));
+    const fakePng = await tryIt(() => s.uploadImage(db, aff, post.id, new File([Buffer.from('<svg>')], 'p.png', { type: 'image/png' })));
+    const deskUpload = await tryIt(() => s.uploadImage(db, desk, post.id, new File([png], 'p.png', { type: 'image/png' })));
+    const draft = { title: '[Sample title]', excerpt: '[Sample summary of the post]', category: 'Eye health', tags: ['sample'], cover: { key: img.key, alt: '[Cover description]' }, blocks: [{ type: 'paragraph', text: [{ t: '[Text]' }] }, { type: 'image', key: img.key, alt: '[Picture]' }, { type: 'button', label: 'Book now' }], schedule: 'asap', comments: true };
+    const foreign = await tryIt(() => s.savePost(db, aff, post.id, { ...draft, cover: { key: '0b8f6d4e-1111-2222-3333-444455556666/0b8f6d4e-1111-2222-3333-444455556666.png', alt: 'x' } }));
+    await s.savePost(db, aff, post.id, draft);
+    const deskView = (await s.loadBlogWorkspace(db, desk)).posts.length, staffView = await s.loadBlogWorkspace(db, staff), affView = await s.loadBlogWorkspace(db, aff);
+    const early = await tryIt(() => s.stepPost(db, staff, post.id, 'approve'));
+    await s.stepPost(db, aff, post.id, 'submit', { confirm: true });
+    const affApprove = await tryIt(() => s.stepPost(db, aff, post.id, 'approve'));
+    const live = await s.stepPost(db, staff, post.id, 'approve');
+    const list = await s.loadPublishedPosts(db), one = await s.loadPublishedPost(db, live.slug);
+    const hash = 'a'.repeat(64);
+    await s.addComment(db, { slug: live.slug, name: 'Sam', body: 'Thank you' }, hash);
+    const before = (await s.loadPublishedPost(db, live.slug)).comments.length;
+    for (let i = 0; i < 4; i++) await s.addComment(db, { slug: live.slug, name: 'Sam', body: 'Again ' + i }, hash);
+    const limited = await tryIt(() => s.addComment(db, { slug: live.slug, name: 'Sam', body: 'One more' }, hash));
+    const affModerate = await tryIt(() => s.moderateComment(db, aff, tables.blog_comments[0].id, true));
+    await s.moderateComment(db, staff, tables.blog_comments[0].id, true);
+    const after = (await s.loadPublishedPost(db, live.slug)).comments;
+    const deleteLive = await tryIt(() => s.deletePost(db, aff, post.id));
+    const mail = s.blogEmail({ ...live, reviewNote: '' }, 'submit', 'https://x.test');
+    console.log(JSON.stringify({ author: post.authorName, key: img.key.startsWith(post.id + '/'), url: img.url, fakePng, deskUpload, foreign, deskView, staffPosts: staffView.posts.length, staffImages: Object.keys(staffView.images).length, affComments: affView.comments.length, early, affApprove, live: { status: live.status, slug: live.slug }, copied: Object.keys(files['blog-images']), list, one, before, limited, affModerate, after, deleteLive, audits: tables.audit_logs.map(a => a.action), mail }));`;
+  const out=JSON.parse(execFileSync(process.execPath,['--conditions=react-server','--input-type=module','-e',script],{encoding:'utf8'}).trim().split('\n').pop());
+  assert.equal(out.author,'Alex Morgan');assert.equal(out.key,true);assert.match(out.url,/^https:\/\/signed\.test\//,'draft pictures are signed links');
+  assert.match(out.fakePng,/does not match/);assert.equal(out.deskUpload,'Post not found.');assert.match(out.foreign,/could not be read/);
+  assert.equal(out.deskView,0,'others never receive the post');assert.equal(out.staffPosts,1);assert.equal(out.staffImages,1);assert.equal(out.affComments,0);
+  assert.match(out.early,/not waiting/);assert.match(out.affApprove,/Only staff admin/);
+  assert.deepEqual(out.live,{status:'approved',slug:'sample-title'});
+  assert.equal(out.copied.length,1,'the picture is copied to the public bucket');
+  const p=out.list[0];assert.equal(out.list.length,1);assert.equal(p.byline,'Alex M.');assert.equal(p.bookingHref,'/booking?affiliate=alex-morgan');assert.match(p.cover.url,/^https:\/\/public\.test\//);
+  assert.equal(JSON.stringify(out.list).includes('Alex Morgan'),false,'readers never get the full name');assert.equal(JSON.stringify(out.list).includes('u-a'),false);
+  assert.equal(out.one.post.slug,'sample-title');assert.deepEqual(out.one.comments,[]);
+  assert.equal(out.before,0,'comments wait for approval');assert.match(out.limited,/Too many/);assert.match(out.affModerate,/Only staff/);
+  assert.deepEqual(out.after.map(c=>[c.name,c.body]),[['Sam','Thank you']]);assert.equal('request_hash' in out.after[0],false);
+  assert.match(out.deleteLive,/never published/);
+  assert.deepEqual(out.audits,['blog-create','blog-submit','blog-approve','blog-comment-approve']);
+  assert.equal(out.mail.subject,'Blog post to review: [Sample title]');assert.ok(out.mail.text.includes('Alex M.')&&out.mail.text.includes('https://x.test/admin/blog'));
+});
+test('the blog API checks the origin and the account, and the comment API needs Turnstile',()=>{
+  const api=readFileSync(new URL('../app/api/blog/route.js',import.meta.url),'utf8');
+  assert.ok(api.includes('sameOrigin(request)')&&api.includes('await identity(request)')&&api.includes('if(!canWriteBlog(u))throw refused();'));
+  const c=readFileSync(new URL('../app/api/blog/comments/route.js',import.meta.url),'utf8');
+  assert.ok(c.includes("await verifyTurnstile(request,raw.captcha,'comment')")&&c.includes('requestHash(request)')&&c.includes('sameOrigin(request)'));
+});
+test('the public blog: server-rendered live, demo in the browser, comments behind Turnstile, linked from search, menu, footer and sitemap',()=>{
+  const list=readFileSync(new URL('../app/blog/page.js',import.meta.url),'utf8');
+  assert.ok(list.includes("export const dynamic='force-dynamic'")&&list.includes('loadPublishedPosts(adminClient())')&&list.includes('if(DEMO)return <DemoBlogIndex'));
+  const one=readFileSync(new URL('../app/blog/[slug]/page.js',import.meta.url),'utf8');
+  assert.ok(one.includes('loadPublishedPost(adminClient(),slug)')&&one.includes('if(!found)notFound();')&&one.includes('export async function generateMetadata'));
+  const demo=readFileSync(new URL('../components/blog-demo.js',import.meta.url),'utf8');
+  assert.ok(!demo.includes("from 'next/navigation'")&&demo.includes('<MissingPost />'),'notFound() is for server code only');
+  const comments=readFileSync(new URL('../components/blog-comments.js',import.meta.url),'utf8');
+  assert.ok(comments.includes('<Captcha action="comment"')&&comments.includes('className="hp"')&&comments.includes('COMMENT_NOTE'));
+  const post=readFileSync(new URL('../components/blog-post.js',import.meta.url),'utf8');
+  assert.equal(post.includes('dangerouslySetInnerHTML'),false,'posts are drawn from runs, never HTML');
+  assert.ok(post.includes('target="_blank" rel="noopener noreferrer"'));
+  const { searchSite }=searchModule;assert.equal(searchSite('blog')[0].href,'/blog');
+  const ui=readFileSync(new URL('../components/ui.js',import.meta.url),'utf8');
+  assert.ok(ui.includes('<Link href="/blog" onClick={onClose}><span>Blog</span>')&&ui.includes('<Link href="/blog">Blog</Link>'));
+  const map=readFileSync(new URL('../app/sitemap.js',import.meta.url),'utf8');
+  assert.ok(map.includes("'/blog'")&&map.includes("'/blog/'+p.slug"));
+  assert.equal(readFileSync(new URL('../app/robots.js',import.meta.url),'utf8').includes("'/blog"),false,'the blog is not hidden from search engines');
+  const ws=readFileSync(new URL('../components/workspace.js',import.meta.url),'utf8');
+  assert.ok(ws.includes("['blog','Blog'],['profile','Profile']]")&&ws.includes("['blog','Blog'],['team','Team']]")&&ws.includes("{section==='blog'&&<BlogWorkspace role={role} item={item}/>}"));
+  for(const f of ['../app/admin/[[...section]]/page.js','../app/desk/[[...section]]/page.js','../app/affiliate/[[...section]]/page.js'])assert.ok(readFileSync(new URL(f,import.meta.url),'utf8').includes("name==='blog'&&BLOG_POST_ID.test(item)"),f);
+  assert.ok(readFileSync(new URL('../app/layout.js',import.meta.url),'utf8').includes("import './blog.css';"));
 });
