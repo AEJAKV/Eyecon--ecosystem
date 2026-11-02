@@ -1474,3 +1474,76 @@ test('migration 016 adds the blog tables and buckets after 015, with row level s
   for(const s of ['create table if not exists public.blog_posts','create table if not exists public.blog_comments','alter table public.blog_posts enable row level security','alter table public.blog_comments enable row level security',"('blog-drafts', 'blog-drafts', false","('blog-images', 'blog-images', true","check (status in ('draft','review','changes','approved','rejected'))"])assert.ok(m.includes(s),s);
   assert.equal(readFileSync(new URL('../supabase/schema.sql',import.meta.url),'utf8').includes('blog_'),false,'schema.sql is not edited');
 });
+// The live blog code in lib/blog-server.js runs against an in-memory stand-in for the database and storage, loaded the
+// way Next loads server code: write, upload, submit, publish (pictures copied to the public bucket), read, comment.
+test('the blog server writes, reviews, publishes and serves posts, and keeps authors and readers apart',()=>{
+  const script=`
+    const s = await import(${JSON.stringify(new URL('../lib/blog-server.js',import.meta.url).href)});
+    const tables = { blog_posts: [], blog_comments: [], audit_logs: [], affiliates: [{ id: 'a1', slug: 'alex-morgan', active: true, name: 'Alex Morgan', email: 'alex@example.com' }], profiles: [{ id: 'd1', name: 'Sam Desk', email: 'd@example.com' }] };
+    const files = { 'blog-drafts': {}, 'blog-images': {} };
+    const from = t => { let op = 'select', vals = null, head = false; const filters = [];
+      const q = { select: (c, o) => { if (o?.head) head = true; return q; }, insert: v => { op = 'insert'; vals = v; return q; }, update: v => { op = 'update'; vals = v; return q; }, delete: () => { op = 'delete'; return q; },
+        eq: (k, v) => { filters.push(r => r[k] === v); return q; }, in: (k, v) => { filters.push(r => v.includes(r[k])); return q; }, gte: (k, v) => { filters.push(r => r[k] >= v); return q; }, lte: (k, v) => { filters.push(r => r[k] <= v); return q; },
+        not: k => { filters.push(r => r[k] != null); return q; }, order: () => q, limit: () => q,
+        run() { if (op === 'insert') { const now = new Date().toISOString(), row = { id: crypto.randomUUID(), created_at: now, updated_at: now, slug: null, published: null, published_at: null, review_note: '', ...vals }; tables[t].push(row); return [row]; }
+          const rows = tables[t].filter(r => filters.every(f => f(r)));
+          if (op === 'update') rows.forEach(r => Object.assign(r, vals)); if (op === 'delete') tables[t] = tables[t].filter(r => !rows.includes(r)); return rows; },
+        maybeSingle: async () => ({ data: q.run()[0] || null, error: null }), single: async () => { const d = q.run()[0]; return { data: d || null, error: d ? null : { code: 'PGRST116' } }; },
+        then: (ok, no) => { const d = q.run(); return Promise.resolve(head ? { count: d.length, error: null } : { data: d, error: null }).then(ok, no); } };
+      return q; };
+    const db = { from, storage: { from: b => ({
+      createSignedUrls: async keys => ({ data: keys.map(k => ({ path: k, signedUrl: 'https://signed.test/' + k })), error: null }),
+      upload: async (k, bytes, o) => { if (files[b][k] && !o?.upsert) return { error: { message: 'exists' } }; files[b][k] = Buffer.from(bytes); return { error: null }; },
+      download: async k => files[b][k] ? { data: new Blob([files[b][k]]), error: null } : { data: null, error: { message: 'missing' } },
+      getPublicUrl: k => ({ data: { publicUrl: 'https://public.test/' + k } }),
+      list: async p => ({ data: Object.keys(files[b]).filter(k => k.startsWith(p + '/')).map(k => ({ name: k.slice(p.length + 1) })) }),
+      remove: async ks => { ks.forEach(k => delete files[b][k]); return { error: null }; } }) } };
+    const aff = { id: 'u-a', role: 'affiliate', affiliateId: 'a1' }, desk = { id: 'd1', role: 'front-desk' }, staff = { id: 's1', role: 'staff' };
+    const tryIt = async f => { try { await f(); return 'ok'; } catch (e) { return e.message; } };
+    const png = Buffer.from('89504e470d0a1a0a0000000d49484452', 'hex');
+    const post = await s.createPost(db, aff);
+    const img = await s.uploadImage(db, aff, post.id, new File([png], 'p.png', { type: 'image/png' }));
+    const fakePng = await tryIt(() => s.uploadImage(db, aff, post.id, new File([Buffer.from('<svg>')], 'p.png', { type: 'image/png' })));
+    const deskUpload = await tryIt(() => s.uploadImage(db, desk, post.id, new File([png], 'p.png', { type: 'image/png' })));
+    const draft = { title: '[Sample title]', excerpt: '[Sample summary of the post]', category: 'Eye health', tags: ['sample'], cover: { key: img.key, alt: '[Cover description]' }, blocks: [{ type: 'paragraph', text: [{ t: '[Text]' }] }, { type: 'image', key: img.key, alt: '[Picture]' }, { type: 'button', label: 'Book now' }], schedule: 'asap', comments: true };
+    const foreign = await tryIt(() => s.savePost(db, aff, post.id, { ...draft, cover: { key: '0b8f6d4e-1111-2222-3333-444455556666/0b8f6d4e-1111-2222-3333-444455556666.png', alt: 'x' } }));
+    await s.savePost(db, aff, post.id, draft);
+    const deskView = (await s.loadBlogWorkspace(db, desk)).posts.length, staffView = await s.loadBlogWorkspace(db, staff), affView = await s.loadBlogWorkspace(db, aff);
+    const early = await tryIt(() => s.stepPost(db, staff, post.id, 'approve'));
+    await s.stepPost(db, aff, post.id, 'submit', { confirm: true });
+    const affApprove = await tryIt(() => s.stepPost(db, aff, post.id, 'approve'));
+    const live = await s.stepPost(db, staff, post.id, 'approve');
+    const list = await s.loadPublishedPosts(db), one = await s.loadPublishedPost(db, live.slug);
+    const hash = 'a'.repeat(64);
+    await s.addComment(db, { slug: live.slug, name: 'Sam', body: 'Thank you' }, hash);
+    const before = (await s.loadPublishedPost(db, live.slug)).comments.length;
+    for (let i = 0; i < 4; i++) await s.addComment(db, { slug: live.slug, name: 'Sam', body: 'Again ' + i }, hash);
+    const limited = await tryIt(() => s.addComment(db, { slug: live.slug, name: 'Sam', body: 'One more' }, hash));
+    const affModerate = await tryIt(() => s.moderateComment(db, aff, tables.blog_comments[0].id, true));
+    await s.moderateComment(db, staff, tables.blog_comments[0].id, true);
+    const after = (await s.loadPublishedPost(db, live.slug)).comments;
+    const deleteLive = await tryIt(() => s.deletePost(db, aff, post.id));
+    const mail = s.blogEmail({ ...live, reviewNote: '' }, 'submit', 'https://x.test');
+    console.log(JSON.stringify({ author: post.authorName, key: img.key.startsWith(post.id + '/'), url: img.url, fakePng, deskUpload, foreign, deskView, staffPosts: staffView.posts.length, staffImages: Object.keys(staffView.images).length, affComments: affView.comments.length, early, affApprove, live: { status: live.status, slug: live.slug }, copied: Object.keys(files['blog-images']), list, one, before, limited, affModerate, after, deleteLive, audits: tables.audit_logs.map(a => a.action), mail }));`;
+  const out=JSON.parse(execFileSync(process.execPath,['--conditions=react-server','--input-type=module','-e',script],{encoding:'utf8'}).trim().split('\n').pop());
+  assert.equal(out.author,'Alex Morgan');assert.equal(out.key,true);assert.match(out.url,/^https:\/\/signed\.test\//,'draft pictures are signed links');
+  assert.match(out.fakePng,/does not match/);assert.equal(out.deskUpload,'Post not found.');assert.match(out.foreign,/could not be read/);
+  assert.equal(out.deskView,0,'others never receive the post');assert.equal(out.staffPosts,1);assert.equal(out.staffImages,1);assert.equal(out.affComments,0);
+  assert.match(out.early,/not waiting/);assert.match(out.affApprove,/Only staff admin/);
+  assert.deepEqual(out.live,{status:'approved',slug:'sample-title'});
+  assert.equal(out.copied.length,1,'the picture is copied to the public bucket');
+  const p=out.list[0];assert.equal(out.list.length,1);assert.equal(p.byline,'Alex M.');assert.equal(p.bookingHref,'/booking?affiliate=alex-morgan');assert.match(p.cover.url,/^https:\/\/public\.test\//);
+  assert.equal(JSON.stringify(out.list).includes('Alex Morgan'),false,'readers never get the full name');assert.equal(JSON.stringify(out.list).includes('u-a'),false);
+  assert.equal(out.one.post.slug,'sample-title');assert.deepEqual(out.one.comments,[]);
+  assert.equal(out.before,0,'comments wait for approval');assert.match(out.limited,/Too many/);assert.match(out.affModerate,/Only staff/);
+  assert.deepEqual(out.after.map(c=>[c.name,c.body]),[['Sam','Thank you']]);assert.equal('request_hash' in out.after[0],false);
+  assert.match(out.deleteLive,/never published/);
+  assert.deepEqual(out.audits,['blog-create','blog-submit','blog-approve','blog-comment-approve']);
+  assert.equal(out.mail.subject,'Blog post to review: [Sample title]');assert.ok(out.mail.text.includes('Alex M.')&&out.mail.text.includes('https://x.test/admin/blog'));
+});
+test('the blog API checks the origin and the account, and the comment API needs Turnstile',()=>{
+  const api=readFileSync(new URL('../app/api/blog/route.js',import.meta.url),'utf8');
+  assert.ok(api.includes('sameOrigin(request)')&&api.includes('await identity(request)')&&api.includes('if(!canWriteBlog(u))throw refused();'));
+  const c=readFileSync(new URL('../app/api/blog/comments/route.js',import.meta.url),'utf8');
+  assert.ok(c.includes("await verifyTurnstile(request,raw.captcha,'comment')")&&c.includes('requestHash(request)')&&c.includes('sameOrigin(request)'));
+});
