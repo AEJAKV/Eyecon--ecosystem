@@ -1365,3 +1365,112 @@ test('skin tightening has its own photographs: the treatment for the service, th
   assert.equal(services.find(s=>s.id==='skin-tightening').photo,'/images/services/skin-tightening-treatment.webp');
   assert.ok(readFileSync(new URL('../components/landing.js',import.meta.url),'utf8').includes("const servicePhoto = s => s.photo || '/images/services/' + s.id + '.webp';"));
 });
+
+// ---------- The blog (migration 016) ----------
+import * as blog from '../lib/blog.js';
+import { demoPublicPosts, demoApprovedComments, demoBlogUser, seedBlog } from '../lib/demo.js';
+const filledDraft=(extra={})=>({title:'[Sample title]',excerpt:'[Sample summary of the post]',category:'Eye health',tags:['Sample','sample','Frames!'],cover:{key:'/images/hero.webp',alt:'[Picture description]'},blocks:[{id:'abcd1234',type:'paragraph',text:[{t:'[Text] '},{t:'[bold]',b:true}]},{type:'image',key:'/images/hero.webp',alt:'[A picture]',caption:''},{type:'button',label:''}],schedule:'asap',comments:true,...extra});
+test('blog bylines show the first name and the first letter of the last name',()=>{
+  assert.equal(blog.bylineName('Rodgen Lastname'),'Rodgen L.');assert.equal(blog.bylineName('  alex   van morgan '),'alex M.');
+  assert.equal(blog.bylineName('Cher'),'Cher');assert.equal(blog.bylineName(''),'Eyecon Optometry');assert.equal(blog.bylineName('Zoë Élan'),'Zoë É.');
+  assert.equal(blog.bylineName('[Front desk team member]'),'[Front desk team member]','placeholders stay whole');
+  assert.equal(blog.bylineInitials('Alex M.'),'AM');
+});
+test('blog text is stored as runs, never HTML: links are checked and everything is escaped',()=>{
+  assert.deepEqual(blog.cleanRuns([{t:'a'},{t:'b'},{t:'c',b:true},{t:''},{t:'d',b:true,x:1}]),[{t:'ab'},{t:'cd',b:true}]);
+  for(const bad of ['javascript:alert(1)','//evil.example','http://plain.example','data:text/html,x','/x" onclick="y'])assert.throws(()=>blog.cleanRuns([{t:'x',href:bad}]),/Links must start/,bad);
+  assert.deepEqual(blog.cleanRuns([{t:'x',href:'/booking'},{t:'y',href:'https://example.com/a?b=1'}]).map(r=>r.href),['/booking','https://example.com/a?b=1']);
+  assert.equal(blog.runsToHtml([{t:'<script>&"',b:true,href:'/a'},{t:'x\ny',i:true}]),'<a href="/a"><strong>&lt;script&gt;&amp;&quot;</strong></a><em>x<br>y</em>');
+  const el=(tag,kids,attrs={})=>({nodeType:1,tagName:tag,childNodes:kids,getAttribute:k=>attrs[k]??null}),tx=t=>({nodeType:3,textContent:t});
+  const root=el('div',[tx('Hi '),el('b',[tx('bold '),el('i',[tx('both')])]),el('span',[tx(' plain')]),el('a',[tx('bad')],{href:'javascript:x'}),el('a',[tx('ok')],{href:'/booking'}),el('br',[]),el('script',[tx('x')]),el('div',[tx('next line')])]);
+  assert.deepEqual(blog.nodesToRuns(root),[{t:'Hi '},{t:'bold ',b:true},{t:'both',b:true,i:true},{t:' plainbad'},{t:'ok',href:'/booking'},{t:'\nx\nnext line'}]);
+});
+test('blog drafts are cleaned on save; pictures must be stored names; the checklist decides submission',()=>{
+  const d=blog.validateDraft(filledDraft(),{keyOk:blog.demoKeyOk});
+  assert.deepEqual(d.tags,['sample','frames']);assert.equal(d.blocks[2].label,'Book an appointment');assert.match(d.blocks[1].id,/^[a-z0-9]{8}$/);
+  assert.equal(blog.validateDraft({...filledDraft(),category:'Made up'},{keyOk:blog.demoKeyOk}).category,'');
+  assert.throws(()=>blog.validateDraft(filledDraft()),/picture/,'live keys must be storage names, not image paths');
+  assert.ok(blog.storageKeyOk('0b8f6d4e-1111-2222-3333-444455556666/0b8f6d4e-1111-2222-3333-444455556666.webp'));
+  for(const k of ['../x.webp','a/b.svg','https://x/y.png'])assert.equal(blog.storageKeyOk(k),false,k);
+  assert.throws(()=>blog.validateDraft({...filledDraft(),tags:['a','b','c','d','e','f','g']},{keyOk:blog.demoKeyOk}),/6 tags/);
+  assert.throws(()=>blog.validateDraft({blocks:[{type:'html',text:'<b>'}]}),/does not know/);
+  assert.equal(blog.readyToSubmit(d),true);
+  const missing=blog.submitChecks({...d,cover:null,blocks:[{type:'image',key:'',alt:''}]}).filter(c=>!c.ok).map(c=>c.label);
+  assert.deepEqual(missing,['Cover picture with a description','Every picture uploaded and described','Some writing in the post']);
+  const now=new Date('2026-11-02T12:00:00Z');
+  assert.equal(blog.readyToSubmit({...d,schedule:'later',publishAt:'2026-11-01T00:00:00Z'},now),false,'a past date cannot be scheduled');
+  assert.equal(blog.fromLocalInput('2026-11-05T09:30','Etc/GMT+6'),'2026-11-05T15:30:00.000Z');assert.equal(blog.toLocalInput('2026-11-05T15:30:00.000Z','Etc/GMT+6'),'2026-11-05T09:30');
+  assert.equal(blog.readMinutes({title:'',blocks:[{type:'paragraph',text:[{t:'word '.repeat(450)}]}]}),2);
+});
+test('blog review steps: authors submit and edit their own posts; only staff admin publish, send back, refuse or unpublish',()=>{
+  const now=new Date('2026-11-02T12:00:00Z'),author={id:'u1',role:'affiliate'},other={id:'u2',role:'front-desk'},staff={id:'s1',role:'staff'};
+  const draft=blog.validateDraft(filledDraft(),{keyOk:blog.demoKeyOk}),post={id:'p1',authorId:'u1',status:'draft',draft,published:null,publishedAt:null,reviewNote:''};
+  assert.equal(blog.canEditPost(post,author),true);assert.equal(blog.canEditPost(post,other),false);assert.equal(blog.canEditPost(post,staff),false);
+  assert.throws(()=>blog.blogStep(post,'submit',other,{confirm:true}),/not found/);
+  assert.throws(()=>blog.blogStep(post,'submit',author,{now}),/patient information/,'the author must confirm');
+  const review={...post,...blog.blogStep(post,'submit',author,{confirm:true,now})};assert.equal(review.status,'review');
+  assert.equal(blog.canEditPost(review,author),false,'locked while in review');assert.equal(blog.canEditPost(review,staff),true,'staff may tidy it');
+  assert.throws(()=>blog.blogStep(review,'approve',author,{now}),/Only staff admin/);assert.throws(()=>blog.blogStep(review,'approve',other,{now}),/not found/);
+  assert.throws(()=>blog.blogStep(review,'changes',staff,{note:'',now}),/Add a note/);
+  assert.equal(blog.blogStep(review,'changes',staff,{note:' Shorten the title ',now}).reviewNote,'Shorten the title');
+  const live={...review,...blog.blogStep(review,'approve',staff,{now})};assert.equal(live.status,'approved');assert.equal(live.publishedAt,now.toISOString());assert.equal(blog.postState(live,now).label,'Published');
+  const later=new Date('2026-11-09T15:00:00Z').toISOString(),sched={...review,draft:{...draft,schedule:'later',publishAt:later}};
+  const s={...sched,...blog.blogStep(sched,'approve',staff,{now})};assert.equal(s.publishedAt,later);assert.equal(blog.postState(s,now).label,'Scheduled');
+  const editing={...live,...blog.blogStep(live,'revise',author,{now})};assert.equal(editing.status,'draft');assert.equal(editing.published,live.published,'the live copy stays');assert.equal(blog.postState(editing,now).live,true);
+  const resub={...editing,status:'review'},again={...resub,...blog.blogStep(resub,'approve',staff,{now:new Date('2026-12-01T00:00:00Z')})};assert.equal(again.publishedAt,live.publishedAt,'a live post keeps its date');
+  const off={...live,...blog.blogStep(live,'unpublish',staff,{now})};assert.equal(off.published,null);assert.equal(off.status,'draft');
+  assert.throws(()=>blog.blogStep(live,'unpublish',author,{now}),/Only staff admin/);
+  assert.equal(blog.canDeletePost(post,author),true);assert.equal(blog.canDeletePost(live,author),false);assert.equal(blog.canDeletePost(review,author),false);assert.equal(blog.canDeletePost(live,staff),true);
+});
+test('readers receive only the published copy, the short byline and the booking link',()=>{
+  const now=new Date('2026-11-02T12:00:00Z'),draft=blog.validateDraft(filledDraft(),{keyOk:blog.demoKeyOk});
+  const post={id:'p1',slug:'sample',authorId:'u1',authorRole:'affiliate',authorName:'Alex Morgan',authorAffiliate:'a1',status:'draft',reviewNote:'secret note',draft:{...draft,title:'[Unreviewed edit]'},published:draft,publishedAt:'2026-11-01T00:00:00Z'};
+  const p=blog.publicPost(post,{imageUrl:k=>'https://cdn.test/'+k,affiliateSlug:'alex-morgan',now});
+  assert.equal(p.title,'[Sample title]','never the working copy');assert.equal(p.byline,'Alex M.');assert.equal(p.bookingHref,'/booking?affiliate=alex-morgan');
+  assert.equal(p.cover.url,'https://cdn.test//images/hero.webp');assert.equal(p.blocks[1].url,'https://cdn.test//images/hero.webp');assert.equal('key' in p.blocks[1],false);
+  const json=JSON.stringify(p);for(const hidden of ['Alex Morgan','u1','affiliate"','secret note','Unreviewed','a1"'])assert.equal(json.includes(hidden),false,hidden);
+  assert.equal(blog.publicPost({...post,publishedAt:'2026-12-01T00:00:00Z'},{imageUrl:k=>k,now}),null,'scheduled posts are hidden until their date');
+  assert.equal(blog.publicPost({...post,published:null,publishedAt:null},{imageUrl:k=>k,now}),null);
+  assert.equal(blog.publicPost(post,{imageUrl:k=>k,now}).bookingHref,'/booking','no referral once the affiliate is inactive');
+  const list=[{...p,slug:'a',publishedAt:'2026-10-01T00:00:00Z'},{...p,slug:'b',category:'Clinic news',tags:['lenses']}];
+  assert.deepEqual(blog.filterPosts(list).map(x=>x.slug),['b','a']);assert.deepEqual(blog.filterPosts(list,{category:'clinic-news'}).map(x=>x.slug),['b']);assert.deepEqual(blog.filterPosts(list,{tag:'lenses'}).map(x=>x.slug),['b']);
+  assert.equal(blog.categoryFromSlug('frames-and-style'),'Frames & style');
+});
+test('blog comments: a first name and the comment, no links, honeypot refused',()=>{
+  assert.deepEqual(blog.validateComment({name:' Sam ',body:' Great read.\n\n\n\nThanks '}),{name:'Sam',body:'Great read.\n\nThanks'});
+  assert.throws(()=>blog.validateComment({name:'Sam',body:'see https://spam.example'}),/links/);
+  assert.throws(()=>blog.validateComment({name:'Sam',body:'<script>'}),/links or code/);
+  assert.throws(()=>blog.validateComment({name:'',body:'Hello'}),/first name/);
+  assert.throws(()=>blog.validateComment({name:'Sam',body:'Hello',website:'x'}),/could not be sent/);
+});
+test('demo blog: write, submit, review, publish, revise and moderate comments with the live rules',()=>{
+  const aff={role:'affiliate',affiliateId:'demo-alex'},desk={role:'front-desk',teamId:'demo-desk'},staff={role:'staff'};
+  let d=seedDemo();assert.deepEqual(Object.keys(seedBlog()),['blogPosts','blogComments']);
+  for(const p of d.blogPosts)assert.ok(p.draft.title.startsWith('['),'sample posts are placeholders');
+  assert.equal(demoBlogUser(d,desk).name,'[Front desk team member]');assert.equal(demoBlogUser(d,null),null);
+  d=applyDemo(d,'blog-create',{},desk);const id=d.blogPosts[0].id;
+  assert.throws(()=>applyDemo(d,'blog-save',{id,draft:filledDraft()},aff),/not found/,'an affiliate cannot open the front desk’s post');
+  d=applyDemo(d,'blog-save',{id,draft:filledDraft()},desk);
+  assert.throws(()=>applyDemo(d,'blog-step',{id,step:'approve'},staff),/not waiting/);
+  d=applyDemo(d,'blog-step',{id,step:'submit',confirm:true},desk);
+  assert.throws(()=>applyDemo(d,'blog-save',{id,draft:filledDraft()},desk),/can’t be edited/);
+  d=applyDemo(d,'blog-step',{id,step:'approve'},staff);
+  const mine=d.blogPosts.find(p=>p.id===id);assert.equal(mine.slug,'sample-title');assert.equal(mine.status,'approved');
+  assert.deepEqual(demoPublicPosts(d).map(p=>p.slug).sort(),['sample-post','sample-title']);
+  d=applyDemo(d,'blog-step',{id,step:'revise'},desk);d=applyDemo(d,'blog-save',{id,draft:filledDraft({title:'[Changed title]'})},desk);
+  assert.equal(demoPublicPosts(d).find(p=>p.slug==='sample-title').title,'[Sample title]','the live copy waits for approval');
+  assert.throws(()=>applyDemo(d,'blog-comment',{slug:'sample-title',name:'Sam',body:'x'}),/1,000/);
+  d=applyDemo(d,'blog-comment',{slug:'sample-title',name:'Sam',body:'Thank you'},null);
+  assert.deepEqual(demoApprovedComments(d,'sample-title'),[],'waits for approval');
+  assert.throws(()=>applyDemo(d,'blog-comment-approve',{id:d.blogComments[0].id},aff),/Only staff/);
+  d=applyDemo(d,'blog-comment-approve',{id:d.blogComments[0].id},staff);assert.equal(demoApprovedComments(d,'sample-title')[0].body,'Thank you');
+  d=applyDemo(d,'blog-step',{id,step:'unpublish'},staff);assert.deepEqual(demoPublicPosts(d).map(p=>p.slug),['sample-post']);
+  assert.throws(()=>applyDemo(d,'blog-comment',{slug:'sample-title',name:'Sam',body:'Again'},null),/closed/);
+  d=applyDemo(d,'blog-delete',{id},desk);assert.equal(d.blogPosts.some(p=>p.id===id),false);
+});
+test('migration 016 adds the blog tables and buckets after 015, with row level security',()=>{
+  const m=readFileSync(new URL('../supabase/migrations/016_blog.sql',import.meta.url),'utf8');
+  assert.ok(m.startsWith('-- ')&&m.includes('after 015_front_desk.sql'));
+  for(const s of ['create table if not exists public.blog_posts','create table if not exists public.blog_comments','alter table public.blog_posts enable row level security','alter table public.blog_comments enable row level security',"('blog-drafts', 'blog-drafts', false","('blog-images', 'blog-images', true","check (status in ('draft','review','changes','approved','rejected'))"])assert.ok(m.includes(s),s);
+  assert.equal(readFileSync(new URL('../supabase/schema.sql',import.meta.url),'utf8').includes('blog_'),false,'schema.sql is not edited');
+});
