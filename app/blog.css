@@ -230,3 +230,6 @@
 }
 .blog-side .tags input { border: 0; min-height: 0; box-shadow: none; padding: .25rem; background: transparent; }
 .blog-side .text-link { align-self: flex-start; font-size: .9rem; }
+.post-body a.button, .post-body a.button:hover { color: var(--white); text-decoration: none; }
+.blog-back { display: flex; align-items: center; gap: .8rem; }
+.blog-back .blog-sample-note { margin-top: 0; }

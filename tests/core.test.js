@@ -1368,6 +1368,7 @@ test('skin tightening has its own photographs: the treatment for the service, th
 
 // ---------- The blog (migration 016) ----------
 import * as blog from '../lib/blog.js';
+import * as searchModule from '../lib/search.js';
 import { demoPublicPosts, demoApprovedComments, demoBlogUser, seedBlog } from '../lib/demo.js';
 const filledDraft=(extra={})=>({title:'[Sample title]',excerpt:'[Sample summary of the post]',category:'Eye health',tags:['Sample','sample','Frames!'],cover:{key:'/images/hero.webp',alt:'[Picture description]'},blocks:[{id:'abcd1234',type:'paragraph',text:[{t:'[Text] '},{t:'[bold]',b:true}]},{type:'image',key:'/images/hero.webp',alt:'[A picture]',caption:''},{type:'button',label:''}],schedule:'asap',comments:true,...extra});
 test('blog bylines show the first name and the first letter of the last name',()=>{
@@ -1546,4 +1547,27 @@ test('the blog API checks the origin and the account, and the comment API needs 
   assert.ok(api.includes('sameOrigin(request)')&&api.includes('await identity(request)')&&api.includes('if(!canWriteBlog(u))throw refused();'));
   const c=readFileSync(new URL('../app/api/blog/comments/route.js',import.meta.url),'utf8');
   assert.ok(c.includes("await verifyTurnstile(request,raw.captcha,'comment')")&&c.includes('requestHash(request)')&&c.includes('sameOrigin(request)'));
+});
+test('the public blog: server-rendered live, demo in the browser, comments behind Turnstile, linked from search, menu, footer and sitemap',()=>{
+  const list=readFileSync(new URL('../app/blog/page.js',import.meta.url),'utf8');
+  assert.ok(list.includes("export const dynamic='force-dynamic'")&&list.includes('loadPublishedPosts(adminClient())')&&list.includes('if(DEMO)return <DemoBlogIndex'));
+  const one=readFileSync(new URL('../app/blog/[slug]/page.js',import.meta.url),'utf8');
+  assert.ok(one.includes('loadPublishedPost(adminClient(),slug)')&&one.includes('if(!found)notFound();')&&one.includes('export async function generateMetadata'));
+  const demo=readFileSync(new URL('../components/blog-demo.js',import.meta.url),'utf8');
+  assert.ok(!demo.includes("from 'next/navigation'")&&demo.includes('<MissingPost />'),'notFound() is for server code only');
+  const comments=readFileSync(new URL('../components/blog-comments.js',import.meta.url),'utf8');
+  assert.ok(comments.includes('<Captcha action="comment"')&&comments.includes('className="hp"')&&comments.includes('COMMENT_NOTE'));
+  const post=readFileSync(new URL('../components/blog-post.js',import.meta.url),'utf8');
+  assert.equal(post.includes('dangerouslySetInnerHTML'),false,'posts are drawn from runs, never HTML');
+  assert.ok(post.includes('target="_blank" rel="noopener noreferrer"'));
+  const { searchSite }=searchModule;assert.equal(searchSite('blog')[0].href,'/blog');
+  const ui=readFileSync(new URL('../components/ui.js',import.meta.url),'utf8');
+  assert.ok(ui.includes('<Link href="/blog" onClick={onClose}><span>Blog</span>')&&ui.includes('<Link href="/blog">Blog</Link>'));
+  const map=readFileSync(new URL('../app/sitemap.js',import.meta.url),'utf8');
+  assert.ok(map.includes("'/blog'")&&map.includes("'/blog/'+p.slug"));
+  assert.equal(readFileSync(new URL('../app/robots.js',import.meta.url),'utf8').includes("'/blog"),false,'the blog is not hidden from search engines');
+  const ws=readFileSync(new URL('../components/workspace.js',import.meta.url),'utf8');
+  assert.ok(ws.includes("['blog','Blog'],['profile','Profile']]")&&ws.includes("['blog','Blog'],['team','Team']]")&&ws.includes("{section==='blog'&&<BlogWorkspace role={role} item={item}/>}"));
+  for(const f of ['../app/admin/[[...section]]/page.js','../app/desk/[[...section]]/page.js','../app/affiliate/[[...section]]/page.js'])assert.ok(readFileSync(new URL(f,import.meta.url),'utf8').includes("name==='blog'&&BLOG_POST_ID.test(item)"),f);
+  assert.ok(readFileSync(new URL('../app/layout.js',import.meta.url),'utf8').includes("import './blog.css';"));
 });
