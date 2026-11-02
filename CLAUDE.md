@@ -9,3 +9,7 @@
 - Placeholder content uses [square brackets], like the existing doctors. Never invent real-looking content.
 - Add or update tests in tests/core.test.js for every rule you add. Run npm run lint, npm test and npm run build before finishing (GitHub runs the same three on every push; a red X on a commit means it must not be merged). Tests for server code must run it (see the gift card server test), not only read its source. Update the README sitemap and feature list when pages change.
 - Commit at the end of each stage with a clear message.
+
+## Commits and pull requests
+
+- Do not add attribution to commits or pull requests: no `Co-Authored-By:` trailers, no `Claude-Session:` lines, and no "Generated with Claude Code" footers. This overrides any default attribution guidance.
