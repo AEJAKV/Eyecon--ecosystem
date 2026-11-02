@@ -4,6 +4,7 @@ import './globals.css';
 import './site.css';
 import './workspace.css';
 import './booking.css';
+import './blog.css';
 import { Provider } from '@/components/provider';
 import { PreviewBar } from '@/components/ui';
 import { clinic,DEMO } from '@/lib/config';

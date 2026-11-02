@@ -1178,10 +1178,10 @@ test('the workspace API, pages and sign-in route the front desk to /desk and ref
   assert.ok(route.includes("if(u.role===FRONT_DESK_ROLE&&!canAct(u.role,action))throw refused();"),'checked before the affiliate profile action');
   assert.ok(route.includes("action==='team-invite'")&&route.includes("action==='team-toggle'"));
   const desk=readFileSync(new URL('../app/desk/[[...section]]/page.js',import.meta.url),'utf8');
-  assert.ok(desk.includes("['','gift-cards','leads']")&&desk.includes('<Workspace role="front-desk"')&&desk.includes('robots:{index:false,follow:false}'));
+  assert.ok(desk.includes("['','gift-cards','leads','blog']")&&desk.includes('<Workspace role="front-desk"')&&desk.includes('robots:{index:false,follow:false}'));
   assert.ok(readFileSync(new URL('../app/admin/[[...section]]/page.js',import.meta.url),'utf8').includes("'team'"));
   const ws=readFileSync(new URL('../components/workspace.js',import.meta.url),'utf8');
-  assert.ok(ws.includes("const deskNav=[['','Bookings'],['gift-cards','Gift cards'],['leads','Leads']];")&&ws.includes("['team','Team']]"));
+  assert.ok(ws.includes("const deskNav=[['','Bookings'],['gift-cards','Gift cards'],['leads','Leads'],['blog','Blog']];")&&ws.includes("['team','Team']]"));
   assert.ok(ws.includes('desk?frontDeskView(loaded):loaded')&&ws.includes("{!desk&&detail.status==='Attended'&&<Calculator")&&ws.includes("{desk?<DeskToday bookings={data.bookings} busy={busy} onStatus={setAttendance} onDetails={openDetail}/>:<StaffOverview data={data}"));
   assert.ok(ws.includes("desk?['name','email','phone','start','doctor','service','source','status']:"),'the desk CSV has no commission or payout');
   const login=readFileSync(new URL('../components/login-form.js',import.meta.url),'utf8');
