@@ -557,3 +557,14 @@ tr.is-new td:first-child { box-shadow: inset 3px 0 0 var(--gold); }
 .redeem-confirm p { margin: 0 0 .45rem; }
 .redeem-actions { display: flex; align-items: center; gap: .75rem; }
 .card-table td .redeem-actions .redeem-button { margin-top: 0; }
+/* Phones: the gift card's Mark as redeemed / Undo and its confirmation run the full width of the card, under a line,
+   instead of sitting in the narrow right-hand value column. The cell's content box is 62% of the card (38% label
+   gutter), so -61.29% / 161.29% of it is exactly the card's full width. */
+@media (max-width: 800px) {
+  .card-table td .redeem-button, .card-table td .redeem-undo, .card-table td .redeem-confirm { width: 161.29%; max-width: none; margin-left: -61.29%; box-sizing: border-box; }
+  .card-table td .redeem-button { display: flex; justify-content: center; margin-top: .9rem; padding: .75rem 1rem; }
+  .card-table td .redeem-undo { margin-top: .75rem; text-align: center; }
+  .card-table td .redeem-confirm { margin-top: .9rem; text-align: left; }
+  .card-table td .redeem-actions { justify-content: flex-start; }
+  .card-table td .redeem-confirm .redeem-button { width: auto; margin-left: 0; margin-top: 0; }
+}
