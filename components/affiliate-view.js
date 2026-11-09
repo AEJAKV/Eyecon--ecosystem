@@ -176,7 +176,7 @@ export function ShareKit({ url, name, slug, qr, onCopied, onDownload }) {
         <label className="field-label" htmlFor="referral-url">Your referral link</label>
         <div className="link-row"><input id="referral-url" readOnly value={url} onFocus={e => e.target.select()} /><CopyButton text={url} onDone={onCopied} /></div>
         <div className="share-actions">
-          <button type="button" className="share-action" onClick={onDownload}><span className="stat-icon gold"><Icon name="download" size={20} /></span>Download QR</button>
+          <button type="button" className="share-action" onClick={() => onDownload(dark)}><span className="stat-icon gold"><Icon name="download" size={20} /></span>Download card<span className="sr-only"> ({dark ? 'dark' : 'light'})</span></button>
           <a className="share-action" href={'mailto:?subject=' + encodeURIComponent('Your introduction to Eyecon') + '&body=' + encodeURIComponent('Book your Eyecon appointment through my personal link: ' + url)}><span className="stat-icon gold"><Icon name="mail" size={20} /></span>Email link</a>
           <Link className="share-action" href={'/book/' + slug}><span className="stat-icon gold"><Icon name="eye" size={20} /></span>Preview my page</Link>
         </div>

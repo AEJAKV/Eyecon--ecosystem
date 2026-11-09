@@ -1712,3 +1712,13 @@ test('the booking chime plays only for new arrivals, for clinic staff, and can b
   assert.ok(ui.includes('{clinicUi&&<button type="button" className="sound-toggle" aria-pressed={sound}'),'mute button for admin and front desk');
   const src=readFileSync(new URL('../lib/chime.js',import.meta.url),'utf8');assert.ok(src.includes('659.25')&&src.includes('987.77'),'the soft chime');
 });
+
+// My link & QR: "Download card" saves the whole share card (light or dark, as chosen), not only the QR code.
+test('Download card saves the whole share card in the chosen style at print size',async()=>{
+  const { cardLayout, CARD_SCALE } = await import('../components/share-card-download.js');
+  const L=cardLayout();assert.equal(L.width*CARD_SCALE,1120);assert.ok(L.height>380&&L.height<420,'about the on-screen card height');
+  const src=readFileSync(new URL('../components/share-card-download.js',import.meta.url),'utf8');
+  for(const s of ["'EYECON'","'Scan to book with my'","'personal introduction'",'name ||',"-card-${dark ? 'dark' : 'light'}.png"])assert.ok(src.includes(s),s);
+  assert.ok(readFileSync(new URL('../components/affiliate-view.js',import.meta.url),'utf8').includes('onClick={() => onDownload(dark)}'),'uses the chosen style');
+  assert.ok(readFileSync(new URL('../components/workspace.js',import.meta.url),'utf8').includes('downloadShareCard({url:referralUrl,name:own.name,slug:own.slug,dark})'));
+});
