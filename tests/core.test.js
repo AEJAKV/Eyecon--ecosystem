@@ -1215,6 +1215,8 @@ test('the redesigned affiliate views show only the agreed fields, with commissio
   assert.ok(readFileSync(new URL('../app/layout.js',import.meta.url),'utf8').includes("import './workspace.css';"));
   const css=readFileSync(new URL('../app/workspace.css',import.meta.url),'utf8');
   assert.ok(css.includes('@media (prefers-reduced-motion: reduce)')&&css.includes('.sidebar-bottom > a { display: none; }'));
+  assert.ok(css.includes('@media (min-width: 801px) { .sidebar { overflow-y: auto;'),'desktop sidebar scrolls so Sign out is reachable on short windows');
+  assert.ok(ws.includes('await signOut();router.push(\'/login\')'),'workspace keeps a Sign out button');
 });
 
 // The front desk redesign (front end only): today's figures, schedule and gift card counts.

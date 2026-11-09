@@ -7,6 +7,8 @@
 
 /* Sidebar: an icon per item, the current page in ink, the affiliate's own card at the top. */
 .sidebar { gap: 1.6rem; }
+/* Desktop: the sidebar is sticky and one screen tall, so on a short window the long staff menu would push Sign out off the bottom. Let it scroll. */
+@media (min-width: 801px) { .sidebar { overflow-y: auto; overscroll-behavior: contain; } }
 .sidebar nav a { display: flex; align-items: center; gap: .75rem; min-height: 46px; padding: 0 .9rem; border-radius: 10px; color: #3a3f45; transition: background .25s, color .25s; }
 .sidebar nav a svg { transition: transform .3s var(--ease); }
 .sidebar nav a:hover { background: var(--tint); color: var(--ink); }
