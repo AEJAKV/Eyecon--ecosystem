@@ -1686,8 +1686,8 @@ test('removing an optometrist: refused with upcoming bookings, deleted if never 
 // The hourly Vercel Schedule that sends reminders and keeps open times 90 days ahead.
 test('vercel.json runs /api/reminders every hour, and the route needs CRON_SECRET',()=>{
   const v=JSON.parse(readFileSync(new URL('../vercel.json',import.meta.url),'utf8'));
-  assert.deepEqual(v.schedules['hourly-reminders'],{schedule:'0 * * * *',path:'/api/reminders',requestMethod:'GET'});
-  assert.ok(!v.crons,'not both crons and schedules (the route would run twice)');
+  assert.deepEqual(v.crons,[{path:'/api/reminders',schedule:'0 * * * *'}]);
+  assert.ok(!v.schedules,'not both crons and schedules (the route would run twice)');
   const r=readFileSync(new URL('../app/api/reminders/route.js',import.meta.url),'utf8');
   assert.ok(r.includes("request.headers.get('authorization')!=='Bearer '+secret")&&r.includes('secret.length<32'));
 });
