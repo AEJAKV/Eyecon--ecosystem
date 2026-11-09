@@ -2,7 +2,8 @@
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Button, Field, Empty } from './ui';
+import { Button, Field, Empty, Notice } from './ui';
+import { useApp } from './provider';
 import { giftCardRows, parseGiftNumber, giftCardPath } from '@/lib/gift';
 import { formatDate } from '@/lib/config';
 
@@ -13,7 +14,7 @@ const day = d => d ? formatDate(d, { dateStyle: 'medium', timeStyle: undefined }
 // and prescription, with its state.
 export default function GiftCardsAdmin({ data, fresh = new Set() }) {
   const router = useRouter();
-  const [number, setNumber] = useState(''), [error, setError] = useState(''), [query, setQuery] = useState(''), [state, setState] = useState('All');
+  const [done, setDone] = useState(''), [number, setNumber] = useState(''), [error, setError] = useState(''), [query, setQuery] = useState(''), [state, setState] = useState('All');
   const rows = useMemo(() => giftCardRows(data), [data]);
   const shown = rows.filter(r => (state === 'All' || r.state === state) && (!query || (r.name + ' ' + r.number + ' ' + r.email).toLowerCase().includes(query.toLowerCase())));
   function check(e) {
@@ -36,6 +37,7 @@ export default function GiftCardsAdmin({ data, fresh = new Set() }) {
       <Field label="Search cards" id="gift-search" type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder="Name, email or card number" />
       <Field label="Status" id="gift-state"><select id="gift-state" value={state} onChange={e => setState(e.target.value)}>{['All', 'Not redeemed', 'Redeemed', 'Expired'].map(s => <option key={s}>{s}</option>)}</select></Field>
     </div>
+    <Notice>{done}</Notice>
     {shown.length ? <div className="table-wrap card-table" tabIndex={0} role="region" aria-label="Gift cards table"><table>
       <caption className="sr-only">Gift cards</caption>
       <thead><tr><th scope="col">Card</th><th scope="col">Patient</th><th scope="col">Type</th><th scope="col">Issued</th><th scope="col">Valid until</th><th scope="col">Status</th></tr></thead>
@@ -45,8 +47,29 @@ export default function GiftCardsAdmin({ data, fresh = new Set() }) {
         <td data-label="Type">{r.kind === 'Booking' ? 'Booking' : 'Prescription'}{r.reference && <small>Ref {r.reference}</small>}{r.introducer && <small>Via {r.introducer}</small>}</td>
         <td data-label="Issued">{day(r.issuedAt)}</td>
         <td data-label="Valid until">{day(r.expiresAt)}</td>
-        <td data-label="Status"><span className={'badge ' + TONES[r.state]}>{r.state}</span>{r.redeemedAt && <small>{day(r.redeemedAt)}</small>}</td>
+        <td data-label="Status"><span className={'badge ' + TONES[r.state]}>{r.state}</span>{r.redeemedAt && <small>{day(r.redeemedAt)}</small>}<RedeemControl row={r} onDone={setDone} /></td>
       </tr>)}</tbody>
     </table></div> : <Empty text={rows.length ? 'No gift cards match your filters.' : 'No gift cards yet. Cards are issued when someone books through an affiliate link or claims one with a prescription.'} />}
   </>;
+}
+
+// Redeem (or undo) straight from the list, for convenience. Always asks to confirm, naming the card and the patient,
+// so the wrong row can't be redeemed by a stray click. Uses the same 'gift-redeem' action as the card's own page:
+// a card is used once, expired cards are refused, and every redeem and undo is logged.
+export function RedeemControl({ row, onDone }) {
+  const { action } = useApp(), [asking, setAsking] = useState(false), [busy, setBusy] = useState(false), [error, setError] = useState('');
+  const redeem = row.state === 'Not redeemed', undo = row.state === 'Redeemed';
+  if (!redeem && !undo) return null;
+  async function confirm() {
+    setBusy(true); setError('');
+    try { await action('gift-redeem', { number: row.number, redeemed: redeem }); setAsking(false); onDone?.(redeem ? `${row.number} redeemed for ${row.name}.` : `Redemption undone for ${row.number}. The card can be used again.`); }
+    catch (e) { setError(e.message || 'Could not update this gift card.'); }
+    finally { setBusy(false); }
+  }
+  if (!asking) return <button type="button" className={redeem ? 'mini-button redeem-button' : 'text-link redeem-undo'} onClick={() => { setError(''); setAsking(true); }}>{redeem ? 'Redeem' : 'Undo'}<span className="sr-only"> {row.number} for {row.name}</span></button>;
+  return <div className="redeem-confirm" role="alert">
+    <p>{redeem ? <>Redeem <strong>{row.number}</strong> for {row.name}?</> : <>Undo the redemption of <strong>{row.number}</strong>?</>}</p>
+    {error && <p className="error-text">{error}</p>}
+    <div className="redeem-actions"><button type="button" className="mini-button redeem-button" disabled={busy} onClick={confirm}>{busy ? 'Saving…' : redeem ? 'Yes, redeem' : 'Yes, undo'}</button><button type="button" className="text-link" disabled={busy} onClick={() => setAsking(false)}>Cancel</button></div>
+  </div>;
 }

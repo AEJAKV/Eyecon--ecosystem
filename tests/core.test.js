@@ -1767,3 +1767,12 @@ test('a gift card claimed without booking alerts the clinic by email and in the 
   const ui=readFileSync(new URL('../components/workspace.js',import.meta.url),'utf8');assert.ok(ui.includes("clinicUi&&path==='gift-cards'&&freshClaimCount>0")&&ui.includes('<GiftCardsAdmin data={data} fresh={freshClaims}/>'));
   assert.ok(readFileSync(new URL('../supabase/migrations/020_gift_claims_seen.sql',import.meta.url),'utf8').includes('after 019_remove_doctor.sql'));
 });
+
+// Gift cards list: Redeem (or Undo) from the row, always confirmed, through the same 'gift-redeem' action.
+test('gift cards can be redeemed or undone from the list, with a confirmation',()=>{
+  const g=readFileSync(new URL('../components/gift-cards-admin.js',import.meta.url),'utf8');
+  assert.ok(g.includes("<RedeemControl row={r} onDone={setDone} />")&&g.includes("action('gift-redeem', { number: row.number, redeemed: redeem })"),'same action as the card page');
+  assert.ok(g.includes("const redeem = row.state === 'Not redeemed', undo = row.state === 'Redeemed';")&&g.includes('if (!redeem && !undo) return null;'),'no button on expired or void cards');
+  assert.ok(g.includes("'Yes, redeem'")&&g.includes("'Yes, undo'")&&g.includes('Cancel'),'asks to confirm first');
+  assert.ok(FRONT_DESK_ACTIONS.includes('gift-redeem'),'the front desk can use it');
+});

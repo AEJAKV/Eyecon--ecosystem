@@ -549,3 +549,11 @@ tr.is-new td:first-child { box-shadow: inset 3px 0 0 var(--gold); }
 .sound-toggle { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border: 1px solid var(--line); border-radius: 999px; background: var(--white); color: var(--ink); }
 .sound-toggle[aria-pressed="false"] { color: var(--muted); }
 .sound-toggle[aria-pressed="true"] { border-color: var(--gold); color: var(--gold-text); }
+
+/* Gift cards list: Redeem / Undo with a confirmation (components/gift-cards-admin.js RedeemControl). */
+.redeem-button { margin-top: .45rem; }
+.redeem-undo { display: block; margin-top: .3rem; font-size: .85rem; }
+.redeem-confirm { margin-top: .5rem; padding: .6rem .75rem; border: 1px solid var(--gold); border-radius: 12px; background: var(--white); font-size: .88rem; max-width: 16rem; }
+.redeem-confirm p { margin: 0 0 .45rem; }
+.redeem-actions { display: flex; align-items: center; gap: .75rem; }
+.redeem-actions .redeem-button { margin-top: 0; }
