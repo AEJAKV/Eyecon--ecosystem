@@ -544,3 +544,8 @@ tr.is-new td:first-child { box-shadow: inset 3px 0 0 var(--gold); }
 .remove-confirm { padding: .9rem 1rem; border: 1px solid var(--danger); border-radius: var(--radius); background: var(--white); }
 .remove-confirm p { margin-bottom: .75rem; }
 .button.remove-button { background: var(--danger); border-color: var(--danger); color: var(--white); }
+
+/* New-booking sound on/off (admin and front desk). */
+.sound-toggle { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border: 1px solid var(--line); border-radius: 999px; background: var(--white); color: var(--ink); }
+.sound-toggle[aria-pressed="false"] { color: var(--muted); }
+.sound-toggle[aria-pressed="true"] { border-color: var(--gold); color: var(--gold-text); }

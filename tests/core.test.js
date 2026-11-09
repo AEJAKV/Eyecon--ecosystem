@@ -1700,3 +1700,15 @@ test('the privacy notice is complete and matches what the platform does',()=>{
   for(const v of ['Supabase','Vercel','Resend','Cloudflare','Twilio','Google'])assert.ok(!p.includes(v),'no vendor names: '+v);
   assert.ok(p.includes('They never see your contact details, the service you chose, your insurance, your documents or any prices.'),'matches the affiliate restriction');
 });
+
+// The new-booking chime (admin and front desk): plays once per arrival, never for bookings already new on load.
+test('the booking chime plays only for new arrivals, for clinic staff, and can be muted per computer',async()=>{
+  const { arrivals } = await import('../lib/seen.js');
+  assert.deepEqual(arrivals(['a'],['a','b']),['b']);assert.deepEqual(arrivals(['a','b'],['b']),[],'a booking opened is not an arrival');
+  const chime = await import('../lib/chime.js');
+  assert.equal(chime.playChime(),false,'silent where there is no audio');assert.equal(chime.soundEnabled(),true,'on by default');
+  const ui=readFileSync(new URL('../components/workspace.js',import.meta.url),'utf8');
+  assert.ok(ui.includes('if(seenIds.current&&clinicUi&&sound&&arrivals(seenIds.current,ids).length)playChime()'),'not on first load, clinic only, respects mute');
+  assert.ok(ui.includes('{clinicUi&&<button type="button" className="sound-toggle" aria-pressed={sound}'),'mute button for admin and front desk');
+  const src=readFileSync(new URL('../lib/chime.js',import.meta.url),'utf8');assert.ok(src.includes('659.25')&&src.includes('987.77'),'the soft chime');
+});
