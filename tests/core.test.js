@@ -1722,3 +1722,16 @@ test('Download card saves the whole share card in the chosen style at print size
   assert.ok(readFileSync(new URL('../components/affiliate-view.js',import.meta.url),'utf8').includes('onClick={() => onDownload(dark)}'),'uses the chosen style');
   assert.ok(readFileSync(new URL('../components/workspace.js',import.meta.url),'utf8').includes('downloadShareCard({url:referralUrl,name:own.name,slug:own.slug,dark})'));
 });
+
+// When a booking was made: its own "Booked on" column and details line, never mixed with the appointment time.
+test('Booked on shows when the booking was made, in clinic time, apart from the appointment',async()=>{
+  const { bookedOn } = await import('../lib/config.js');
+  const now=new Date('2026-11-09T22:30:00Z');
+  const today=bookedOn('2026-11-09T21:21:00Z',now);assert.equal(today.day,'Today');assert.match(today.time,/^3:21\s?p\.m\.$/);assert.match(today.full,/^Monday, Nov\.? 9 at 3:21/);
+  assert.equal(bookedOn('2026-11-08T20:00:00Z',now).day,'Yesterday');
+  assert.match(bookedOn('2026-11-07T16:48:00Z',now).day,/^Nov\.? 7$/);assert.match(bookedOn('2025-12-30T16:00:00Z',now).day,/2025/);
+  assert.equal(bookedOn(undefined),null);assert.equal(bookedOn('nonsense'),null);
+  const ui=readFileSync(new URL('../components/workspace.js',import.meta.url),'utf8');
+  assert.ok(ui.includes('{clinicUi&&!earnings&&<th scope="col">Booked on</th>}')&&ui.includes("['Booked on',bookedOn(detail.createdAt)?.full||'Not recorded']"),'column and details line, clinic only');
+  assert.ok(ui.includes("<option value=\"booked\">Newest bookings</option>")&&ui.includes("sort==='booked'?[...filtered].sort("),'sort by newest booking');
+});
