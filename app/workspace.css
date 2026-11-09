@@ -568,3 +568,14 @@ tr.is-new td:first-child { box-shadow: inset 3px 0 0 var(--gold); }
   .card-table td .redeem-actions { justify-content: flex-start; }
   .card-table td .redeem-confirm .redeem-button { width: auto; margin-left: 0; margin-top: 0; }
 }
+
+/* Admin and front desk header actions: one row, one height (48px), one shape. The sound button is a matching square
+   at the end of the row. On phones the two main buttons share the width evenly. */
+.clinic .workspace-header .toolbar { flex-wrap: nowrap; gap: .6rem; }
+.clinic .workspace-header .toolbar .button { height: 48px; padding: 0 1.25rem; white-space: nowrap; }
+.clinic .workspace-header .sound-toggle { order: 99; flex-shrink: 0; width: 48px; height: 48px; border-radius: var(--radius); }
+@media (max-width: 1100px) { .clinic .workspace-header .toolbar { width: 100%; } }
+@media (max-width: 640px) {
+  .clinic .workspace-header .toolbar .button { flex: 1 1 0; min-width: 0; padding: 0 .7rem; font-size: .82rem; }
+  .clinic .workspace-header .toolbar .button svg { width: 16px; height: 16px; }
+}
