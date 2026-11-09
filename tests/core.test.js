@@ -1691,3 +1691,11 @@ test('vercel.json runs /api/reminders every hour, and the route needs CRON_SECRE
   const r=readFileSync(new URL('../app/api/reminders/route.js',import.meta.url),'utf8');
   assert.ok(r.includes("request.headers.get('authorization')!=='Bearer '+secret")&&r.includes('secret.length<32'));
 });
+
+// The privacy notice is final copy (no draft banners or bracketed placeholders) and names what the platform really does.
+test('the privacy notice is complete and matches what the platform does',()=>{
+  const p=readFileSync(new URL('../app/privacy/page.js',import.meta.url),'utf8');
+  assert.ok(!/Draft notice|For clinic review|\[[A-Za-z]/.test(p),'no draft banners or placeholders');
+  for(const s of ['Health Information Act','Personal Information Protection Act','government ID','Alberta Health Care card','Supabase','in Canada','Vercel','Resend','Cloudflare Turnstile','Twilio','Google','Office of the Information and Privacy Commissioner of Alberta','GIFT_CARD_DAYS','encrypted before they are stored'])assert.ok(p.includes(s),s);
+  assert.ok(p.includes('They never see your contact details, the service you chose, your insurance, your documents or any prices.'),'matches the affiliate restriction');
+});
