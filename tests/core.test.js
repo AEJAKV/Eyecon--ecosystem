@@ -1776,3 +1776,15 @@ test('gift cards can be redeemed or undone from the list, with a confirmation',(
   assert.ok(g.includes("'Yes, redeem'")&&g.includes("'Yes, undo'")&&g.includes('Cancel'),'asks to confirm first');
   assert.ok(FRONT_DESK_ACTIONS.includes('gift-redeem'),'the front desk can use it');
 });
+
+// Regression: live affiliate rows arrive restricted (no affiliateId) and must still be listed.
+test('an affiliate sees their live referrals, which arrive without an affiliateId',async()=>{
+  const { ownReferrals, restrictAffiliateRow } = await import('../lib/affiliate.js');
+  const live=[restrictAffiliateRow({id:'b1',name:'Sam L.',status:'Booked',start:'2026-11-14T18:30:00Z',commission:0,payout:'Pending',affiliateId:'a1'})];
+  assert.equal(live[0].affiliateId,undefined,'the API strips it');
+  assert.deepEqual(ownReferrals(live,'a1').map(r=>r.id),['b1'],'live rows are kept');
+  const demo=[{id:'x',name:'A',status:'Booked',start:'2026-11-14T18:30:00Z',affiliateId:'a1'},{id:'y',name:'B',status:'Booked',start:'2026-11-14T18:30:00Z',affiliateId:'a2'},{id:'z',name:'C',status:'Booked',start:'2026-11-14T18:30:00Z',affiliateId:null}];
+  assert.deepEqual(ownReferrals(demo,'a1').map(r=>r.id),['x'],'demo rows: only this affiliate');
+  assert.ok(!('email' in ownReferrals(demo,'a1')[0]),'always restricted');
+  assert.ok(readFileSync(new URL('../components/workspace.js',import.meta.url),'utf8').includes("const rows=role==='affiliate'?ownReferrals(data.bookings,user?.affiliateId):data.bookings;"));
+});

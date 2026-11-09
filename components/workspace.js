@@ -14,8 +14,7 @@ import { AffiliateStats, AffiliateTable, ReferralHero, ReferralJourney, RecentRe
 import { AffiliatesView, AffiliateDetail } from './affiliate-dashboard';
 import { DEMO,services,statuses,sources,clinic,formatDate,bookedOn,money,serviceName,doctorName,doctors,documentKindLabel,fileSize,serviceOptionName } from '@/lib/config';
 import { giftNumber } from '@/lib/gift';
-import { affiliateRows } from '@/lib/demo';
-import { completed, affiliateStats, affiliateCsvRows, AFFILIATE_CSV_FIELDS, filterReferrals, nextUpcoming } from '@/lib/affiliate';
+import { completed, affiliateStats, affiliateCsvRows, AFFILIATE_CSV_FIELDS, filterReferrals, nextUpcoming, ownReferrals } from '@/lib/affiliate';
 import { csv,validateBooking,validateSlug,slotTaken,fileComplete } from '@/lib/validation';
 import { downloadFile } from '@/lib/calendar';
 import { clinicTime } from '@/lib/schedule';
@@ -66,7 +65,7 @@ export default function Workspace({role,section='',item=''}){
   useEffect(()=>setOrigin(window.location.origin),[]);
   useEffect(()=>{if(ready&&!user&&!loadError)router.replace('/login');},[ready,user,loadError,router]);
   const own=data.affiliates.find(a=>a.id===user?.affiliateId);
-  const rows=role==='affiliate'?affiliateRows(data.bookings,user?.affiliateId):data.bookings;
+  const rows=role==='affiliate'?ownReferrals(data.bookings,user?.affiliateId):data.bookings;
   const viewed=role==='staff'&&section==='affiliates'&&item?data.affiliates.find(a=>a.slug===item):null;
   const activeTitle=viewed?viewed.name:section==='blog'?'Blog':(role==='staff'&&section==='affiliates'&&item)?'Affiliate not found':nav.find(n=>n[0]===section)?.[1]||'Overview';
   const dayKey=d=>new Intl.DateTimeFormat('en-CA',{timeZone:clinic.timezone,year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(d));
