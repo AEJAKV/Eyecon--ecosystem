@@ -391,7 +391,7 @@ export default function BookingFlow() {
                 <IconField label="Policy number" id="claim-policy" icon="receipt" value={claim.policy} maxLength={120} onChange={e => changeClaim('policy', e.target.value)} hint="Only clinic staff can see this. You can bring your insurance card instead." />
               </div>
             </details>
-            <p className="privacy-note"><Icon name="lock" size={16} /><span>{affiliate?.name} is not told your details. One gift card per email address. Read our <Link href="/privacy">privacy notice</Link> and the <Link href="/gift-card-terms" target="_blank">gift card terms</Link>.</span></p>
+            <p className="privacy-note"><Icon name="lock" size={16} /><span>Your details stay private with Eyecon; {affiliate?.name} won’t see them. One gift card per email address. Read our <Link href="/privacy">privacy notice</Link> and the <Link href="/gift-card-terms" target="_blank">gift card terms</Link>.</span></p>
             <div className="honeypot" aria-hidden="true"><label htmlFor="claim-website">Leave this blank</label><input id="claim-website" value={claim.website} onChange={e => changeClaim('website', e.target.value)} tabIndex={-1} autoComplete="off" /></div>
             {!DEMO && <Captcha key={captchaKey} action="claim" onToken={setCaptcha} />}
           </form>
