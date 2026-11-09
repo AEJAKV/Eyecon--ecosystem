@@ -1709,7 +1709,7 @@ test('the booking chime plays only for new arrivals, for clinic staff, and can b
   assert.equal(chime.playChime(),false,'silent where there is no audio');assert.equal(chime.soundEnabled(),true,'on by default');
   const ui=readFileSync(new URL('../components/workspace.js',import.meta.url),'utf8');
   assert.ok(ui.includes('if(seenIds.current&&clinicUi&&sound&&arrivals(seenIds.current,ids).length)playChime()'),'not on first load, clinic only, respects mute');
-  assert.ok(ui.includes('{clinicUi&&<button type="button" className="sound-toggle" aria-pressed={sound}'),'mute button for admin and front desk');
+  assert.ok(ui.includes("{clinicUi&&(!section||section==='leads'||section==='gift-cards')&&<button type=\"button\" className=\"sound-toggle\" aria-pressed={sound}"),'mute button for admin and front desk');
   const src=readFileSync(new URL('../lib/chime.js',import.meta.url),'utf8');assert.ok(src.includes('659.25')&&src.includes('987.77'),'the soft chime');
 });
 
