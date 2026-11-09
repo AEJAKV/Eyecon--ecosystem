@@ -546,7 +546,7 @@ test('migration 010 is server-only, keeps booked and hand-added slots, and hides
   assert.match(sql,/join doctors d on d\.slug = s\.doctor and d\.visible/);
   assert.match(sql,/from doctor_time_off t where t\.doctor = s\.doctor/);
   const route=readFileSync(new URL('../app/api/doctors/route.js',import.meta.url),'utf8');
-  assert.match(route,/requireStaff\(u\)/);assert.match(route,/publicDoctor/);assert.ok(!/delete\(\)\.eq\('slug'/.test(route),'optometrists are never deleted');
+  assert.match(route,/requireStaff\(u\)/);assert.match(route,/publicDoctor/);assert.equal((route.match(/delete\(\)\.eq\('slug'/g)||[]).length,1,'an optometrist is deleted only by Remove');assert.ok(route.indexOf("if(plan.mode==='delete')")<route.indexOf("from('doctors').delete().eq('slug'"),'and only when they never had a booking');
 });
 
 test('affiliate invitation errors are explained in plain words (email limit, existing account, other)',()=>{
@@ -1657,4 +1657,28 @@ test('a new affiliate or doctor without a photo gets the neutral placeholder',as
   for(const f of ['../components/ui.js','../components/booking-flow.js','../lib/schedule.js'])assert.ok(!readFileSync(new URL(f,import.meta.url),'utf8').includes("|| '/images/doctors/doctor-1.webp'")&&!readFileSync(new URL(f,import.meta.url),'utf8').match(/photo ?\|\| ?'\/images\/affiliate\.webp'/),f);
   const sql=readFileSync(new URL('../supabase/migrations/018_placeholder_photos.sql',import.meta.url),'utf8');
   assert.ok(sql.includes('after 017_new_booking_seen.sql')&&sql.includes("set default '/images/placeholder-person.svg'"));
+});
+
+// Staff admin > Doctors > Remove: refused with upcoming appointments, deleted with no bookings, archived otherwise.
+test('removing an optometrist: refused with upcoming bookings, deleted if never booked, archived to keep past names',async()=>{
+  const { removalPlan, removalRefusal, isVisible, mapDoctorRow } = await import('../lib/schedule.js');
+  const now=new Date('2026-11-09T20:00:00Z'),past={doctor:'dr-a',status:'Attended',start:'2026-11-01T17:00:00Z'},soon={doctor:'dr-a',status:'Booked',start:'2026-11-12T17:00:00Z'};
+  assert.deepEqual(removalPlan('dr-a',[past,soon],now),{upcoming:1,mode:'refuse'});
+  assert.deepEqual(removalPlan('dr-a',[past,{...soon,status:'Cancelled'}],now),{upcoming:0,mode:'archive'});
+  assert.deepEqual(removalPlan('dr-a',[{...past,doctor:'dr-b'}],now),{upcoming:0,mode:'delete'});
+  assert.equal(removalRefusal('Dr. A B',2),'Dr. A B has 2 upcoming appointments. Move or cancel them first, then remove the optometrist.');
+  assert.equal(isVisible({slug:'x',removed:true}),false,'a removed optometrist is never shown or bookable');
+  assert.equal(mapDoctorRow({slug:'x',first_name:'A',last_name:'B',removed_at:'2026-11-09T00:00:00Z'}).removed,true);
+  // Demo: the same rules.
+  const data=seedDemo(),staff={role:'staff'};
+  const added=applyDemo(data,'doctor',{isNew:true,title:'Dr.',first:'New',last:'Person'},staff),slug=added.doctors.at(-1).slug;
+  const gone=applyDemo(added,'doctor-remove',{slug},staff);assert.ok(!gone.doctors.some(d=>d.slug===slug),'never booked: deleted');
+  const booked=data.bookings.find(b=>b.doctor&&b.status==='Booked'&&new Date(b.start)>new Date());
+  if(booked)assert.throws(()=>applyDemo(data,'doctor-remove',{slug:booked.doctor},staff),/upcoming appointment/);
+  assert.throws(()=>applyDemo(data,'doctor-remove',{slug:'doctor-1'},{role:'front-desk'}));
+  const route=readFileSync(new URL('../app/api/doctors/route.js',import.meta.url),'utf8');
+  assert.ok(route.includes("if(action==='doctor-remove')")&&route.includes('removalPlan(slug,own)')&&route.includes("removed_at:new Date().toISOString()"));
+  const ui=readFileSync(new URL('../components/doctors-admin.js',import.meta.url),'utf8');
+  assert.ok(ui.includes('doctors.filter(d => !d.removed)')&&ui.includes('Yes, remove'),'removed doctors leave the list; removal asks to confirm');
+  assert.ok(readFileSync(new URL('../supabase/migrations/019_remove_doctor.sql',import.meta.url),'utf8').includes('after 018_placeholder_photos.sql'));
 });

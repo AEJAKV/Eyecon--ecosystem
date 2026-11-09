@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react';
 import { Button, Field, Notice, Icon } from './ui';
 import { clinic, services, formatDate } from '@/lib/config';
 import { slotTaken } from '@/lib/validation';
-import { WEEKDAYS, SLOT_LENGTHS, SLOT_DAYS, validateWeeklyHours, validateTimeOff, bookingsInTimeOff, inTimeOff, clinicDate, doctorSlugFrom } from '@/lib/schedule';
+import { WEEKDAYS, SLOT_LENGTHS, SLOT_DAYS, validateWeeklyHours, validateTimeOff, bookingsInTimeOff, inTimeOff, clinicDate, doctorSlugFrom, removalPlan, removalRefusal } from '@/lib/schedule';
 
 // Staff admin > Doctors: the optometrists the website shows and their schedules (migration 010). Each change goes
 // through onAction (the /api/doctors route, or the demo), which regenerates that optometrist's bookable times.
@@ -20,7 +20,7 @@ function WeekStrip({ hours }) {
 
 export default function DoctorsAdmin({ data, doctors, busy, run, onAction, onPhoto }) {
   const [editing, setEditing] = useState('');
-  const list = useMemo(() => [...doctors].sort((a, b) => (a.order ?? 0) - (b.order ?? 0) || a.slug.localeCompare(b.slug)), [doctors]);
+  const list = useMemo(() => doctors.filter(d => !d.removed).sort((a, b) => (a.order ?? 0) - (b.order ?? 0) || a.slug.localeCompare(b.slug)), [doctors]);
   const soon = Date.now() + 14 * 86400000;
   const openTimes = slug => (data.slots || []).filter(s => s.doctor === slug && new Date(s.start) > new Date() && new Date(s.start) < soon && !slotTaken(s, data.bookings || []) && !inTimeOff(s, data.timeOff)).length;
   async function move(slug, by) {
@@ -66,6 +66,7 @@ export default function DoctorsAdmin({ data, doctors, busy, run, onAction, onPho
             <HoursForm key={'h' + d.slug + hours.length} doctor={d} hours={hours} busy={busy} onSave={p => run(() => onAction('doctor-hours', p), 'Hours saved. Open times have been updated.')} />
             <TimeOff doctor={d} entries={(data.timeOff || []).filter(t => t.doctor === d.slug)} bookings={data.bookings || []} busy={busy} run={run} onAction={onAction} />
             <ExtraDays doctor={d} entries={(data.extraHours || []).filter(x => x.doctor === d.slug && x.day >= clinicDate(new Date(), clinic.timezone))} busy={busy} run={run} onAction={onAction} />
+            <RemoveDoctor key={'r' + d.slug} doctor={d} bookings={data.bookings || []} busy={busy} onRemove={async () => { const r = await run(() => onAction('doctor-remove', { slug: d.slug }), fullName(d) + ' removed. They no longer appear on the website or in booking.'); if (r !== false) setEditing(''); }} />
           </div>}
         </li>;
       })}
@@ -215,5 +216,17 @@ function ExtraDays({ doctor, entries, busy, run, onAction }) {
       <Field label="To" id={id + 'end'} name="end" type="time" step="300" required />
       <Button secondary disabled={busy}>Add extra hours</Button>
     </form>
+  </section>;
+}
+
+// Remove an optometrist: asks to confirm first. While they have upcoming appointments it explains why it can't, and the
+// server refuses too (lib/schedule.js removalPlan). Past appointments keep the doctor's name.
+function RemoveDoctor({ doctor, bookings, busy, onRemove }) {
+  const [asking, setAsking] = useState(false), plan = removalPlan(doctor.slug, bookings), name = fullName(doctor);
+  return <section className="doctor-remove" aria-label={'Remove ' + name}>
+    <h3>Remove optometrist</h3>
+    {plan.mode === 'refuse' ? <p className="quiet">{removalRefusal(name, plan.upcoming)}</p>
+      : !asking ? <><p className="quiet">Takes {name} off the website and out of booking, and clears their hours and open times.{plan.mode === 'archive' ? ' Their past appointments keep their name.' : ''}</p><Button secondary disabled={busy} onClick={() => setAsking(true)}>Remove {name}</Button></>
+      : <div className="remove-confirm" role="alert"><p><strong>Remove {name}?</strong> This can’t be undone from here.</p><div className="toolbar"><button type="button" className="button remove-button" disabled={busy} onClick={onRemove}>Yes, remove</button><Button secondary disabled={busy} onClick={() => setAsking(false)}>Cancel</Button></div></div>}
   </section>;
 }

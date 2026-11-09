@@ -1,6 +1,6 @@
 import { DEMO, clinic, placeholderDoctors } from '@/lib/config';
 import { adminClient, identity, requireStaff, sameOrigin, fail, audit, loadDoctorDirectory, generateSlots } from '@/lib/server';
-import { websiteList, publicDoctor, validateDoctorProfile, validateWeeklyHours, validateTimeOff, validateExtraHours, bookingsInTimeOff, doctorRow, mapTimeOffRow } from '@/lib/schedule';
+import { removalPlan, removalRefusal, websiteList, publicDoctor, validateDoctorProfile, validateWeeklyHours, validateTimeOff, validateExtraHours, bookingsInTimeOff, doctorRow, mapTimeOffRow } from '@/lib/schedule';
 export const dynamic='force-dynamic';
 // Optometrists (migration 010).
 //  GET: the optometrists the website shows, with public profile fields only (no schedules). Cached briefly by the CDN.
@@ -54,6 +54,23 @@ export async function POST(request){
         await generateSlots(db,slug);
       }
       await audit(db,u.id,p.isNew?'doctor-add':'doctor',d.slug);return Response.json({ok:true,slug:d.slug});
+    }
+    if(action==='doctor-remove'){
+      // Refused while they have upcoming appointments; deleted if they never had a booking; otherwise archived so past
+      // bookings keep their name (lib/schedule.js removalPlan). Their open (unbooked) future times go either way.
+      const slug=await existing(db,p.slug);
+      const {data:d}=await db.from('doctors').select('title,first_name,last_name').eq('slug',slug).single();
+      const {data:own,error:be}=await db.from('bookings').select('doctor,status,start').eq('doctor',slug);if(be)throw new Error('Could not check this optometrist’s bookings.');
+      const plan=removalPlan(slug,own);if(plan.mode==='refuse')throw new Error(removalRefusal(`${d.title} ${d.first_name} ${d.last_name}`,plan.upcoming));
+      await db.from('doctor_weekly_hours').delete().eq('doctor',slug);await db.from('doctor_extra_hours').delete().eq('doctor',slug);
+      if(plan.mode==='delete'){
+        const {error:se}=await db.from('appointment_slots').delete().eq('doctor',slug);
+        const {error}=se||await db.from('doctors').delete().eq('slug',slug);if(se||error)throw new Error('Could not remove this optometrist.');
+      }else{
+        const {error}=await db.from('doctors').update({visible:false,removed_at:new Date().toISOString(),updated_at:new Date().toISOString()}).eq('slug',slug);if(error)throw new Error('Could not remove this optometrist.');
+        await generateSlots(db,slug);
+      }
+      await audit(db,u.id,'doctor-remove',slug);return Response.json({ok:true,mode:plan.mode});
     }
     if(action==='doctor-order'){
       const slugs=Array.isArray(p.slugs)?p.slugs.map(String).slice(0,50):[];

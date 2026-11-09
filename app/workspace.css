@@ -537,3 +537,10 @@ tr.is-new strong { color: var(--ink); }
 tr.is-new td:first-child { box-shadow: inset 3px 0 0 var(--gold); }
 .new-banner { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; padding: .7rem 1rem; margin-bottom: 1rem; border: 1px solid var(--gold); background: var(--white); border-radius: var(--radius); font-size: .95rem; }
 .new-banner > span:nth-child(2) { flex: 1; min-width: 12rem; }
+
+/* Staff admin > Doctors: remove an optometrist (asks to confirm first). */
+.doctor-remove { margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid var(--line); }
+.doctor-remove h3 { margin-bottom: .35rem; color: var(--danger); }
+.remove-confirm { padding: .9rem 1rem; border: 1px solid var(--danger); border-radius: var(--radius); background: var(--white); }
+.remove-confirm p { margin-bottom: .75rem; }
+.button.remove-button { background: var(--danger); border-color: var(--danger); color: var(--white); }
