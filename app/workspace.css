@@ -460,6 +460,7 @@ a.stat-card:hover .stat-top > svg:last-child { transform: translate(2px, -2px); 
   .has-tabbar .sidebar nav a[aria-current=page] svg { color: #d8c49a; }
   .has-tabbar .sidebar nav .nav-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; }
   .has-tabbar .sidebar nav .nav-short { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+  .has-tabbar .sidebar nav .nav-new { position: absolute; top: 4px; left: calc(50% + 6px); margin: 0; min-width: 16px; font-size: .62rem; line-height: 16px; padding: 0 4px; }
   .has-tabbar .sidebar nav .nav-count { position: absolute; top: 4px; left: calc(50% + 6px); margin: 0; min-width: 16px; font-size: .62rem; line-height: 16px; padding: 0 4px; background: var(--gold); color: var(--ink); }
   .has-tabbar .sidebar { padding-bottom: 1rem; }
   .has-tabbar .workspace-main { padding-bottom: calc(112px + env(safe-area-inset-bottom, 0px)); }
@@ -527,3 +528,12 @@ a.stat-card:hover .stat-top > svg:last-child { transform: translate(2px, -2px); 
   .timeline li > span { grid-row: span 2; margin: .2rem 0 0; }
   .timeline li::before { top: 18px; left: 6px; right: auto; bottom: -16px; width: 2px; height: auto; }
 }
+
+/* New bookings (lib/seen.js): the gold dot on the sidebar item, the banner, and each unseen row. */
+.nav-new { margin-left: auto; min-width: 20px; font-size: .75rem; line-height: 20px; padding: 0 .4rem; border-radius: 999px; background: var(--gold); color: var(--ink); text-align: center; }
+.new-dot { display: inline-block; flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--gold); margin-right: .5rem; vertical-align: middle; }
+.new-tag { display: inline-block; margin-left: .5rem; font-size: .7rem; letter-spacing: .04em; line-height: 1.6; padding: 0 .45rem; border-radius: 999px; background: var(--gold); color: var(--ink); vertical-align: middle; }
+tr.is-new strong { color: var(--ink); }
+tr.is-new td:first-child { box-shadow: inset 3px 0 0 var(--gold); }
+.new-banner { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; padding: .7rem 1rem; margin-bottom: 1rem; border: 1px solid var(--gold); background: var(--white); border-radius: var(--radius); font-size: .95rem; }
+.new-banner > span:nth-child(2) { flex: 1; min-width: 12rem; }

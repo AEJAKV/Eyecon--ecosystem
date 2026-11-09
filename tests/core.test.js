@@ -1103,7 +1103,7 @@ test('the front desk view keeps patient details but drops every commission, payo
   assert.deepEqual(deskBooking({id:'x',name:'A',commission:5,payout:'Paid',insurance:'[Insurer]'}),{id:'x',name:'A',insurance:'[Insurer]'});
 });
 test('the front desk may only change status, redeem gift cards, add times, book and open documents',()=>{
-  assert.deepEqual(FRONT_DESK_ACTIONS,['status','gift-redeem','slot','booking','document-url']);
+  assert.deepEqual(FRONT_DESK_ACTIONS,['status','gift-redeem','slot','booking','document-url','seen']);
   for(const a of FRONT_DESK_ACTIONS){assert.equal(canAct('front-desk',a),true,a);assert.equal(canAct('staff',a),true,a);}
   for(const a of ['complete','pricing','payout','affiliate','toggle-affiliate','template','profile','photo','team-invite','team-toggle','doctor'])assert.equal(canAct('front-desk',a),false,a);
   for(const a of ['status','complete'])assert.equal(canAct('affiliate',a),false,a);
@@ -1172,7 +1172,7 @@ test('the server invites, lists and deactivates front desk members, refuses inac
 });
 test('the workspace API, pages and sign-in route the front desk to /desk and refuse it everything else',()=>{
   const route=readFileSync(new URL('../app/api/workspace/route.js',import.meta.url),'utf8');
-  assert.ok(route.includes('requireClinic(u);const desk=u.role===FRONT_DESK_ROLE')&&route.includes('if(desk)return Response.json(frontDeskView({'),'the desk gets frontDeskView only');
+  assert.ok(route.includes('requireClinic(u);const desk=u.role===FRONT_DESK_ROLE')&&route.includes('if(desk)return Response.json({newIds,...frontDeskView({'),'the desk gets frontDeskView only');
   const get=route.slice(route.indexOf('if(desk)return'),route.indexOf('export async function POST'));assert.ok(get.indexOf('frontDeskView')<get.indexOf('procedure_costs'),'returns before pricing is loaded');
   assert.ok(route.includes("if(u.role===FRONT_DESK_ROLE)throw refused();\n      const form=await request.formData()"),'no photo uploads');
   assert.ok(route.includes("if(u.role===FRONT_DESK_ROLE&&!canAct(u.role,action))throw refused();"),'checked before the affiliate profile action');
@@ -1592,4 +1592,53 @@ test('the staff new-booking alert carries contact and appointment details only, 
   const route=readFileSync(new URL('../app/api/bookings/route.js',import.meta.url),'utf8');
   assert.ok(route.indexOf("'confirmation',{giftPng})")<route.indexOf('await sendStaffAlert(db,saved).catch('),'alert after the patient confirmation, and it cannot fail the booking');
   assert.ok(readFileSync(new URL('../lib/notifications.js',import.meta.url),'utf8').includes("kind:'staff-alert'"),'one alert per booking');
+});
+
+// New-booking indicators (the gold dot): per user, nothing old is flagged, opening a booking or "Mark all seen" clears it.
+test('new bookings are flagged per user, cleared when opened or marked seen, and affiliates only see their own',async()=>{
+  const { newBookingIds, NEW_NAV, newLabel, titleWithCount } = await import('../lib/seen.js');
+  const at='2026-11-09T18:00:00Z',b=[{id:'old',createdAt:'2026-11-09T17:00:00Z'},{id:'a',createdAt:'2026-11-09T19:00:00Z'},{id:'b',createdAt:'2026-11-09T20:00:00Z'},{id:'sample'}];
+  assert.deepEqual(newBookingIds(b,at),['a','b'],'only bookings made after seen time');
+  assert.deepEqual(newBookingIds(b,at,['a']),['b'],'an opened booking is no longer new');
+  assert.deepEqual(newBookingIds(b,null),[],'no seen time yet: nothing is new');
+  assert.deepEqual(NEW_NAV,{staff:'','front-desk':'',affiliate:'referrals'});
+  assert.equal(newLabel(1,true),'Someone just booked through your link');assert.equal(newLabel(3,false),'3 new bookings since you last checked');
+  assert.equal(titleWithCount('(2) Eyecon Workspace',3),'(3) Eyecon Workspace');assert.equal(titleWithCount('(2) Eyecon Workspace',0),'Eyecon Workspace');
+  // Demo: the same rules, kept per demo user.
+  const { applyDemo, demoNewIds } = await import('../lib/demo.js');
+  const data={affiliates:[],bookings:[{id:'x',affiliateId:'a1',createdAt:new Date().toISOString()},{id:'y',affiliateId:'a2',createdAt:new Date().toISOString()},{id:'z'}]};
+  const staff={role:'staff'},aff={role:'affiliate',affiliateId:'a1'};
+  assert.deepEqual(demoNewIds(data,staff),['x','y']);assert.deepEqual(demoNewIds(data,aff),['x'],'an affiliate only sees their own referrals');
+  const opened=applyDemo(data,'seen',{id:'x'},staff);assert.deepEqual(demoNewIds(opened,staff),['y']);assert.deepEqual(demoNewIds(opened,aff),['x'],'each user has their own state');
+  const cleared=applyDemo(data,'seen',{},aff);assert.deepEqual(demoNewIds(cleared,aff),[]);assert.deepEqual(demoNewIds(cleared,staff),['x','y']);
+  assert.throws(()=>applyDemo(data,'seen',{},null));
+});
+test('the live seen state: the first load sets a baseline, then marks and views are saved per user',()=>{
+  const script=`
+    const { loadNewIds, markSeen } = await import(${JSON.stringify(new URL('../lib/seen-server.js',import.meta.url).href)});
+    const calls=[];let seen=null;
+    const q=(table)=>{const c={table,filters:[]};calls.push(c);const api={select(){return api},eq(k,v){c.filters.push([k,v]);return api},gt(k,v){c.filters.push(['>'+k,v]);return api},order(){return api},limit(){return api},
+      maybeSingle(){return Promise.resolve({data:seen,error:null})},insert(r){c.insert=r;return Promise.resolve({error:null})},upsert(r){c.upsert=r;return Promise.resolve({error:null})},
+      then(res){return Promise.resolve(table==='bookings'?{data:[{id:'11111111-1111-1111-1111-111111111111',created_at:'2026-11-09T19:00:00Z'},{id:'22222222-2222-2222-2222-222222222222',created_at:'2026-11-09T20:00:00Z'}],error:null}:{data:[{booking_id:'11111111-1111-1111-1111-111111111111'}],error:null}).then(res)}};return api;};
+    const db={from:q};
+    const first=await loadNewIds(db,'u1');
+    seen={seen_at:'2026-11-09T18:00:00Z'};const later=await loadNewIds(db,'u1','aff-1');
+    await markSeen(db,'u1','22222222-2222-2222-2222-222222222222',false);await markSeen(db,'u2',null,false);await markSeen(db,'u3','22222222-2222-2222-2222-222222222222',true);
+    let bad='';try{await markSeen(db,'u1','not-an-id',false)}catch(e){bad=e.message}
+    const missing=await loadNewIds({from:()=>({select(){return this},eq(){return this},maybeSingle(){return Promise.resolve({data:null,error:{code:'42P01'}})}})},'u1');
+    console.log(JSON.stringify({first,later,calls,bad,missing}));`;
+  const out=JSON.parse(execFileSync(process.execPath,['--conditions=react-server','--input-type=module','-e',script],{encoding:'utf8'}).trim().split('\n').pop());
+  assert.deepEqual(out.first,[],'first load: nothing flagged');assert.deepEqual(out.calls[1].insert,{user_id:'u1'},'and a baseline is saved');
+  assert.deepEqual(out.later,['22222222-2222-2222-2222-222222222222'],'new since the baseline, minus the one opened');
+  assert.ok(out.calls.some(c=>c.table==='bookings'&&c.filters.some(([k,v])=>k==='affiliate_id'&&v==='aff-1')),'an affiliate query is limited to their referrals');
+  const ups=out.calls.filter(c=>c.upsert).map(c=>[c.table,c.upsert.user_id,c.upsert.booking_id||null]);
+  assert.deepEqual(ups,[['booking_views','u1','22222222-2222-2222-2222-222222222222'],['workspace_seen','u2',null],['workspace_seen','u3',null]],'an affiliate can only mark all seen');
+  assert.equal(out.bad,'Booking not found.');assert.deepEqual(out.missing,[],'before migration 017 nothing is flagged');
+  const route=readFileSync(new URL('../app/api/workspace/route.js',import.meta.url),'utf8');
+  assert.ok(route.includes('newIds:await loadNewIds(db,u.id,u.affiliateId)')&&route.includes("if(action==='seen'){await markSeen(db,u.id,p?.id||null,u.role==='affiliate')"));
+  const ui=readFileSync(new URL('../components/workspace.js',import.meta.url),'utf8');
+  assert.ok(ui.includes('if(fresh.has(b.id))app.markSeen(b.id)')&&ui.includes('className="nav-new"')&&ui.includes('new-banner'),'dot, banner, and opening a booking clears it');
+  assert.ok(readFileSync(new URL('../components/provider.js',import.meta.url),'utf8').includes('setInterval(check,60000)'),'checks every minute');
+  const sql=readFileSync(new URL('../supabase/migrations/017_new_booking_seen.sql',import.meta.url),'utf8');
+  assert.ok(sql.includes('after 016_blog.sql')&&sql.includes('revoke all on public.workspace_seen, public.booking_views from anon, authenticated'));
 });
