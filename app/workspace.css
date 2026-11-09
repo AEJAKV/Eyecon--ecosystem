@@ -551,9 +551,9 @@ tr.is-new td:first-child { box-shadow: inset 3px 0 0 var(--gold); }
 .sound-toggle[aria-pressed="true"] { border-color: var(--gold); color: var(--gold-text); }
 
 /* Gift cards list: Redeem / Undo with a confirmation (components/gift-cards-admin.js RedeemControl). */
-.redeem-button { margin-top: .45rem; }
+.card-table td .redeem-button { display: flex; width: max-content; margin-top: .45rem; }
 .redeem-undo { display: block; margin-top: .3rem; font-size: .85rem; }
 .redeem-confirm { margin-top: .5rem; padding: .6rem .75rem; border: 1px solid var(--gold); border-radius: 12px; background: var(--white); font-size: .88rem; max-width: 16rem; }
 .redeem-confirm p { margin: 0 0 .45rem; }
 .redeem-actions { display: flex; align-items: center; gap: .75rem; }
-.redeem-actions .redeem-button { margin-top: 0; }
+.card-table td .redeem-actions .redeem-button { margin-top: 0; }

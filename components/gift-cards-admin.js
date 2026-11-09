@@ -62,14 +62,14 @@ export function RedeemControl({ row, onDone }) {
   if (!redeem && !undo) return null;
   async function confirm() {
     setBusy(true); setError('');
-    try { await action('gift-redeem', { number: row.number, redeemed: redeem }); setAsking(false); onDone?.(redeem ? `${row.number} redeemed for ${row.name}.` : `Redemption undone for ${row.number}. The card can be used again.`); }
+    try { await action('gift-redeem', { number: row.number, redeemed: redeem }); setAsking(false); onDone?.(redeem ? `${row.number} marked as redeemed for ${row.name}.` : `Redemption undone for ${row.number}. The card can be used again.`); }
     catch (e) { setError(e.message || 'Could not update this gift card.'); }
     finally { setBusy(false); }
   }
-  if (!asking) return <button type="button" className={redeem ? 'mini-button redeem-button' : 'text-link redeem-undo'} onClick={() => { setError(''); setAsking(true); }}>{redeem ? 'Redeem' : 'Undo'}<span className="sr-only"> {row.number} for {row.name}</span></button>;
+  if (!asking) return <button type="button" className={redeem ? 'mini-button redeem-button' : 'text-link redeem-undo'} onClick={() => { setError(''); setAsking(true); }}>{redeem ? 'Mark as redeemed' : 'Undo redemption'}<span className="sr-only"> {row.number} for {row.name}</span></button>;
   return <div className="redeem-confirm" role="alert">
-    <p>{redeem ? <>Redeem <strong>{row.number}</strong> for {row.name}?</> : <>Undo the redemption of <strong>{row.number}</strong>?</>}</p>
+    <p>{redeem ? <>Mark <strong>{row.number}</strong> as redeemed for {row.name}? Do this once they’ve used it on their purchase.</> : <>Undo the redemption of <strong>{row.number}</strong>? The card can then be used again.</>}</p>
     {error && <p className="error-text">{error}</p>}
-    <div className="redeem-actions"><button type="button" className="mini-button redeem-button" disabled={busy} onClick={confirm}>{busy ? 'Saving…' : redeem ? 'Yes, redeem' : 'Yes, undo'}</button><button type="button" className="text-link" disabled={busy} onClick={() => setAsking(false)}>Cancel</button></div>
+    <div className="redeem-actions"><button type="button" className="mini-button redeem-button" disabled={busy} onClick={confirm}>{busy ? 'Saving…' : redeem ? 'Yes, mark redeemed' : 'Yes, undo'}</button><button type="button" className="text-link" disabled={busy} onClick={() => setAsking(false)}>Cancel</button></div>
   </div>;
 }

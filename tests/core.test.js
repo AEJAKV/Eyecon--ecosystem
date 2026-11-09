@@ -1773,7 +1773,7 @@ test('gift cards can be redeemed or undone from the list, with a confirmation',(
   const g=readFileSync(new URL('../components/gift-cards-admin.js',import.meta.url),'utf8');
   assert.ok(g.includes("<RedeemControl row={r} onDone={setDone} />")&&g.includes("action('gift-redeem', { number: row.number, redeemed: redeem })"),'same action as the card page');
   assert.ok(g.includes("const redeem = row.state === 'Not redeemed', undo = row.state === 'Redeemed';")&&g.includes('if (!redeem && !undo) return null;'),'no button on expired or void cards');
-  assert.ok(g.includes("'Yes, redeem'")&&g.includes("'Yes, undo'")&&g.includes('Cancel'),'asks to confirm first');
+  assert.ok(g.includes("'Yes, mark redeemed'")&&g.includes("'Mark as redeemed'")&&g.includes("'Yes, undo'")&&g.includes('Cancel'),'asks to confirm first');
   assert.ok(FRONT_DESK_ACTIONS.includes('gift-redeem'),'the front desk can use it');
 });
 
