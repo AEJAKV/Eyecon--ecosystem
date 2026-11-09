@@ -237,7 +237,7 @@ export default function BookingFlow() {
     <Header bookingHref={affiliate ? '/book/' + affiliate.slug : '/'} bookingLabel="Back to Eyecon" bookingShort="Back" />
     <main className="booking-shell bk" id="main-content">
       <section className="booking-panel">
-        {affiliate && <p className="booking-ref"><img src={affiliate.photo || '/images/affiliate.webp'} alt="" width="32" height="32" /><span>Booking through <strong>{affiliate.name}</strong></span>{!done && <span className="bk-pill">$50 gift card</span>}</p>}
+        {affiliate && <p className="booking-ref"><img src={affiliate.photo || '/images/placeholder-person.svg'} alt="" width="32" height="32" /><span>Booking through <strong>{affiliate.name}</strong></span>{!done && <span className="bk-pill">$50 gift card</span>}</p>}
         <Stepper labels={labels} step={step} done={done} onGo={back} />
         {done && <div className="success-mark"><Icon name="check" size={34} /></div>}
         <h1 className="bk-title" ref={titleRef} tabIndex={-1}>{title}</h1>

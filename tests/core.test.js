@@ -1642,3 +1642,19 @@ test('the live seen state: the first load sets a baseline, then marks and views 
   const sql=readFileSync(new URL('../supabase/migrations/017_new_booking_seen.sql',import.meta.url),'utf8');
   assert.ok(sql.includes('after 016_blog.sql')&&sql.includes('revoke all on public.workspace_seen, public.booking_views from anon, authenticated'));
 });
+
+// Affiliates and doctors with no photo of their own show a neutral grey silhouette, never a sample portrait.
+test('a new affiliate or doctor without a photo gets the neutral placeholder',async()=>{
+  const P='/images/placeholder-person.svg';
+  assert.ok(readFileSync(new URL('../public'+P,import.meta.url),'utf8').includes('<svg'),'the placeholder file exists');
+  const { safePhoto } = await import('../lib/validation.js');assert.equal(safePhoto(undefined),P);assert.equal(safePhoto('javascript:x'),P);
+  const { mapDoctorRow } = await import('../lib/schedule.js');assert.equal(mapDoctorRow({slug:'dr-x',first_name:'X',last_name:'Y',photo:''}).photo,P);
+  const { PREVIEW_FALLBACK_PHOTO } = await import('../lib/preview.js');assert.equal(PREVIEW_FALLBACK_PHOTO,P);
+  const { seedDemo, applyDemo } = await import('../lib/demo.js');
+  const data=seedDemo(),staff={role:'staff'};
+  const a=applyDemo(data,'affiliate',{name:'Sam Lee',email:'sam@example.com',slug:'sam-lee',commissionRate:10},staff);
+  assert.equal(a.affiliates.find(x=>x.slug==='sam-lee').photo,P);
+  for(const f of ['../components/ui.js','../components/booking-flow.js','../lib/schedule.js'])assert.ok(!readFileSync(new URL(f,import.meta.url),'utf8').includes("|| '/images/doctors/doctor-1.webp'")&&!readFileSync(new URL(f,import.meta.url),'utf8').match(/photo ?\|\| ?'\/images\/affiliate\.webp'/),f);
+  const sql=readFileSync(new URL('../supabase/migrations/018_placeholder_photos.sql',import.meta.url),'utf8');
+  assert.ok(sql.includes('after 017_new_booking_seen.sql')&&sql.includes("set default '/images/placeholder-person.svg'"));
+});

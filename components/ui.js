@@ -118,7 +118,7 @@ export function Header({bookingHref='/booking',bookingLabel='Book appointment',b
     <MobileMenu open={menu} onClose={()=>setMenu(false)} bookingHref={bookingHref} bookingLabel={bookingLabel} shopHref={shopHref}/>
     <SiteSearch open={find} onClose={()=>setFind(false)} bookingHref={bookingHref} shopHref={shopHref}/></>;}
 export function PreviewBar(){return DEMO?<div className="preview-bar">Design preview · Use fictional patient details.<Link href="/login">Explore workspaces</Link></div>:null;}
-export function Referral({affiliate}){return affiliate?<div className="referral"><img src={affiliate.photo||'/images/affiliate.webp'} width="56" height="56" alt=""/><div><small>Introduced by</small><strong>{affiliate.name}</strong></div></div>:null;}
+export function Referral({affiliate}){return affiliate?<div className="referral"><img src={affiliate.photo||'/images/placeholder-person.svg'} width="56" height="56" alt=""/><div><small>Introduced by</small><strong>{affiliate.name}</strong></div></div>:null;}
 // The $50 gift pill. card is the card issued to a booking or a prescription claim: { serial, expiresAt }. It shows the
 // full number on its own line, the date it is valid until, and a countdown by calendar day in clinic time. The
 // countdown needs the visitor's clock, so it is worked out in an effect and nothing about it is rendered on the server.
