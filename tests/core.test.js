@@ -1217,6 +1217,9 @@ test('the redesigned affiliate views show only the agreed fields, with commissio
   assert.ok(css.includes('@media (prefers-reduced-motion: reduce)')&&css.includes('.sidebar-bottom > a { display: none; }'));
   assert.ok(css.includes('@media (min-width: 801px) { .sidebar { overflow-y: auto;'),'desktop sidebar scrolls so Sign out is reachable on short windows');
   assert.ok(ws.includes('await signOut();router.push(\'/login\')'),'workspace keeps a Sign out button');
+  const ui=readFileSync(new URL('../components/ui.js',import.meta.url),'utf8'),g=readFileSync(new URL('../app/globals.css',import.meta.url),'utf8');
+  assert.ok(ui.includes('aria-label="Close dialog"><Icon name="close"/></button></div><div className="modal-body">{open&&children}</div></dialog>'),'dialog content sits in its own body, after the header');
+  assert.ok(g.includes('.modal[open]{display:flex;flex-direction:column;overflow:hidden}')&&g.includes('.modal-body{flex:1 1 auto;min-height:0;overflow-y:auto;'),'only the body scrolls, so the close button stays at the top');
 });
 
 // The front desk redesign (front end only): today's figures, schedule and gift card counts.

@@ -133,6 +133,10 @@ td select{font-size:.85rem;padding:.5rem .7rem;min-height:42px;min-width:120px}
 .modal{width:min(650px,calc(100% - 2rem));max-height:90vh;padding:2rem;border:1px solid var(--line);border-radius:8px;background:var(--paper);color:var(--ink);overflow:auto}
 .modal::backdrop{background:rgba(20,23,18,.5)}
 .modal-head{display:flex;gap:1rem;justify-content:space-between;align-items:center;margin-bottom:1.5rem}
+/* The title and close button stay put; only the body under them scrolls. */
+.modal[open]{display:flex;flex-direction:column;overflow:hidden}
+.modal-head{flex:none}
+.modal-body{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;margin:-4px;padding:4px}
 .modal-head h2{font-size:1.9rem;margin:0}
 .icon-button{display:flex;align-items:center;justify-content:center;background:none;border:1px solid var(--line);width:44px;height:44px;border-radius:4px;flex-shrink:0}
 .calendar-heading{display:flex;align-items:center;justify-content:space-between;margin:1.5rem 0;gap:1rem}
