@@ -3,7 +3,7 @@ import { validateBooking } from '@/lib/validation';
 import { adminClient, encryptPolicy, mapBooking, sameOrigin, fail, issueGift, claimGift, issueDocumentToken, verifyTurnstile, requestHash, saveServiceOption, loadDoctorDirectory } from '@/lib/server';
 import { findDoctor } from '@/lib/config';
 import { isVisible, offersService } from '@/lib/schedule';
-import { claimAndSend } from '@/lib/notifications';
+import { claimAndSend, sendStaffAlert } from '@/lib/notifications';
 import { giftCardPng } from '@/lib/gift-image';
 import { giftNumber, giftCardPath } from '@/lib/gift';
 export async function POST(request) {
@@ -24,6 +24,8 @@ export async function POST(request) {
     // One confirmation email: the appointment, and for a referral booking the gift card (shown, and attached as a PNG).
     let giftPng=null;if(saved.giftCard&&saved.affiliateId){const {data:a}=await db.from('affiliates').select('name,gift_code').eq('id',saved.affiliateId).maybeSingle();const number=giftNumber({name:a?.name,code:a?.gift_code||null},saved.giftCard.serial);giftPng=await giftCardPng({number,url:clinic.site+giftCardPath(number),expiresAt:saved.giftCard.expiresAt});}
     const notifications=await claimAndSend(db,{...saved,documentsLink:documentsLink(documentsToken)},'confirmation',{giftPng});
+    // The clinic's new-booking alert (STAFF_BOOKING_EMAIL): contact and appointment details only, never health or insurance data.
+    await sendStaffAlert(db,saved).catch(()=>{});
     return Response.json({booking:{id:saved.id,reference:saved.reference,doctor:saved.doctor,start:saved.start,duration:saved.duration,service:saved.service,serviceOption:saved.serviceOption,affiliateId:saved.affiliateId,name:saved.name,giftCard:saved.giftCard,documentsToken},notifications},{status:201,headers:{'Cache-Control':'no-store'}});
   }catch(e){return fail(e);}
 }

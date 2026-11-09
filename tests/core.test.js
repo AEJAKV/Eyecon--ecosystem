@@ -1571,3 +1571,25 @@ test('the public blog: server-rendered live, demo in the browser, comments behin
   for(const f of ['../app/admin/[[...section]]/page.js','../app/desk/[[...section]]/page.js','../app/affiliate/[[...section]]/page.js'])assert.ok(readFileSync(new URL(f,import.meta.url),'utf8').includes("name==='blog'&&BLOG_POST_ID.test(item)"),f);
   assert.ok(readFileSync(new URL('../app/layout.js',import.meta.url),'utf8').includes("import './blog.css';"));
 });
+
+// The clinic's new-booking alert (STAFF_BOOKING_EMAIL): enough to act on, never health, insurance or document data.
+test('the staff new-booking alert carries contact and appointment details only, and is sent once per online booking',()=>{
+  const script=`
+    const { staffAlertContent, sendStaffAlert } = await import(${JSON.stringify(new URL('../lib/notifications.js',import.meta.url).href)});
+    const b = { id: 'b1', reference: '7K2M9QXB', name: 'Sam <b>Lee</b>', email: 'sam@example.com', phone: '780-555-0100', start: '2026-11-12T20:30:00Z', service: 'eye-exam', doctor: 'doctor-1', affiliateId: 'a1', insurance: 'Alberta Blue Cross', policy: 'POL-99887766', residencyStatus: 'Permanent resident', documents: [{ name: 'health-card.jpg' }], gross: 400, net: 200 };
+    const c = staffAlertContent(b, 'Alex & Co'), direct = staffAlertContent({ ...b, affiliateId: null }, null);
+    const off = await sendStaffAlert({}, b);
+    console.log(JSON.stringify({ c, direct, off }));`;
+  const env={...process.env};delete env.RESEND_API_KEY;delete env.RESEND_FROM;delete env.STAFF_BOOKING_EMAIL;
+  const out=JSON.parse(execFileSync(process.execPath,['--conditions=react-server','--input-type=module','-e',script],{encoding:'utf8',env}).trim().split('\n').pop());
+  assert.ok(out.c.subject.startsWith('New booking: Sam <b>Lee</b> – Comprehensive eye exam – '),'subject names the patient and service');
+  for(const part of [out.c.text,out.c.html])assert.ok(part.includes('780-555-0100')&&part.includes('sam@example.com')&&part.includes('7K2M9QXB')&&part.includes('/desk'),'contact, reference and workspace link');
+  assert.ok(out.c.text.includes('Affiliate referral – Alex & Co')&&out.direct.text.includes('Source: Direct booking'));
+  assert.ok(out.c.html.includes('Sam &lt;b&gt;Lee&lt;/b&gt;')&&out.c.html.includes('Alex &amp; Co'),'names are escaped');
+  const all=JSON.stringify(out.c);
+  for(const secret of ['Blue Cross','POL-99887766','Permanent resident','health-card.jpg','400','200'])assert.ok(!all.includes(secret),'no '+secret);
+  assert.equal(out.off.email,'not-configured','nothing is sent until STAFF_BOOKING_EMAIL and Resend are set');
+  const route=readFileSync(new URL('../app/api/bookings/route.js',import.meta.url),'utf8');
+  assert.ok(route.indexOf("'confirmation',{giftPng})")<route.indexOf('await sendStaffAlert(db,saved).catch('),'alert after the patient confirmation, and it cannot fail the booking');
+  assert.ok(readFileSync(new URL('../lib/notifications.js',import.meta.url),'utf8').includes("kind:'staff-alert'"),'one alert per booking');
+});
