@@ -11,7 +11,7 @@ const day = d => d ? formatDate(d, { dateStyle: 'medium', timeStyle: undefined }
 
 // Staff › Gift cards: check a card by number (opens its page, where it can be redeemed) and every card issued, booking
 // and prescription, with its state.
-export default function GiftCardsAdmin({ data }) {
+export default function GiftCardsAdmin({ data, fresh = new Set() }) {
   const router = useRouter();
   const [number, setNumber] = useState(''), [error, setError] = useState(''), [query, setQuery] = useState(''), [state, setState] = useState('All');
   const rows = useMemo(() => giftCardRows(data), [data]);
@@ -39,8 +39,8 @@ export default function GiftCardsAdmin({ data }) {
     {shown.length ? <div className="table-wrap card-table" tabIndex={0} role="region" aria-label="Gift cards table"><table>
       <caption className="sr-only">Gift cards</caption>
       <thead><tr><th scope="col">Card</th><th scope="col">Patient</th><th scope="col">Type</th><th scope="col">Issued</th><th scope="col">Valid until</th><th scope="col">Status</th></tr></thead>
-      <tbody>{shown.map(r => <tr key={r.id}>
-        <td data-label="Card" data-main=""><Link className="mono" href={giftCardPath(r.number)}>{r.number}</Link></td>
+      <tbody>{shown.map(r => <tr key={r.id} className={fresh.has(r.id) ? 'is-new' : undefined}>
+        <td data-label="Card" data-main="">{fresh.has(r.id) && <span className="new-dot" aria-hidden="true" />}<Link className="mono" href={giftCardPath(r.number)}>{r.number}</Link>{fresh.has(r.id) && <span className="new-tag">New</span>}</td>
         <td data-label="Patient"><strong>{r.name}</strong><small>{r.email}</small></td>
         <td data-label="Type">{r.kind === 'Booking' ? 'Booking' : 'Prescription'}{r.reference && <small>Ref {r.reference}</small>}{r.introducer && <small>Via {r.introducer}</small>}</td>
         <td data-label="Issued">{day(r.issuedAt)}</td>

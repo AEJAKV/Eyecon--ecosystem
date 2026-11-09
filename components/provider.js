@@ -1,7 +1,7 @@
 'use client';
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { DEMO, placeholderDoctors, setDoctorDirectory } from '@/lib/config';
-import { seedDemo, applyDemo, demoLookup, demoReleaseGift, demoScanGift, demoGiftStatus, seedBlog, demoBlogUser, demoNewIds } from '@/lib/demo';
+import { seedDemo, applyDemo, demoLookup, demoReleaseGift, demoScanGift, demoGiftStatus, seedBlog, demoBlogUser, demoNewIds, demoNewClaimIds } from '@/lib/demo';
 import { canSeePost, isReviewer } from '@/lib/blog';
 import { browserClient, passwordLinkType, onPasswordForm, passwordFormPath } from '@/lib/supabase';
 import { clearStoredGifts } from '@/lib/gift-browser';
@@ -24,6 +24,8 @@ export function Provider({children}){
   useEffect(()=>{if(DEMO||!user)return;const check=()=>{if(document.visibilityState==='visible')reload().catch(()=>{});};const timer=setInterval(check,60000);document.addEventListener('visibilitychange',check);return()=>{clearInterval(timer);document.removeEventListener('visibilitychange',check);};},[user?.role,user?.affiliateId]);
   const newIds=DEMO?demoNewIds(data,user):(data.newIds||[]);
   async function markSeen(id){try{await action('seen',id?{id}:{});}catch{}}
+  const newClaimIds=DEMO?demoNewClaimIds(data,user):(data.newClaimIds||[]);
+  async function markGiftsSeen(){try{await action('seen-gifts',{});}catch{}}
   // Demo data is saved under v5 (v2 added doctors, v3 references, v4 pricing and commission amounts, v5 doctor profiles
   // and schedules); older saved data is not loaded.
   useEffect(()=>{
@@ -102,6 +104,6 @@ export function Provider({children}){
     if(DEMO){const next=applyDemo(latest.current,'blog-comment',payload,null);latest.current=next;setData(next);return {ok:true};}
     const response=await fetch('/api/blog/comments',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const result=await response.json();if(!response.ok)throw new Error(result.error);return result;
   }
-  return <Context.Provider value={{newIds,markSeen,blogLoad,blogAction,blogUpload,blogComment,data,user,ready,error,reload,action,book,releaseGift,claimGift,scanGift,giftStatus,photo,documentsLinkValid,submitDocuments,lookupBooking,demoSignIn,signOut,reset,doctors,doctorsReady,doctorAction,doctorPhoto}}>{children}</Context.Provider>;
+  return <Context.Provider value={{newIds,markSeen,newClaimIds,markGiftsSeen,blogLoad,blogAction,blogUpload,blogComment,data,user,ready,error,reload,action,book,releaseGift,claimGift,scanGift,giftStatus,photo,documentsLinkValid,submitDocuments,lookupBooking,demoSignIn,signOut,reset,doctors,doctorsReady,doctorAction,doctorPhoto}}>{children}</Context.Provider>;
 }
 export function useApp(){return useContext(Context);}

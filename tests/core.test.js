@@ -1103,7 +1103,7 @@ test('the front desk view keeps patient details but drops every commission, payo
   assert.deepEqual(deskBooking({id:'x',name:'A',commission:5,payout:'Paid',insurance:'[Insurer]'}),{id:'x',name:'A',insurance:'[Insurer]'});
 });
 test('the front desk may only change status, redeem gift cards, add times, book and open documents',()=>{
-  assert.deepEqual(FRONT_DESK_ACTIONS,['status','gift-redeem','slot','booking','document-url','seen']);
+  assert.deepEqual(FRONT_DESK_ACTIONS,['status','gift-redeem','slot','booking','document-url','seen','seen-gifts']);
   for(const a of FRONT_DESK_ACTIONS){assert.equal(canAct('front-desk',a),true,a);assert.equal(canAct('staff',a),true,a);}
   for(const a of ['complete','pricing','payout','affiliate','toggle-affiliate','template','profile','photo','team-invite','team-toggle','doctor'])assert.equal(canAct('front-desk',a),false,a);
   for(const a of ['status','complete'])assert.equal(canAct('affiliate',a),false,a);
@@ -1172,7 +1172,7 @@ test('the server invites, lists and deactivates front desk members, refuses inac
 });
 test('the workspace API, pages and sign-in route the front desk to /desk and refuse it everything else',()=>{
   const route=readFileSync(new URL('../app/api/workspace/route.js',import.meta.url),'utf8');
-  assert.ok(route.includes('requireClinic(u);const desk=u.role===FRONT_DESK_ROLE')&&route.includes('if(desk)return Response.json({newIds,...frontDeskView({'),'the desk gets frontDeskView only');
+  assert.ok(route.includes('requireClinic(u);const desk=u.role===FRONT_DESK_ROLE')&&route.includes('if(desk)return Response.json({newIds,newClaimIds,...frontDeskView({'),'the desk gets frontDeskView only');
   const get=route.slice(route.indexOf('if(desk)return'),route.indexOf('export async function POST'));assert.ok(get.indexOf('frontDeskView')<get.indexOf('procedure_costs'),'returns before pricing is loaded');
   assert.ok(route.includes("if(u.role===FRONT_DESK_ROLE)throw refused();\n      const form=await request.formData()"),'no photo uploads');
   assert.ok(route.includes("if(u.role===FRONT_DESK_ROLE&&!canAct(u.role,action))throw refused();"),'checked before the affiliate profile action');
@@ -1734,4 +1734,36 @@ test('Booked on shows when the booking was made, in clinic time, apart from the 
   const ui=readFileSync(new URL('../components/workspace.js',import.meta.url),'utf8');
   assert.ok(ui.includes('{clinicUi&&!earnings&&<th scope="col">Booked on</th>}')&&ui.includes("['Booked on',bookedOn(detail.createdAt)?.full||'Not recorded']"),'column and details line, clinic only');
   assert.ok(ui.includes("<option value=\"booked\">Newest bookings</option>")&&ui.includes("sort==='booked'?[...filtered].sort("),'sort by newest booking');
+});
+
+// New gift card claims: an email to the clinic and the gold dot on Gift cards for admin and front desk.
+test('a gift card claimed without booking alerts the clinic by email and in the workspace',async()=>{
+  const { newClaimIds, claimLabel } = await import('../lib/seen.js');
+  const at='2026-11-09T18:00:00Z';
+  assert.deepEqual(newClaimIds([{id:'old',issuedAt:'2026-11-09T17:00:00Z'},{id:'new',issuedAt:'2026-11-09T19:00:00Z'}],at),['new']);
+  assert.deepEqual(newClaimIds([{id:'x',issuedAt:'2026-11-09T19:00:00Z'}],null),[]);
+  assert.equal(claimLabel(1),'1 new gift card claimed since you last checked');
+  const { seedDemo, applyDemo, demoNewClaimIds, demoNewIds } = await import('../lib/demo.js');
+  const staff={role:'staff'},desk={role:'front-desk'},aff={role:'affiliate',affiliateId:'demo-alex'};
+  const claimed=applyDemo(seedDemo(),'claim',{name:'Sam Lee',email:'sam@example.com',affiliateId:'demo-alex'},null);
+  const id=claimed.giftClaims[0].id;
+  assert.deepEqual(demoNewClaimIds(claimed,staff),[id]);assert.deepEqual(demoNewClaimIds(claimed,desk),[id]);assert.deepEqual(demoNewClaimIds(claimed,aff),[],'affiliates are not alerted');
+  const seen=applyDemo(claimed,'seen-gifts',{},staff);assert.deepEqual(demoNewClaimIds(seen,staff),[]);assert.deepEqual(demoNewClaimIds(seen,desk),[id],'per person');
+  assert.deepEqual(demoNewIds(applyDemo(seen,'seen',{},staff),staff),[],'Mark all seen on bookings keeps working');assert.deepEqual(demoNewClaimIds(applyDemo(seen,'seen',{},staff),staff),[],'and does not bring claims back');
+  assert.throws(()=>applyDemo(claimed,'seen-gifts',{},aff));
+  const script=`
+    const { staffClaimAlertContent, sendStaffClaimAlert } = await import(${JSON.stringify(new URL('../lib/notifications.js',import.meta.url).href)});
+    const claim={id:'c1',name:'Sam <b>Lee</b>',email:'sam@example.com',serial:'7K2M9Q',expiresAt:'2026-12-09T07:00:00Z',healthCard:'123456789',insurance:'Blue Cross',policy:'POL-1'};
+    const c=staffClaimAlertContent(claim,{name:'Alex & Co',code:'AMO'},'EYC-AMO-7K2M9Q');const off=await sendStaffClaimAlert(claim,{name:'Alex',code:null});
+    console.log(JSON.stringify({c,off}));`;
+  const env={...process.env};delete env.RESEND_API_KEY;delete env.RESEND_FROM;delete env.STAFF_BOOKING_EMAIL;
+  const out=JSON.parse(execFileSync(process.execPath,['--conditions=react-server','--input-type=module','-e',script],{encoding:'utf8',env}).trim().split('\n').pop());
+  assert.equal(out.c.subject,'New gift card: Sam <b>Lee</b> – via Alex & Co');
+  assert.ok(out.c.text.includes('Card number: EYC-AMO-7K2M9Q')&&out.c.text.includes('/desk/gift-cards')&&out.c.html.includes('Sam &lt;b&gt;Lee&lt;/b&gt;'));
+  for(const secret of ['123456789','Blue Cross','POL-1'])assert.ok(!JSON.stringify(out.c).includes(secret),'no '+secret);
+  assert.equal(out.off.email,'not-configured');
+  const route=readFileSync(new URL('../app/api/gift/claim/route.js',import.meta.url),'utf8');assert.ok(route.includes('await sendStaffClaimAlert(card,affiliate).catch('));
+  const api=readFileSync(new URL('../app/api/workspace/route.js',import.meta.url),'utf8');assert.ok(api.includes("if(action==='seen-gifts'){requireClinic(u);")&&api.includes('newClaimIds=await loadNewClaimIds(db,u.id)'));
+  const ui=readFileSync(new URL('../components/workspace.js',import.meta.url),'utf8');assert.ok(ui.includes("clinicUi&&path==='gift-cards'&&freshClaimCount>0")&&ui.includes('<GiftCardsAdmin data={data} fresh={freshClaims}/>'));
+  assert.ok(readFileSync(new URL('../supabase/migrations/020_gift_claims_seen.sql',import.meta.url),'utf8').includes('after 019_remove_doctor.sql'));
 });

@@ -3,7 +3,7 @@ import { parseGiftNumber } from '@/lib/gift';
 import { publicDoctor } from '@/lib/schedule';
 import { clean, validateStatus, validateSlug, validateBooking, safePhoto, validateGiftCode, validateDoctor, inviteErrorMessage } from '@/lib/validation';
 import { claimAndSend } from '@/lib/notifications';
-import { loadNewIds, markSeen } from '@/lib/seen-server';
+import { loadNewIds, markSeen, loadNewClaimIds, markGiftsSeen } from '@/lib/seen-server';
 import { clinic, documentsLink, services } from '@/lib/config';
 import { validateCompletion, validatePricing } from '@/lib/commission';
 import { AFFILIATE_COLUMNS, restrictAffiliateRow } from '@/lib/affiliate';
@@ -29,15 +29,15 @@ export async function GET(request){
     const d=await db.from('booking_documents').select('id,booking_id,kind,original_name,size,mime,uploaded_at').order('uploaded_at').limit(16000);
     if(d.error)console.error('Documents not loaded:',d.error.code);
     const docs=new Map();for(const r of d.data||[])docs.set(r.booking_id,[...(docs.get(r.booking_id)||[]),r]);
-    const giftClaims=await loadGiftClaims(db),newIds=await loadNewIds(db,u.id);
-    if(desk)return Response.json({newIds,...frontDeskView({affiliates:a.data.map(mapAffiliate),bookings:b.data.map(r=>mapBooking(r,docs.get(r.id))),giftClaims,slots:s.data,doctors:doctors.map(d=>({...publicDoctor(d),visible:d.visible}))})},{headers:{'Cache-Control':'no-store'}});
+    const giftClaims=await loadGiftClaims(db),newIds=await loadNewIds(db,u.id),newClaimIds=await loadNewClaimIds(db,u.id);
+    if(desk)return Response.json({newIds,newClaimIds,...frontDeskView({affiliates:a.data.map(mapAffiliate),bookings:b.data.map(r=>mapBooking(r,docs.get(r.id))),giftClaims,slots:s.data,doctors:doctors.map(d=>({...publicDoctor(d),visible:d.visible}))})},{headers:{'Cache-Control':'no-store'}});
     // Procedure prices (migration 007). Missing before it has run: the workspace still loads, with no prices.
     const pr=await db.from('procedure_costs').select('*');if(pr.error)console.error('Pricing not loaded:',pr.error.code);
     // Optometrists with their schedules (migration 010), for Staff admin > Doctors.
     const schedules=await loadSchedules(db);
     // Front desk members (migration 015), for Staff admin > Team.
     const team=await loadTeam(db);
-    return Response.json({user:{role:'staff'},newIds,team,procedureCosts:(pr.data||[]).map(mapPricing),affiliates:a.data.map(mapAffiliate),bookings:b.data.map(r=>mapBooking(r,docs.get(r.id))),giftClaims,templates:t.data,slots:s.data,jobs:j.data,doctors,...schedules},{headers:{'Cache-Control':'no-store'}});
+    return Response.json({user:{role:'staff'},newIds,newClaimIds,team,procedureCosts:(pr.data||[]).map(mapPricing),affiliates:a.data.map(mapAffiliate),bookings:b.data.map(r=>mapBooking(r,docs.get(r.id))),giftClaims,templates:t.data,slots:s.data,jobs:j.data,doctors,...schedules},{headers:{'Cache-Control':'no-store'}});
   }catch(e){return fail(e,401);}
 }
 // Prescription gift cards (migration 012), for the Gift cards page. Names, emails and card dates only: never the
@@ -63,6 +63,7 @@ export async function POST(request){
     if(u.role===FRONT_DESK_ROLE&&!canAct(u.role,action))throw refused();
     // The gold dot: "Mark all seen" (no id) or one booking opened (id). Each user's own state; affiliates mark all only.
     if(action==='seen'){await markSeen(db,u.id,p?.id||null,u.role==='affiliate');return Response.json({ok:true});}
+    if(action==='seen-gifts'){requireClinic(u);await markGiftsSeen(db,u.id);return Response.json({ok:true});}
     if(action==='profile'){
       const id=u.role==='affiliate'?u.affiliateId:p.id;const name=clean(p.name,120);if(name.length<2)throw new Error('Please enter a name.');({error}=await db.from('affiliates').update({name,bio:clean(p.bio,500)}).eq('id',id));
     }else{
