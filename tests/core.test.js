@@ -1799,3 +1799,11 @@ test('the site opts out of automatic dark mode',()=>{
   assert.ok(readFileSync(new URL('../app/layout.js',import.meta.url),'utf8').includes("export const viewport={colorScheme:'only light'};"));
   assert.ok(readFileSync(new URL('../app/globals.css',import.meta.url),'utf8').startsWith(':root{color-scheme:only light;'));
 });
+
+test('uploaded photos from this Supabase project are allowed by next/image, and nothing else is', async () => {
+  const { storagePatterns } = await import('../next.config.mjs');
+  const [p] = storagePatterns('https://abc123.supabase.co');
+  assert.equal(p.hostname, 'abc123.supabase.co'); assert.equal(p.protocol, 'https');
+  assert.equal(p.pathname, '/storage/v1/object/public/**'); assert.equal(p.search, '');
+  assert.deepEqual(storagePatterns(undefined), []); assert.deepEqual(storagePatterns('not a url'), []);
+});
