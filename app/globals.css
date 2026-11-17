@@ -1,4 +1,4 @@
-:root{--paper:#f6f5f2;--white:#fff;--ink:#14181d;--muted:#5b6067;--line:#dcdbd6;--soft:#eeede9;--gold:#b49a67;--gold-text:#7a6230;--tint:#ece4d2;--danger:#8a2727;--serif:'Bodoni Moda Variable',Didot,'Bodoni 72',Georgia,serif;--sans:'Jost Variable','Futura','Avenir Next',system-ui,sans-serif;--radius:2px;--ease:cubic-bezier(.22,.61,.36,1)}
+:root{color-scheme:only light;--paper:#f6f5f2;--white:#fff;--ink:#14181d;--muted:#5b6067;--line:#dcdbd6;--soft:#eeede9;--gold:#b49a67;--gold-text:#7a6230;--tint:#ece4d2;--danger:#8a2727;--serif:'Bodoni Moda Variable',Didot,'Bodoni 72',Georgia,serif;--sans:'Jost Variable','Futura','Avenir Next',system-ui,sans-serif;--radius:2px;--ease:cubic-bezier(.22,.61,.36,1)}
 *{box-sizing:border-box}
 html{scroll-behavior:smooth;scroll-padding-top:6rem}
 body{margin:0;background:var(--paper);color:var(--ink);font:1rem/1.6 var(--sans);-webkit-font-smoothing:antialiased}

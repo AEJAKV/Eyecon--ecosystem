@@ -1793,3 +1793,9 @@ test('an affiliate sees their live referrals, which arrive without an affiliateI
   assert.ok(!('email' in ownReferrals(demo,'a1')[0]),'always restricted');
   assert.ok(readFileSync(new URL('../components/workspace.js',import.meta.url),'utf8').includes("const rows=role==='affiliate'?ownReferrals(data.bookings,user?.affiliateId):data.bookings;"));
 });
+
+// One light design everywhere: browsers with automatic dark mode are told not to darken the site.
+test('the site opts out of automatic dark mode',()=>{
+  assert.ok(readFileSync(new URL('../app/layout.js',import.meta.url),'utf8').includes("export const viewport={colorScheme:'only light'};"));
+  assert.ok(readFileSync(new URL('../app/globals.css',import.meta.url),'utf8').startsWith(':root{color-scheme:only light;'));
+});
