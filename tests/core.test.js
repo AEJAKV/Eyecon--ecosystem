@@ -2005,7 +2005,7 @@ test('purely decorative images keep an empty alt: the hero lens copy, the referr
 });
 
 // On-page SEO, stage 5: schema markup (JSON-LD)
-import { scrub,parseAddress,parseHours,siteSchema,homeSchema,shopSchema,brandSchema,postSchema,breadcrumbSchema } from '../lib/schema.js';
+import { scrub,parseAddress,parseHours,siteSchema,clinicId,shopSchema,brandSchema,postSchema,breadcrumbSchema } from '../lib/schema.js';
 import { clinic as ldClinic } from '../lib/config.js';
 import { demoPublicPosts as ldDemoPosts,seedDemo as ldSeed } from '../lib/demo.js';
 
@@ -2020,7 +2020,7 @@ function ldWalk(v,out={strings:[],keys:[]}){
 const ldGoodPost=(extra={})=>({slug:'dry-eye-winter',title:'Looking after dry eyes in winter',excerpt:'Simple habits that keep your eyes comfortable when the air is dry.',category:'Eye health',tags:['dry eye'],cover:{url:'https://cdn.example.test/cover.jpg',alt:'A cover'},byline:'Alex M.',publishedAt:'2026-11-02T15:00:00.000Z',...extra});
 // Everything the builders can produce for the real config, a good post and the demo posts.
 function ldEverything(){
-  const nodes=[...siteSchema(LD_SITE),...homeSchema(LD_SITE),...shopSchema(LD_SITE),...postSchema(ldGoodPost(),LD_SITE)];
+  const nodes=[...siteSchema(LD_SITE),...shopSchema(LD_SITE),...postSchema(ldGoodPost(),LD_SITE)];
   for(const c of collections)nodes.push(...brandSchema(c,LD_SITE));
   for(const p of ldDemoPosts(ldSeed()))nodes.push(...postSchema(p,LD_SITE));
   return nodes;
@@ -2034,7 +2034,7 @@ test('scrub removes [bracketed] placeholders and empty values at any depth, and 
 });
 test('the clinic node is built only from the real clinic settings',()=>{
   const [org,web]=siteSchema(LD_SITE);
-  assert.deepEqual([org['@context'],org['@type'],org['@id']],['https://schema.org','Optician',LD_SITE+'/#organization']);
+  assert.deepEqual([org['@context'],org['@type'],org['@id']],['https://schema.org','Optician','https://www.eyeconcanada.ca/#clinic']);
   assert.equal(org.name,'Eyecon Optometry');assert.equal(org.url,LD_SITE+'/');assert.equal(org.medicalSpecialty,'https://schema.org/Optometric');
   assert.equal(org.telephone,ldClinic.phoneHref.replace('tel:',''));assert.match(org.telephone,/^\+1\d{10}$/);
   assert.deepEqual(org.address,{'@type':'PostalAddress',streetAddress:'Unit 448-5015-111 ST',addressLocality:'Edmonton',addressRegion:'AB',postalCode:'T6H 4M6',addressCountry:'CA'});
@@ -2061,7 +2061,7 @@ test('no JSON-LD value contains a [bracketed] placeholder, on any page or in dem
 });
 test('every node has @context and @type, and a bad site URL gives no schema at all',()=>{
   for(const n of ldEverything()){assert.equal(n['@context'],'https://schema.org');assert.ok(typeof n['@type']==='string'&&n['@type'].length>0);}
-  for(const f of [siteSchema,homeSchema,shopSchema])assert.deepEqual(f('not a url'),[]);
+  for(const f of [siteSchema,shopSchema])assert.deepEqual(f('not a url'),[]);
   assert.deepEqual(brandSchema(collections[0],'not a url'),[]);assert.deepEqual(postSchema(ldGoodPost(),'not a url'),[]);
 });
 test('the address and the hours are read only when the format is understood',()=>{
@@ -2071,12 +2071,12 @@ test('the address and the hours are read only when the format is understood',()=
   assert.deepEqual(parseHours('Mon–Fri 12am–12pm').map(h=>[h.opens,h.closes]),[['00:00','12:00']]);
   assert.deepEqual(parseHours(''),[]);assert.deepEqual(parseHours('By appointment'),[]);
 });
-test('the home page lists each service from lib/config.js with its own name and description, and no price',()=>{
-  const [home]=homeSchema(LD_SITE);
-  assert.equal(home['@id'],LD_SITE+'/#organization');
+test('the clinic node lists each service from lib/config.js with its own name and description, and no price',()=>{
+  const [home]=siteSchema(LD_SITE);
+  assert.equal(home['@id'],LD_SITE+'/#clinic');
   const items=home.hasOfferCatalog.itemListElement.map(o=>o.itemOffered);
   assert.deepEqual(items.map(s=>s.name),services.map(s=>s.name));assert.deepEqual(items.map(s=>s.description),services.map(s=>s.description));
-  assert.ok(items.every(s=>s['@type']==='Service'&&s.provider['@id']===LD_SITE+'/#organization'));
+  assert.ok(items.every(s=>s['@type']==='Service'&&s.provider['@id']===LD_SITE+'/#clinic'));
   assert.ok(!ldWalk(home).keys.some(k=>/price|offers?$/i.test(k)&&k!=='hasOfferCatalog'),'no price');
 });
 test('shop and brand pages get a breadcrumb trail; brand pages also get the Brand from the collections list',()=>{
@@ -2093,11 +2093,10 @@ test('a blog post gets BlogPosting with its real fields, its own byline and cove
   const [article,trail]=postSchema(ldGoodPost(),LD_SITE),url=LD_SITE+'/blog/dry-eye-winter';
   assert.equal(article['@type'],'BlogPosting');
   assert.deepEqual([article.headline,article.description,article.datePublished,article.url,article.image,article.articleSection],['Looking after dry eyes in winter','Simple habits that keep your eyes comfortable when the air is dry.','2026-11-02T15:00:00.000Z',url,'https://cdn.example.test/cover.jpg','Eye health']);
-  assert.deepEqual(article.author,{'@type':'Person',name:'Alex M.'});assert.equal(article.mainEntityOfPage['@id'],url);
-  assert.deepEqual([article.publisher['@type'],article.publisher.name,article.publisher.logo.url],['Organization','Eyecon Optometry',LD_SITE+'/icon.svg']);
+  assert.deepEqual(article.author,{'@type':'Person',name:'Alex M.'});assert.deepEqual(article.publisher,{'@id':LD_SITE+'/#clinic'},'the publisher points to the clinic node');assert.equal(article.mainEntityOfPage['@id'],url);
   assert.ok(!('dateModified' in article),'posts record no modified date, so none is claimed');
   assert.deepEqual(trail.itemListElement.map(i=>i.name),['Home','Blog','Looking after dry eyes in winter']);
-  assert.deepEqual(postSchema(ldGoodPost({byline:'Eyecon Optometry'}),LD_SITE)[0].author,{'@type':'Organization',name:'Eyecon Optometry',url:LD_SITE+'/'});
+  assert.deepEqual(postSchema(ldGoodPost({byline:'Eyecon Optometry'}),LD_SITE)[0].author,{'@id':LD_SITE+'/#clinic'});
   assert.ok(!('author' in postSchema(ldGoodPost({byline:'[Sample author]'}),LD_SITE)[0]),'a placeholder byline is left out');
   assert.ok(!('image' in postSchema(ldGoodPost({cover:{url:'data:image/png;base64,AAAA',alt:'x'}}),LD_SITE)[0])&&!('image' in postSchema(ldGoodPost({cover:null}),LD_SITE)[0]),'no cover, no image: the site photo is not passed off as the post picture');
   assert.deepEqual(postSchema(ldGoodPost({title:'[Sample title]'}),LD_SITE).map(n=>n['@type']),[],'a placeholder title gives no article and no trail');
@@ -2108,8 +2107,36 @@ test('the JSON-LD is rendered on the right pages, one script per node, with "<" 
   const comp=read('components/schema.js');
   assert.ok(comp.includes('type="application/ld+json"')&&comp.includes("replace(/</g, '\\u003c')")&&!comp.includes("'use client'"));
   assert.ok(read('app/layout.js').includes('<SiteSchema/>'));
-  assert.ok(read('app/page.js').includes('<HomeSchema/>'));
+  assert.ok(!read('app/page.js').includes('Schema'),'the home page adds no node of its own: the catalog is in the clinic node');
   assert.ok(read('app/shop/page.js').includes('<ShopSchema/>'));
   assert.ok(read('app/shop/[slug]/page.js').includes('<BrandSchema brand={findBrand(slug)}/>'));
   const blog=read('app/blog/[slug]/page.js');assert.equal((blog.match(/<PostSchema /g)||[]).length,2,'live and demo');
+});
+
+test('exactly one Optician node renders on every page, and the other nodes point to it by @id',()=>{
+  const site='https://www.eyeconcanada.ca',id=site+'/#clinic';
+  assert.equal(clinicId(site),id);
+  const pages={'/':[],'/shop':shopSchema(site),'/privacy':[],'/blog/dry-eye-winter':postSchema(ldGoodPost(),site),'/blog/by-the-clinic':postSchema(ldGoodPost({byline:'Eyecon Optometry'}),site)};
+  for(const c of collections)pages['/shop/'+c.slug]=brandSchema(c,site);
+  for(const p of ldDemoPosts(ldSeed()))pages['/blog/'+p.slug]=postSchema(p,site);
+  const types=v=>v&&typeof v==='object'?[].concat(v['@type']||[],...Object.values(v).map(types)):[];
+  for(const [path,extra] of Object.entries(pages)){
+    // What the page renders: the layout's site nodes, then the page's own.
+    const nodes=[...siteSchema(site),...extra];
+    const all=types(nodes);
+    assert.equal(nodes.filter(n=>n['@type']==='Optician').length,1,path+': one Optician node');
+    assert.equal(all.filter(t=>t==='Optician').length,1,path+': no Optician nested anywhere else');
+    assert.ok(!all.some(t=>['Organization','LocalBusiness','MedicalBusiness'].includes(t)),path+': no second business or organization node');
+    assert.equal(nodes.filter(n=>n['@id']===id).length,1,path+': the clinic @id is defined once');
+  }
+  const [clinicNode,web]=siteSchema(site);
+  assert.equal(clinicNode['@id'],id);assert.deepEqual(web.publisher,{'@id':id});
+  const [article]=pages['/blog/dry-eye-winter'];assert.deepEqual(article.publisher,{'@id':id});
+  assert.deepEqual(pages['/blog/by-the-clinic'][0].author,{'@id':id});
+  // The code and the pages: one place builds the clinic, only the layout renders it.
+  const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
+  assert.equal((read('lib/schema.js').replace(/\/\/.*$/gm,'').match(/'Optician'/g)||[]).length,1,'one builder for the clinic node');
+  assert.equal((read('app/layout.js').match(/<SiteSchema\/>/g)||[]).length,1);
+  for(const f of ['app/page.js','app/shop/page.js','app/shop/[slug]/page.js','app/blog/[slug]/page.js','app/privacy/page.js','app/gift-card-terms/page.js'])assert.ok(!read(f).includes('SiteSchema'),f+' does not render the clinic node again');
+  assert.ok(!read('components/schema.js').includes('homeSchema'),'no separate home clinic node');
 });
