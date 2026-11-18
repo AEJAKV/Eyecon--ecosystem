@@ -2271,3 +2271,11 @@ test('Explore workspaces is a demo-only bar: it never shows in production, and t
   assert.ok(!header.includes('/login'),'the header has no sign-in link');
   assert.ok(ui.slice(ui.indexOf('export function Footer')).includes('<Link href="/login">Affiliate and staff sign-in</Link>'),'the footer keeps staff sign-in');
 });
+
+test('Dior is optical only: neither its blurb nor its meta description mention sunglasses',()=>{
+  const dior=collections.find(c=>c.slug==='dior');
+  assert.ok(!/sunglass/i.test(dior.blurb)&&dior.blurb.includes('optical frames'));
+  const d=brandDescription(dior.blurb);
+  assert.ok(!/sunglass/i.test(d)&&d.length>=140&&d.length<=160,'description '+d.length+': '+d);
+  assert.equal(dior.blurb.split('. ').length,2,'still a two-sentence blurb');
+});
