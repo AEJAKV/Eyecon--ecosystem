@@ -2215,7 +2215,7 @@ test('booking and shop links keep the affiliate and preselect the service',()=>{
 test('a post ends with a related link chosen by its category and a Book an eye exam in Edmonton link',()=>{
   assert.equal(EXAM_LINK_TEXT,'Book an eye exam in Edmonton');
   const ids=services.map(s=>s.id);
-  for(const category of blog.BLOG_CATEGORIES){
+  for(const category of blog.BLOG_CATEGORIES.filter(c=>c!=='Clinic news')){
     const entry=RELATED_BY_CATEGORY[category];assert.ok(entry,category+' has a related link');
     if(entry.service)assert.ok(ids.includes(entry.service),category+' points at a real service');
     const links=postNextLinks(category,'/booking?affiliate=alex');
@@ -2224,6 +2224,8 @@ test('a post ends with a related link chosen by its category and a Book an eye e
     assert.equal(links[0].href,entry.shop?'/shop?affiliate=alex':'/booking?service='+entry.service+'&affiliate=alex',category+' related link');
     assert.ok(links[0].text.length>=15&&!/click here|read more|learn more/i.test(links[0].text),category+' has descriptive text');
   }
+  assert.ok(blog.BLOG_CATEGORIES.includes('Clinic news')&&!('Clinic news' in RELATED_BY_CATEGORY),'Clinic news has no related service');
+  assert.deepEqual(postNextLinks('Clinic news','/booking?affiliate=alex'),[{text:'Book an eye exam in Edmonton',href:'/booking?service=eye-exam&affiliate=alex'}],'Clinic news shows only the eye exam link');
   assert.equal(postNextLinks('Eye health','/booking')[0].href,'/booking?service=dry-eye');
   assert.equal(postNextLinks('Frames & style','/booking')[0].href,'/shop');
   assert.deepEqual(postNextLinks('Something else','/booking').map(l=>l.text),['Book an eye exam in Edmonton'],'an unknown category gets only the eye exam link');
@@ -2259,4 +2261,13 @@ test('public pages never link into /admin, /desk or /affiliate',()=>{
     assert.ok(!src.includes('workspacePath('),f+' builds a workspace link');
   }
   for(const l of [...postNextLinks('Eye health','/booking'),...postNextLinks('Frames & style','/booking?affiliate=a')])assert.ok(/^\/(booking|shop)(\?|$)/.test(l.href),l.href);
+});
+test('Explore workspaces is a demo-only bar: it never shows in production, and the public sign-in link stays in the footer',()=>{
+  const ui=readFileSync(new URL('../components/ui.js',import.meta.url),'utf8');
+  assert.equal((ui.match(/Explore workspaces/g)||[]).length,1,'one place only');
+  assert.ok(ui.includes('export function PreviewBar(){return DEMO?<div className="preview-bar">')&&ui.includes('Explore workspaces</Link></div>:null;}'),'rendered only when DEMO is on');
+  for(const f of ['components/landing.js','components/shop.js','components/blog-public.js','app/layout.js','app/privacy/page.js'])assert.ok(!readFileSync(new URL('../'+f,import.meta.url),'utf8').includes('Explore workspaces'),f);
+  const header=ui.slice(ui.indexOf('export function Header'),ui.indexOf('export function PreviewBar'));
+  assert.ok(!header.includes('/login'),'the header has no sign-in link');
+  assert.ok(ui.slice(ui.indexOf('export function Footer')).includes('<Link href="/login">Affiliate and staff sign-in</Link>'),'the footer keeps staff sign-in');
 });
