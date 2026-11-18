@@ -4,6 +4,7 @@ import { adminClient } from '@/lib/server';
 import { loadPublishedPost } from '@/lib/blog-server';
 import { demoPublicPosts, seedDemo } from '@/lib/demo';
 import { BlogPostPage } from '@/components/blog-public';
+import { PostSchema } from '@/components/schema';
 import { canonicalFor,pageSocial } from '@/lib/seo';
 import { DemoBlogPost } from '@/components/blog-demo';
 // One published post with its approved comments. A draft, a post waiting for its date or an unpublished post is
@@ -19,7 +20,7 @@ export async function generateMetadata({params}){
 }
 export default async function Page({params}){
   const {slug}=await params;
-  if(DEMO)return <DemoBlogPost slug={slug}/>;
+  if(DEMO)return <><PostSchema post={demoPublicPosts(seedDemo()).find(p=>p.slug===slug)}/><DemoBlogPost slug={slug}/></>;
   const found=await load(slug);if(!found)notFound();
-  return <BlogPostPage post={found.post} comments={found.comments}/>;
+  return <><PostSchema post={found.post}/><BlogPostPage post={found.post} comments={found.comments}/></>;
 }

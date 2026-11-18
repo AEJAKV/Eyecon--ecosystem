@@ -2003,3 +2003,113 @@ test('purely decorative images keep an empty alt: the hero lens copy, the referr
   assert.ok(landing.includes('alt="A couple on a sofa at dusk, the man in gold Cartier frames and the woman in tortoiseshell frames"'));
   assert.ok(readFileSync(new URL('../components/ui.js',import.meta.url),'utf8').includes('width="56" height="56" alt=""'));
 });
+
+// On-page SEO, stage 5: schema markup (JSON-LD)
+import { scrub,parseAddress,parseHours,siteSchema,homeSchema,shopSchema,brandSchema,postSchema,breadcrumbSchema } from '../lib/schema.js';
+import { clinic as ldClinic } from '../lib/config.js';
+import { demoPublicPosts as ldDemoPosts,seedDemo as ldSeed } from '../lib/demo.js';
+
+const LD_SITE='https://www.eyeconcanada.ca';
+// Every string and key in a JSON-LD value.
+function ldWalk(v,out={strings:[],keys:[]}){
+  if(typeof v==='string')out.strings.push(v);
+  else if(Array.isArray(v))v.forEach(x=>ldWalk(x,out));
+  else if(v&&typeof v==='object')for(const [k,x] of Object.entries(v)){out.keys.push(k);ldWalk(x,out);}
+  return out;
+}
+const ldGoodPost=(extra={})=>({slug:'dry-eye-winter',title:'Looking after dry eyes in winter',excerpt:'Simple habits that keep your eyes comfortable when the air is dry.',category:'Eye health',tags:['dry eye'],cover:{url:'https://cdn.example.test/cover.jpg',alt:'A cover'},byline:'Alex M.',publishedAt:'2026-11-02T15:00:00.000Z',...extra});
+// Everything the builders can produce for the real config, a good post and the demo posts.
+function ldEverything(){
+  const nodes=[...siteSchema(LD_SITE),...homeSchema(LD_SITE),...shopSchema(LD_SITE),...postSchema(ldGoodPost(),LD_SITE)];
+  for(const c of collections)nodes.push(...brandSchema(c,LD_SITE));
+  for(const p of ldDemoPosts(ldSeed()))nodes.push(...postSchema(p,LD_SITE));
+  return nodes;
+}
+
+test('scrub removes [bracketed] placeholders and empty values at any depth, and a node left with only a type',()=>{
+  assert.equal(scrub('[Price range]'),undefined);assert.equal(scrub('From [X] dollars'),undefined);assert.equal(scrub('  '),undefined);
+  assert.deepEqual(scrub({'@type':'Thing',name:'Real',price:'[$$$]',nested:{a:'[x]'},list:['ok','[no]',''],empty:[]}),{'@type':'Thing',name:'Real',list:['ok']});
+  assert.equal(scrub({'@type':'Person',name:'[Sample name]'}),undefined);
+  assert.equal(scrub(0),0);assert.equal(scrub(false),false);
+});
+test('the clinic node is built only from the real clinic settings',()=>{
+  const [org,web]=siteSchema(LD_SITE);
+  assert.deepEqual([org['@context'],org['@type'],org['@id']],['https://schema.org','Optician',LD_SITE+'/#organization']);
+  assert.equal(org.name,'Eyecon Optometry');assert.equal(org.url,LD_SITE+'/');assert.equal(org.medicalSpecialty,'https://schema.org/Optometric');
+  assert.equal(org.telephone,ldClinic.phoneHref.replace('tel:',''));assert.match(org.telephone,/^\+1\d{10}$/);
+  assert.deepEqual(org.address,{'@type':'PostalAddress',streetAddress:'Unit 448-5015-111 ST',addressLocality:'Edmonton',addressRegion:'AB',postalCode:'T6H 4M6',addressCountry:'CA'});
+  assert.deepEqual(org.openingHoursSpecification.map(h=>[h.dayOfWeek.join('/'),h.opens,h.closes]),[['Monday/Tuesday/Wednesday/Thursday/Friday','10:00','21:00'],['Saturday','10:00','19:00'],['Sunday','11:00','18:00']]);
+  assert.equal(org.image,LD_SITE+'/images/hero-desktop.webp');assert.equal(org.logo,LD_SITE+'/icon.svg');
+  assert.ok(!('email' in org),'no email until the clinic sets one');
+  assert.deepEqual([web['@type'],web.name,web.url],['WebSite','Eyecon Optometry',LD_SITE+'/']);
+});
+test('priceRange, sameAs, aggregateRating, review and FAQPage are never output until each is confirmed',()=>{
+  const all=ldWalk(ldEverything());
+  for(const banned of ['priceRange','sameAs','aggregateRating','review','FAQPage','Question','acceptedAnswer','ratingValue','reviewCount','dateModified'])assert.ok(!all.keys.includes(banned)&&!all.strings.includes(banned),banned+' must not appear');
+  // Even with a rating set (the sample 4.9 / 127 is invented and must never reach search engines), nothing is added.
+  const withRating=siteSchema(LD_SITE,{...ldClinic,rating:4.9,reviewCount:127,reviews:'https://example.test/reviews'});
+  assert.ok(!JSON.stringify(withRating).includes('4.9')&&!JSON.stringify(withRating).includes('127')&&!('aggregateRating' in withRating[0]));
+  const src=readFileSync(new URL('../lib/schema.js',import.meta.url),'utf8');
+  assert.ok(!/clinic\.rating|reviewCount\s*[:,)]|sample\b/.test(src.replace(/\/\/.*$/gm,'')),'the builders never read the rating or the sample content');
+});
+test('no JSON-LD value contains a [bracketed] placeholder, on any page or in demo mode',()=>{
+  const nodes=ldEverything();assert.ok(nodes.length>20);
+  for(const s of ldWalk(nodes).strings)assert.ok(!/\[[^\]]*\]/.test(s),'placeholder in JSON-LD: '+s);
+  // A placeholder address, hours, phone or name in the clinic settings is left out, not published.
+  const bad=siteSchema(LD_SITE,{...ldClinic,name:'[Clinic name]',email:'[email]',address:'[Address to be confirmed]',hours:'[Hours]',phoneHref:'tel:+[phone]'});
+  assert.deepEqual(bad.map(n=>n['@type']),['WebSite']);
+});
+test('every node has @context and @type, and a bad site URL gives no schema at all',()=>{
+  for(const n of ldEverything()){assert.equal(n['@context'],'https://schema.org');assert.ok(typeof n['@type']==='string'&&n['@type'].length>0);}
+  for(const f of [siteSchema,homeSchema,shopSchema])assert.deepEqual(f('not a url'),[]);
+  assert.deepEqual(brandSchema(collections[0],'not a url'),[]);assert.deepEqual(postSchema(ldGoodPost(),'not a url'),[]);
+});
+test('the address and the hours are read only when the format is understood',()=>{
+  assert.equal(parseAddress('12 Some Road, Calgary, Alberta T2P 1A1'),null);assert.equal(parseAddress(''),null);assert.equal(parseAddress('[Address to be confirmed]'),null);
+  assert.equal(parseAddress('100 Main St, Edmonton, AB t5j-1a1').postalCode,'T5J 1A1');
+  assert.deepEqual(parseHours('Mon, Tue 9am-5pm · Closed · Sat 9:30am–1pm').map(h=>h.dayOfWeek.join()+h.opens+h.closes),['Saturday09:3013:00']);
+  assert.deepEqual(parseHours('Mon–Fri 12am–12pm').map(h=>[h.opens,h.closes]),[['00:00','12:00']]);
+  assert.deepEqual(parseHours(''),[]);assert.deepEqual(parseHours('By appointment'),[]);
+});
+test('the home page lists each service from lib/config.js with its own name and description, and no price',()=>{
+  const [home]=homeSchema(LD_SITE);
+  assert.equal(home['@id'],LD_SITE+'/#organization');
+  const items=home.hasOfferCatalog.itemListElement.map(o=>o.itemOffered);
+  assert.deepEqual(items.map(s=>s.name),services.map(s=>s.name));assert.deepEqual(items.map(s=>s.description),services.map(s=>s.description));
+  assert.ok(items.every(s=>s['@type']==='Service'&&s.provider['@id']===LD_SITE+'/#organization'));
+  assert.ok(!ldWalk(home).keys.some(k=>/price|offers?$/i.test(k)&&k!=='hasOfferCatalog'),'no price');
+});
+test('shop and brand pages get a breadcrumb trail; brand pages also get the Brand from the collections list',()=>{
+  const [crumbs]=shopSchema(LD_SITE);
+  assert.deepEqual(crumbs.itemListElement.map(i=>[i.position,i.name,i.item]),[[1,'Home',LD_SITE+'/'],[2,'Shop',LD_SITE+'/shop']]);
+  for(const c of collections){
+    const [trail,brand]=brandSchema(c,LD_SITE);
+    assert.deepEqual(trail.itemListElement.map(i=>i.name),['Home','Shop',c.name]);assert.equal(trail.itemListElement[2].item,LD_SITE+'/shop/'+c.slug);
+    assert.deepEqual([brand['@type'],brand.name,brand.description,brand.slogan,brand.url],['Brand',c.name,c.blurb,c.tagline,LD_SITE+'/shop/'+c.slug]);
+  }
+  assert.deepEqual(breadcrumbSchema([{name:'Home',path:'/'},{name:'[Sample]',path:'/x'}],LD_SITE),[],'a trail with a placeholder step is left out whole');
+});
+test('a blog post gets BlogPosting with its real fields, its own byline and cover, and a breadcrumb',()=>{
+  const [article,trail]=postSchema(ldGoodPost(),LD_SITE),url=LD_SITE+'/blog/dry-eye-winter';
+  assert.equal(article['@type'],'BlogPosting');
+  assert.deepEqual([article.headline,article.description,article.datePublished,article.url,article.image,article.articleSection],['Looking after dry eyes in winter','Simple habits that keep your eyes comfortable when the air is dry.','2026-11-02T15:00:00.000Z',url,'https://cdn.example.test/cover.jpg','Eye health']);
+  assert.deepEqual(article.author,{'@type':'Person',name:'Alex M.'});assert.equal(article.mainEntityOfPage['@id'],url);
+  assert.deepEqual([article.publisher['@type'],article.publisher.name,article.publisher.logo.url],['Organization','Eyecon Optometry',LD_SITE+'/icon.svg']);
+  assert.ok(!('dateModified' in article),'posts record no modified date, so none is claimed');
+  assert.deepEqual(trail.itemListElement.map(i=>i.name),['Home','Blog','Looking after dry eyes in winter']);
+  assert.deepEqual(postSchema(ldGoodPost({byline:'Eyecon Optometry'}),LD_SITE)[0].author,{'@type':'Organization',name:'Eyecon Optometry',url:LD_SITE+'/'});
+  assert.ok(!('author' in postSchema(ldGoodPost({byline:'[Sample author]'}),LD_SITE)[0]),'a placeholder byline is left out');
+  assert.ok(!('image' in postSchema(ldGoodPost({cover:{url:'data:image/png;base64,AAAA',alt:'x'}}),LD_SITE)[0])&&!('image' in postSchema(ldGoodPost({cover:null}),LD_SITE)[0]),'no cover, no image: the site photo is not passed off as the post picture');
+  assert.deepEqual(postSchema(ldGoodPost({title:'[Sample title]'}),LD_SITE).map(n=>n['@type']),[],'a placeholder title gives no article and no trail');
+  assert.deepEqual(postSchema(ldGoodPost({publishedAt:null}),LD_SITE),[]);assert.deepEqual(postSchema(null,LD_SITE),[]);
+});
+test('the JSON-LD is rendered on the right pages, one script per node, with "<" escaped',()=>{
+  const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
+  const comp=read('components/schema.js');
+  assert.ok(comp.includes('type="application/ld+json"')&&comp.includes("replace(/</g, '\\u003c')")&&!comp.includes("'use client'"));
+  assert.ok(read('app/layout.js').includes('<SiteSchema/>'));
+  assert.ok(read('app/page.js').includes('<HomeSchema/>'));
+  assert.ok(read('app/shop/page.js').includes('<ShopSchema/>'));
+  assert.ok(read('app/shop/[slug]/page.js').includes('<BrandSchema brand={findBrand(slug)}/>'));
+  const blog=read('app/blog/[slug]/page.js');assert.equal((blog.match(/<PostSchema /g)||[]).length,2,'live and demo');
+});
