@@ -1,5 +1,5 @@
 import { Header,Footer } from '@/components/ui';
 import { GIFT_CARD_DAYS } from '@/lib/config';
-import { canonicalFor } from '@/lib/seo';
-export const metadata={title:'Gift card terms',alternates:canonicalFor('/gift-card-terms')};
+import { canonicalFor,GIFT_TERMS_SEO } from '@/lib/seo';
+export const metadata={title:'Gift card terms',description:GIFT_TERMS_SEO.description,alternates:canonicalFor('/gift-card-terms')};
 export default function Page(){return <><Header/><main className="container prose" id="main-content"><p className="eyebrow">REFERRAL GIFT CARD</p><h1>Gift card terms</h1><p className="notice">Draft terms for clinic review. Eyecon must confirm the final terms before live patient use.</p><ul><li>Promotional gift card issued free of charge to new patients referred by an Eyecon affiliate.</li><li>One card per new patient. Valid for {GIFT_CARD_DAYS} days from the day the card is issued: when the patient books through their introducer’s link, or claims the card with an existing prescription. After that day the card has expired and the offer has ended.</li><li>Redeemable at Eyecon Optometry toward products or services. No cash value, not refundable and not transferable.</li><li>The card (its QR code or number) must be presented at the clinic. Each card can be redeemed once. Lost cards can be reissued by the clinic.</li><li>Eyecon may change or end this promotion at any time. [Clinic to confirm final terms.]</li></ul></main><Footer/></>;}

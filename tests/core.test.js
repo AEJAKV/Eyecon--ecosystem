@@ -181,7 +181,7 @@ test('Shop frames points at the /shop page by default, from the header and under
 test('the Shop page has its own title, heading and components file',()=>{
   const read=f=>readFileSync(new URL(f,import.meta.url),'utf8');
   const page=read('../app/shop/page.js'),shop=read('../components/shop.js');
-  assert.ok(page.includes("title:{absolute:'Shop Frames · Eyecon Optometry'}"));
+  assert.ok(page.includes('title:{absolute:SHOP_SEO.title}'));
   for(const part of ['>The boutique<','>Frames</h1>','Featured pieces and the houses we carry. Reserve any frame to try at your visit.','<Header','<Footer'])assert.ok(shop.includes(part),part);
   assert.ok(!read('../components/landing.js').includes('shop-heading'),'shop components stay out of landing.js');
 });
@@ -278,7 +278,7 @@ test('brand pages: every brand built ahead, unknown slugs not found, own title, 
   const page=read('../app/shop/[slug]/page.js'),shop=read('../components/shop.js');
   assert.ok(page.includes('export const dynamicParams=false;'));
   assert.ok(page.includes('export function generateStaticParams(){return collections.map(c=>({slug:c.slug}));}'));
-  assert.ok(page.includes('notFound()')&&page.includes('title:{absolute:`${brand.name} · Shop Frames · Eyecon Optometry`}'));
+  assert.ok(page.includes('notFound()')&&page.includes('title:{absolute:brandTitle(brand.name)}'));
   assert.ok(!page.includes('searchParams'),'reading searchParams on the server would stop the pages being built ahead');
   for(const part of ["<Suspense fallback={<BrandPageBody brand={brand} affiliate={null} />}>","useSearchParams().get('affiliate')","href={withAffiliate('/shop', affiliate)}>","All frames</Link>",'<Banner brand={brand} page />','{brand.blurb}','New pieces arriving soon. Book a styling visit to see the full collection in person.','Want to try {brand.name} in person?','<Button href={stylingHref(affiliate, brand.name)}>Book a styling visit</Button>','<FrameCard key={f.slug}'])assert.ok(shop.includes(part),part);
   assert.ok(shop.includes("{!page && <span className=\"button outline coming-soon\""),'no button on the brand page banner');
@@ -1843,4 +1843,48 @@ test('a page with its own social card keeps the site name, locale and card type,
   assert.deepEqual([a.openGraph.type,a.openGraph.siteName,a.openGraph.locale,a.openGraph.publishedTime],['article','Eyecon Optometry','en_CA','2026-01-01']);
   assert.equal(a.openGraph.images[0].url,'https://x.test/c.jpg');assert.deepEqual(a.twitter,{card:'summary_large_image',title:'T',description:'D',images:['https://x.test/c.jpg']});
   const b=pageSocial({title:'T',description:'D',image:null});assert.equal(b.openGraph.images[0].url,SHARE_IMAGE.url);assert.equal(b.twitter.images[0],SHARE_IMAGE.url);
+});
+
+// On-page SEO, stage 2: titles and descriptions
+import { TITLE_RANGE,DESCRIPTION_RANGE,HOME_SEO,SHOP_SEO,BLOG_SEO,PRIVACY_SEO,GIFT_TERMS_SEO,brandTitle,brandDescription,BRAND_CTA } from '../lib/seo.js';
+const seoTitleOk=t=>t.length>=TITLE_RANGE[0]&&t.length<=TITLE_RANGE[1];
+const seoDescOk=d=>d.length>=DESCRIPTION_RANGE[0]&&d.length<=DESCRIPTION_RANGE[1];
+test('the home, shop and blog titles are 50-60 characters and the descriptions 140-160',()=>{
+  for(const [k,v] of Object.entries({HOME_SEO,SHOP_SEO,BLOG_SEO})){assert.ok(seoTitleOk(v.title),k+' title '+v.title.length);assert.ok(seoDescOk(v.description),k+' description '+v.description.length);}
+  assert.ok(HOME_SEO.title.startsWith('Optometrist')&&HOME_SEO.title.includes('Edmonton')&&HOME_SEO.title.endsWith('Eyecon Optometry'),'keyword first, brand last');
+  assert.ok(SHOP_SEO.title.startsWith('Designer Frames')&&BLOG_SEO.title.startsWith('Eye Health'));
+});
+test('every brand page has a 50-60 character title and a 140-160 character description with the call to action',()=>{
+  for(const c of collections){
+    const t=brandTitle(c.name),d=brandDescription(c.blurb);
+    assert.ok(seoTitleOk(t),c.slug+' title '+t.length+': '+t);
+    assert.ok(t.startsWith(c.name)&&t.includes('Eyeglasses')&&t.includes('Edmonton')&&t.endsWith('Eyecon Optometry'),c.slug+' title shape');
+    assert.ok(seoDescOk(d),c.slug+' description '+d.length+': '+d);
+    assert.ok(d.includes('Edmonton')&&/Reserve/.test(d),c.slug+' call to action');
+    assert.ok(d.startsWith(c.blurb.split(/(?<=[.!?])\s/)[0]),c.slug+' starts with the brand blurb');
+  }
+  assert.equal(BRAND_CTA,'Reserve to try at Eyecon in Edmonton.');
+});
+test('a brand blurb with no sentence that fits is cut at a word and never goes over 160',()=>{
+  const d=brandDescription('Word '.repeat(80)+'.');
+  assert.ok(d.length<=160&&d.includes('…'));
+  assert.ok(brandDescription('').length<=160);
+});
+test('privacy and gift card terms have a plain one-line description',()=>{
+  for(const v of [PRIVACY_SEO,GIFT_TERMS_SEO]){
+    assert.ok(v.description.length>=60&&v.description.length<=160);
+    assert.ok(!/[\r\n]/.test(v.description));
+    assert.ok(v.description.includes('Eyecon Optometry'));
+  }
+});
+test('the pages take their titles and descriptions from lib/seo and the noindex pages are unchanged',()=>{
+  const read=p=>readFileSync(new URL('../app/'+p,import.meta.url),'utf8');
+  assert.ok(read('page.js').includes('title:{absolute:HOME_SEO.title},description:HOME_SEO.description'));
+  assert.ok(read('shop/page.js').includes('title:{absolute:SHOP_SEO.title},description:SHOP_SEO.description'));
+  assert.ok(read('blog/page.js').includes('title:{absolute:BLOG_SEO.title},description:BLOG_SEO.description'));
+  assert.ok(read('shop/[slug]/page.js').includes('title:{absolute:brandTitle(brand.name)},description:brandDescription(brand.blurb)'));
+  assert.ok(read('privacy/page.js').includes('description:PRIVACY_SEO.description'));
+  assert.ok(read('gift-card-terms/page.js').includes('description:GIFT_TERMS_SEO.description'));
+  for(const f of ['booking/page.js','my-booking/page.js','login/page.js','documents/page.js','admin/[[...section]]/page.js','desk/[[...section]]/page.js','affiliate/[[...section]]/page.js','gift/[number]/page.js'])
+    assert.ok(read(f).includes('robots:{index:false,follow:false}')&&!read(f).includes('lib/seo'),f+' stays noindex and untouched');
 });
