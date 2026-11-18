@@ -1806,9 +1806,10 @@ test('uploaded photos from this Supabase project are allowed by next/image, and 
   assert.equal(p.hostname, 'abc123.supabase.co'); assert.equal(p.protocol, 'https');
   assert.equal(p.pathname, '/storage/v1/object/public/**'); assert.equal(p.search, '');
   assert.deepEqual(storagePatterns(undefined), []); assert.deepEqual(storagePatterns('not a url'), []);
+});
 
 // On-page SEO, stage 1: site-wide metadata foundation
-import { rootSeo,canonicalFor,siteBase,SITE_NAME,SHARE_IMAGE } from '../lib/seo.js';
+import { rootSeo,canonicalFor,pageSocial,siteBase,SITE_NAME,SHARE_IMAGE } from '../lib/seo.js';
 test('root metadata sets the site URL base, Open Graph and a large Twitter card',()=>{
   const m=rootSeo('https://eyeconcanada.ca');
   assert.equal(m.metadataBase.href,'https://eyeconcanada.ca/');
@@ -1831,7 +1832,15 @@ test('canonicals are the bare path: no query string, no fragment',()=>{
 test('the layout uses rootSeo, keeps lang en-CA, and each indexable page sets its own canonical',()=>{
   const read=p=>readFileSync(new URL('../app/'+p,import.meta.url),'utf8');
   assert.ok(read('layout.js').includes('...rootSeo(clinic.site)'));assert.ok(read('layout.js').includes('<html lang="en-CA"'));
-  for(const [file,path] of [['page.js',"'/'"],['shop/page.js',"'/shop'"],['privacy/page.js',"'/privacy'"],['gift-card-terms/page.js',"'/gift-card-terms'"]])assert.ok(read(file).includes('canonicalFor('+path+')'),file+' canonical');
+  for(const [file,path] of [['page.js',"'/'"],['shop/page.js',"'/shop'"],['blog/page.js',"'/blog'"],['privacy/page.js',"'/privacy'"],['gift-card-terms/page.js',"'/gift-card-terms'"]])assert.ok(read(file).includes('canonicalFor('+path+')'),file+' canonical');
   assert.ok(read('shop/[slug]/page.js').includes("canonicalFor('/shop/'+brand.slug)"));
+  assert.ok(read('blog/[slug]/page.js').includes("canonicalFor('/blog/'+post.slug)"));
   for(const f of ['booking/page.js','my-booking/page.js','login/page.js','documents/page.js','admin/[[...section]]/page.js','desk/[[...section]]/page.js','affiliate/[[...section]]/page.js','gift/[number]/page.js'])assert.ok(!read(f).includes('canonicalFor'),f+' stays without a canonical');
+});
+
+test('a page with its own social card keeps the site name, locale and card type, and falls back to the share image',()=>{
+  const a=pageSocial({title:'T',description:'D',type:'article',image:{url:'https://x.test/c.jpg',alt:'c'},og:{publishedTime:'2026-01-01'}});
+  assert.deepEqual([a.openGraph.type,a.openGraph.siteName,a.openGraph.locale,a.openGraph.publishedTime],['article','Eyecon Optometry','en_CA','2026-01-01']);
+  assert.equal(a.openGraph.images[0].url,'https://x.test/c.jpg');assert.deepEqual(a.twitter,{card:'summary_large_image',title:'T',description:'D',images:['https://x.test/c.jpg']});
+  const b=pageSocial({title:'T',description:'D',image:null});assert.equal(b.openGraph.images[0].url,SHARE_IMAGE.url);assert.equal(b.twitter.images[0],SHARE_IMAGE.url);
 });
