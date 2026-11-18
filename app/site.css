@@ -375,6 +375,8 @@ h3 { font-weight: 500; }
 .prepared-intro { margin-bottom: 3rem; text-align: center; }
 .prepared-intro h2 { margin: 0 0 .8rem; font-size: clamp(2rem, 3vw, 2.6rem); }
 .prepared-intro p { margin: 0; color: var(--muted); }
+.prepared-intro .prepared-more { margin-top: .6rem; }
+.prepared-more .text-link { display: inline-block; min-height: 44px; padding-block: 10px; background-origin: content-box; }
 .ticket { --notch: 22px; display: grid; grid-template-columns: minmax(0, 1fr) 248px; max-width: 1200px; margin-inline: auto; background: var(--white); border: 1px solid var(--line); border-radius: 6px; }
 .ticket-main { min-width: 0; }
 .ticket-strip { margin: 0; padding: .85rem 2rem; border-bottom: 1px solid var(--line); font-size: .74rem; letter-spacing: .16em; text-transform: uppercase; color: var(--gold-text); }

@@ -180,6 +180,8 @@
 .post-body blockquote p { font-family: var(--serif); font-style: italic; font-size: 1.4rem; line-height: 1.45; margin: 0; }
 .post-body blockquote cite { display: block; margin-top: .5rem; font-style: normal; font-size: .85rem; color: var(--muted); }
 .post-cta { margin: 2rem 0; }
+.post-next { display: flex; flex-direction: column; align-items: flex-start; gap: .35rem; margin: 2rem 0 0; padding-top: 1.2rem; border-top: 1px solid var(--line); }
+.post-next .text-link { display: inline-block; min-height: 44px; padding-block: 10px; background-origin: content-box; }
 .post-tags { list-style: none; display: flex; flex-wrap: wrap; gap: .4rem; margin: 2rem 0 0; padding: 0; }
 .post-tags a { display: inline-block; padding: .2rem .75rem; border-radius: 999px; border: 1px solid var(--line); font-size: .82rem; color: var(--muted); text-decoration: none; }
 .post-tags a:hover { border-color: var(--gold); color: var(--ink); }

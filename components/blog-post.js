@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { clinic } from '@/lib/config';
 import { bylineInitials, categorySlug } from '@/lib/blog';
 import { altText } from '@/lib/seo';
+import { postNextLinks } from '@/lib/links';
 
 // How a blog post looks: the public pages (/blog, /blog/[slug]) and the editor's Preview both use these, so authors see
 // exactly what readers will. A post here is publicPost's shape (lib/blog.js): text is runs, drawn as React elements,
@@ -47,6 +48,7 @@ export function PostArticle({ post, children }) {
     {post.cover?.url && <figure className="post-cover"><img src={post.cover.url} alt={altText(post.cover.alt)} /></figure>}
     <div className="post-body">{post.blocks.map(b => <Block key={b.id} b={b} bookingHref={post.bookingHref} />)}</div>
     {post.tags.length > 0 && <ul className="post-tags" aria-label="Tags">{post.tags.map(t => <li key={t}><Link href={'/blog?tag=' + encodeURIComponent(t.replace(/ /g, '-'))}>#{t}</Link></li>)}</ul>}
+    <nav className="post-next" aria-label="Next steps">{postNextLinks(post.category, post.bookingHref).map(l => <Link key={l.href} className="text-link" href={l.href}>{l.text} <span aria-hidden="true">→</span></Link>)}</nav>
     {children}
   </article>;
 }

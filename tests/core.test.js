@@ -280,7 +280,7 @@ test('brand pages: every brand built ahead, unknown slugs not found, own title, 
   assert.ok(page.includes('export function generateStaticParams(){return collections.map(c=>({slug:c.slug}));}'));
   assert.ok(page.includes('notFound()')&&page.includes('title:{absolute:brandTitle(brand.name)}'));
   assert.ok(!page.includes('searchParams'),'reading searchParams on the server would stop the pages being built ahead');
-  for(const part of ["<Suspense fallback={<BrandPageBody brand={brand} affiliate={null} />}>","useSearchParams().get('affiliate')","href={withAffiliate('/shop', affiliate)}>","All frames</Link>",'<Banner brand={brand} page />','{brand.blurb}','New pieces arriving soon. Book a styling visit to see the full collection in person.','Want to try {brand.name} in person?','<Button href={stylingHref(affiliate, brand.name)}>Book a styling visit</Button>','<FrameCard key={f.slug}'])assert.ok(shop.includes(part),part);
+  for(const part of ["<Suspense fallback={<BrandPageBody brand={brand} affiliate={null} />}>","useSearchParams().get('affiliate')","href={withAffiliate('/shop', affiliate)}>","All frames</Link>",'<Banner brand={brand} page />','{brand.blurb}','New pieces arriving soon. Book a styling visit to see the full collection in person.','Want to try {brand.name} in person?','<Button href={stylingHref(affiliate, brand.name)}>Book a frame styling consultation</Button>','<FrameCard key={f.slug}'])assert.ok(shop.includes(part),part);
   assert.ok(shop.includes("{!page && <span className=\"button outline coming-soon\""),'no button on the brand page banner');
   const css=read('../app/site.css');
   assert.ok(css.includes('.frame-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));'));
@@ -2198,4 +2198,65 @@ test('the sitemap and robots routes use the shared builders, and the README says
   const readme=read('README.md');
   assert.ok(readme.includes('NEXT_PUBLIC_SITE_URL=https://www.eyeconcanada.ca')&&readme.includes('NEXT_PUBLIC_DEMO_MODE=false')&&readme.includes('/robots.txt'));
   assert.ok(!/`\/booking`[^|]*\|[^|]*The public pages/.test(readme),'the README does not list /booking in the sitemap row');
+});
+
+// On-page SEO, stage 7: internal links
+import { bookingForService,shopForBooking,postNextLinks,RELATED_BY_CATEGORY,EXAM_LINK_TEXT } from '../lib/links.js';
+import { stylingHref as lnkStylingHref } from '../lib/shop.js';
+
+test('booking and shop links keep the affiliate and preselect the service',()=>{
+  assert.equal(bookingForService('/booking','eye-exam'),'/booking?service=eye-exam');
+  assert.equal(bookingForService(undefined,'dry-eye'),'/booking?service=dry-eye');
+  assert.equal(bookingForService('/booking?affiliate=alex-morgan','contacts'),'/booking?service=contacts&affiliate=alex-morgan');
+  assert.equal(bookingForService('/booking?service=styling&affiliate=alex','eye-exam'),'/booking?service=eye-exam&affiliate=alex','an old service is replaced');
+  assert.equal(shopForBooking('/booking?affiliate=alex-morgan'),'/shop?affiliate=alex-morgan');
+  assert.equal(shopForBooking('/booking'),'/shop');assert.equal(shopForBooking(undefined),'/shop');
+});
+test('a post ends with a related link chosen by its category and a Book an eye exam in Edmonton link',()=>{
+  assert.equal(EXAM_LINK_TEXT,'Book an eye exam in Edmonton');
+  const ids=services.map(s=>s.id);
+  for(const category of blog.BLOG_CATEGORIES){
+    const entry=RELATED_BY_CATEGORY[category];assert.ok(entry,category+' has a related link');
+    if(entry.service)assert.ok(ids.includes(entry.service),category+' points at a real service');
+    const links=postNextLinks(category,'/booking?affiliate=alex');
+    assert.equal(links.length,2,category);
+    assert.equal(links[1].text,'Book an eye exam in Edmonton');assert.equal(links[1].href,'/booking?service=eye-exam&affiliate=alex');
+    assert.equal(links[0].href,entry.shop?'/shop?affiliate=alex':'/booking?service='+entry.service+'&affiliate=alex',category+' related link');
+    assert.ok(links[0].text.length>=15&&!/click here|read more|learn more/i.test(links[0].text),category+' has descriptive text');
+  }
+  assert.equal(postNextLinks('Eye health','/booking')[0].href,'/booking?service=dry-eye');
+  assert.equal(postNextLinks('Frames & style','/booking')[0].href,'/shop');
+  assert.deepEqual(postNextLinks('Something else','/booking').map(l=>l.text),['Book an eye exam in Edmonton'],'an unknown category gets only the eye exam link');
+  assert.deepEqual(postNextLinks('','/booking').map(l=>l.href),['/booking?service=eye-exam']);
+});
+test('post pages render those links after the post and before the comments',()=>{
+  const post=readFileSync(new URL('../components/blog-post.js',import.meta.url),'utf8');
+  assert.ok(post.includes("import { postNextLinks } from '@/lib/links'"));
+  const tags=post.indexOf('post-tags'),next=post.indexOf('className="post-next"'),kids=post.indexOf('{children}');
+  assert.ok(tags>0&&next>tags&&kids>next,'tags, then the next steps, then the comments');
+  assert.ok(post.includes('postNextLinks(post.category, post.bookingHref)'));
+});
+test('the home page links to the shop and the blog with descriptive text, and each service card books that service',()=>{
+  const home=readFileSync(new URL('../components/landing.js',import.meta.url),'utf8');
+  assert.ok(home.includes('href="/blog">Eye health and eyewear advice on the Eyecon blog'));
+  assert.ok(home.includes('Shop all frames')&&home.includes('<strong>Shop frames</strong>'));
+  assert.ok(home.includes("const serviceHref = id => booking + (affiliate ? '&' : '?') + 'service=' + id;"));
+  assert.ok(home.includes('href={serviceHref(s.id)}')&&home.includes('href={serviceHref(services[active].id)}'));
+  assert.ok(!/>\s*(click here|here|read more|learn more)\s*</i.test(home),'no vague link text on the home page');
+});
+test('brand pages link back to the shop and to a frame styling consultation for that brand',()=>{
+  const shop=readFileSync(new URL('../components/shop.js',import.meta.url),'utf8');
+  assert.ok(shop.includes("<Link className=\"text-link\" href={withAffiliate('/shop', affiliate)}><span aria-hidden=\"true\">← </span>All frames</Link>"));
+  assert.ok(shop.includes('<Button href={stylingHref(affiliate, brand.name)}>Book a frame styling consultation</Button>'));
+  assert.equal(lnkStylingHref('alex','Cartier'),'/booking?service=styling&brand=Cartier&affiliate=alex');
+  assert.ok(services.some(s=>s.id==='styling'&&s.name==='Frame styling consultation'));
+});
+test('public pages never link into /admin, /desk or /affiliate',()=>{
+  const files=['components/landing.js','components/shop.js','components/ui.js','components/blog-public.js','components/blog-post.js','components/blog-demo.js','components/reviews.js','components/skin-technologies.js','components/booking-flow.js','components/booking-lookup.js','components/gift-card-page.js','app/privacy/page.js','app/gift-card-terms/page.js','app/not-found.js','app/error.js','lib/links.js'];
+  for(const f of files){
+    const src=readFileSync(new URL('../'+f,import.meta.url),'utf8');
+    assert.ok(!/["'`]\/(admin|desk|affiliate)(\/|["'`?#])/.test(src),f+' links into a private area');
+    assert.ok(!src.includes('workspacePath('),f+' builds a workspace link');
+  }
+  for(const l of [...postNextLinks('Eye health','/booking'),...postNextLinks('Frames & style','/booking?affiliate=a')])assert.ok(/^\/(booking|shop)(\?|$)/.test(l.href),l.href);
 });

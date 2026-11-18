@@ -418,6 +418,7 @@ function Prepared({ booking, affiliate }) {
         <div className="prepared-intro">
           <h2 id="prepared-title">Your visit, prepared</h2>
           <p>Everything you need for a smooth first appointment.</p>
+          <p className="prepared-more"><Link className="text-link" href="/blog">Eye health and eyewear advice on the Eyecon blog <span aria-hidden="true">→</span></Link></p>
         </div>
         <div className="ticket">
           <div className="ticket-main">

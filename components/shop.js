@@ -264,7 +264,7 @@ function BrandPageBody({ brand, affiliate }) {
       <section className="final-cta brand-cta" aria-labelledby="brand-cta-title">
         <div className="container">
           <h2 id="brand-cta-title">Want to try {brand.name} in person?</h2>
-          <Button href={stylingHref(affiliate, brand.name)}>Book a styling visit</Button>
+          <Button href={stylingHref(affiliate, brand.name)}>Book a frame styling consultation</Button>
         </div>
       </section>
     </main>
