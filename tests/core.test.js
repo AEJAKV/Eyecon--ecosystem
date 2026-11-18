@@ -1569,8 +1569,9 @@ test('the public blog: server-rendered live, demo in the browser, comments behin
   const ui=readFileSync(new URL('../components/ui.js',import.meta.url),'utf8');
   assert.ok(ui.includes('<Link href="/blog" onClick={onClose}><span>Blog</span>')&&ui.includes('<Link href="/blog">Blog</Link>'));
   const map=readFileSync(new URL('../app/sitemap.js',import.meta.url),'utf8');
-  assert.ok(map.includes("'/blog'")&&map.includes("'/blog/'+p.slug"));
-  assert.equal(readFileSync(new URL('../app/robots.js',import.meta.url),'utf8').includes("'/blog"),false,'the blog is not hidden from search engines');
+  const seoSrc=readFileSync(new URL('../lib/seo.js',import.meta.url),'utf8');
+  assert.ok(map.includes('sitemapFor(')&&map.includes('loadPublishedPosts')&&seoSrc.includes("'/blog'")&&seoSrc.includes("'/blog/' + p.slug"));
+  assert.equal(ROBOTS_DISALLOW.some(p=>p.startsWith('/blog')),false,'the blog is not hidden from search engines');
   const ws=readFileSync(new URL('../components/workspace.js',import.meta.url),'utf8');
   assert.ok(ws.includes("['blog','Blog'],['profile','Profile']]")&&ws.includes("['blog','Blog'],['team','Team']]")&&ws.includes("{section==='blog'&&<BlogWorkspace role={role} item={item}/>}"));
   for(const f of ['../app/admin/[[...section]]/page.js','../app/desk/[[...section]]/page.js','../app/affiliate/[[...section]]/page.js'])assert.ok(readFileSync(new URL(f,import.meta.url),'utf8').includes("name==='blog'&&BLOG_POST_ID.test(item)"),f);
@@ -2139,4 +2140,62 @@ test('exactly one Optician node renders on every page, and the other nodes point
   assert.equal((read('app/layout.js').match(/<SiteSchema\/>/g)||[]).length,1);
   for(const f of ['app/page.js','app/shop/page.js','app/shop/[slug]/page.js','app/blog/[slug]/page.js','app/privacy/page.js','app/gift-card-terms/page.js'])assert.ok(!read(f).includes('SiteSchema'),f+' does not render the clinic node again');
   assert.ok(!read('components/schema.js').includes('homeSchema'),'no separate home clinic node');
+});
+
+// On-page SEO, stage 6: sitemap and robots
+import { SITEMAP_PAGES,ROBOTS_DISALLOW,sitemapFor,robotsFor } from '../lib/seo.js';
+const SM_SITE='https://www.eyeconcanada.ca';
+
+test('the sitemap lists the public pages and every brand page, and never /booking or /my-booking',()=>{
+  const built=new Date('2026-11-20T10:00:00Z');
+  const map=sitemapFor(SM_SITE,{collections,lastModified:built});
+  const urls=map.map(e=>e.url);
+  assert.equal(map.length,SITEMAP_PAGES.length+collections.length);
+  for(const p of ['/','/shop','/blog','/privacy','/gift-card-terms',...collections.map(c=>'/shop/'+c.slug)])assert.ok(urls.includes(new URL(p,SM_SITE).toString()),p+' is listed');
+  for(const u of urls){assert.ok(u.startsWith(SM_SITE+'/'),u);assert.ok(!u.includes('?')&&!u.includes('#'),'no query string: '+u);}
+  assert.ok(!urls.some(u=>/\/(booking|my-booking|book\/|gift\/|documents|login|admin|desk|affiliate|api)/.test(u)),'no noindex or private page');
+  assert.ok(map.every(e=>e.lastModified===built),'the fixed and brand pages carry a lastModified date');
+  assert.equal(new Set(urls).size,urls.length,'no page is listed twice');
+});
+test('published blog posts are added with the date they were published',()=>{
+  const posts=[{slug:'dry-eye-winter',publishedAt:'2026-11-02T15:00:00.000Z'},{slug:'second',publishedAt:'2026-11-05T09:00:00.000Z'}];
+  const map=sitemapFor(SM_SITE,{collections:[],posts,lastModified:new Date()});
+  assert.deepEqual(map.slice(-2),[{url:SM_SITE+'/blog/dry-eye-winter',lastModified:'2026-11-02T15:00:00.000Z'},{url:SM_SITE+'/blog/second',lastModified:'2026-11-05T09:00:00.000Z'}]);
+  assert.equal(sitemapFor(SM_SITE,{}).length,SITEMAP_PAGES.length,'no posts, no brands: the fixed pages only');
+});
+test('a bad site URL gives an empty sitemap and no sitemap line, instead of an error',()=>{
+  assert.deepEqual(sitemapFor('not a url',{collections}),[]);assert.deepEqual(sitemapFor(undefined,{collections}),[]);
+  const r=robotsFor('not a url',false);assert.ok(!('sitemap' in r)&&!('host' in r));assert.deepEqual(r.rules.disallow,ROBOTS_DISALLOW);
+});
+test('robots.txt on the live site names the sitemap and keeps crawlers out of the private areas',()=>{
+  const r=robotsFor(SM_SITE,false);
+  assert.equal(r.sitemap,'https://www.eyeconcanada.ca/sitemap.xml');assert.equal(r.host,'https://www.eyeconcanada.ca');
+  assert.equal(r.rules.userAgent,'*');assert.equal(r.rules.allow,'/');
+  for(const p of ['/admin','/desk','/affiliate','/booking','/my-booking','/book/','/gift/','/documents','/login','/api/'])assert.ok(r.rules.disallow.includes(p),p+' is disallowed');
+  assert.ok(!r.rules.disallow.includes('/')&&!r.rules.disallow.includes('/shop')&&!r.rules.disallow.includes('/blog'),'the public pages stay open');
+});
+test('robots.txt in demo mode blocks everything and still names the sitemap',()=>{
+  const r=robotsFor(SM_SITE,true);
+  assert.equal(r.rules.disallow,'/');assert.ok(!('allow' in r.rules));assert.equal(r.sitemap,SM_SITE+'/sitemap.xml');
+});
+test('every page marked noindex is kept out of the sitemap and disallowed in robots.txt',()=>{
+  // route folder under app/ -> the path robots.txt must cover
+  const noindex={'booking':'/booking','my-booking':'/my-booking','login':'/login','documents':'/documents','gift':'/gift/','book':'/book/','admin':'/admin','desk':'/desk','affiliate':'/affiliate'};
+  for(const [folder,path] of Object.entries(noindex)){
+    const dir=new URL('../app/'+folder+'/',import.meta.url);
+    const file=['page.js','[slug]/page.js','[number]/page.js','[[...section]]/page.js'].map(f=>new URL(f,dir)).find(u=>{try{readFileSync(u);return true;}catch{return false;}});
+    assert.ok(file,folder+' has a page');
+    const src=readFileSync(file,'utf8');
+    if(folder!=='book')assert.ok(src.includes('robots:{index:false,follow:false}'),folder+' is noindex');
+    assert.ok(ROBOTS_DISALLOW.includes(path),path+' is disallowed');
+    assert.ok(!SITEMAP_PAGES.some(p=>p===path||p.startsWith(path+'/')),path+' is not in the sitemap');
+  }
+});
+test('the sitemap and robots routes use the shared builders, and the README says what production needs',()=>{
+  const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
+  assert.ok(read('app/robots.js').includes('robotsFor(clinic.site,DEMO)'));
+  const sm=read('app/sitemap.js');assert.ok(sm.includes('sitemapFor(clinic.site,{collections,posts,lastModified:BUILT})')&&!sm.includes("'/booking'")&&!sm.includes("'/my-booking'"));
+  const readme=read('README.md');
+  assert.ok(readme.includes('NEXT_PUBLIC_SITE_URL=https://www.eyeconcanada.ca')&&readme.includes('NEXT_PUBLIC_DEMO_MODE=false')&&readme.includes('/robots.txt'));
+  assert.ok(!/`\/booking`[^|]*\|[^|]*The public pages/.test(readme),'the README does not list /booking in the sitemap row');
 });
