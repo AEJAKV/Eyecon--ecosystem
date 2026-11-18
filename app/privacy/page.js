@@ -20,7 +20,7 @@ export default function Page(){return <><Header/><main className="container pros
 <li>If you booked through someone’s personal link, which affiliate referred you.</li>
 </ul>
 
-<h2>Completing your file before your visit</h2>
+<h2>Completing your file</h2>
 <p>After you book, we ask you to upload a valid government ID and, if you wish, your Alberta Health Care card (PDF, JPG or PNG). We use these to confirm who you are and, where it applies, to bill Alberta Health Care or your insurer. This step is optional online: you can bring the documents to your visit instead. Uploaded files are kept in private storage that only authorised clinic staff can open.</p>
 
 <h2>How we use your information</h2>
@@ -33,23 +33,23 @@ export default function Page(){return <><Header/><main className="container pros
 </ul>
 <p>We do not sell your information, and we do not use it for advertising.</p>
 
-<h2>Personal referrals and affiliates</h2>
+<h2>Personal referrals</h2>
 <p>If you book through an affiliate’s link, that affiliate can see your name, your appointment date and whether the visit was completed. They never see your contact details, the service you chose, your insurance, your documents or any prices.</p>
 
 <h2>Who can see your information</h2>
 <p>Only authorised clinic staff, each with their own sign-in, can see your full booking. Front desk staff see what they need to check you in. We use trusted service providers to host this website, store bookings and documents, send emails and text reminders, and keep forms free of spam. They handle your information only to provide that service to us.</p>
 <p>Bookings and uploaded documents are stored in Canada. Some providers, such as those that host the website and send emails, may process your information in the United States, where it may be subject to the laws of that country. You can ask our privacy contact for more information about these providers.</p>
 
-<h2>How we protect your information</h2>
+<h2>How we protect it</h2>
 <p>The website uses encrypted connections. Insurance policy numbers are encrypted before they are stored. The link to upload your documents works once and only for your booking. Staff and affiliates each see only what their role allows.</p>
 
-<h2>How long we keep your information</h2>
+<h2>How long we keep it</h2>
 <p>We keep your appointment records and documents for as long as the laws and professional standards for optometry in Alberta require, then destroy them securely. Uploads you start but do not finish are deleted automatically.</p>
 
 <h2>Cookies and your browser</h2>
 <p>We do not use advertising or tracking cookies. The website stores a few small items in your browser to work, for example a gift card you are holding before you book. Our spam check may set its own cookie to confirm a person is filling in the form.</p>
 
-<h2>Your privacy choices and rights</h2>
+<h2>Your choices</h2>
 <ul>
 <li>You can ask to see or correct the information we hold about you.</li>
 <li>You can stop text reminders at any time by contacting the clinic.</li>
@@ -57,7 +57,7 @@ export default function Page(){return <><Header/><main className="container pros
 </ul>
 <p>If you are not satisfied with our answer to a privacy concern, you can contact the Office of the Information and Privacy Commissioner of Alberta.</p>
 
-<h2>Contact the clinic about privacy</h2>
+<h2>Contact us</h2>
 <p>Questions or requests about your information go to our privacy contact at {clinic.name}{clinic.address?<>, {clinic.address}</>:null}{clinic.phone?<>, <a href={clinic.phoneHref}>{clinic.phone}</a></>:null}{clinic.email?<>, or <a href={'mailto:'+clinic.email}>{clinic.email}</a></>:null}.</p>
-{DEMO&&<><h2>Design preview: sample records only</h2><p>This version uses sample records and browser storage. Use fictional information only. Clear site data or reset the demo on the sign-in page to remove demo bookings.</p></>}
+{DEMO&&<><h2>Design preview</h2><p>This version uses sample records and browser storage. Use fictional information only. Clear site data or reset the demo on the sign-in page to remove demo bookings.</p></>}
 </main><Footer/></>;}

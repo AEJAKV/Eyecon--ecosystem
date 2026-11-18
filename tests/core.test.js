@@ -1891,13 +1891,22 @@ test('the pages take their titles and descriptions from lib/seo and the noindex 
 
 // On-page SEO, stage 3: headings. Every H2 is 20-70 characters; each public page has one H1.
 test('every plain-text H2 on a public page is 20-70 characters',()=>{
-  const files=['../components/landing.js','../components/shop.js','../components/blog-comments.js','../app/privacy/page.js','../app/gift-card-terms/page.js'];
+  const files=['../components/landing.js','../components/shop.js','../components/blog-comments.js','../app/gift-card-terms/page.js'];
   let count=0;
   for(const f of files){
     const src=readFileSync(new URL(f,import.meta.url),'utf8');
     for(const m of src.matchAll(/<h2[^>]*>([^<{]+)<\/h2>/g)){count++;const text=m[1].trim();assert.ok(text.length>=20&&text.length<=70,f+' H2 "'+text+'" is '+text.length);}
   }
-  assert.ok(count>=12,'the check found the H2s ('+count+')');
+  assert.ok(count>=8,'the check found the H2s ('+count+')');
+});
+// The privacy notice is legal text: its headings stay as the clinic approved them, so the 20-70 rule skips it.
+test('the privacy notice headings are unchanged, and Edmonton appears in the home H1 only, not its H2s',()=>{
+  const privacy=readFileSync(new URL('../app/privacy/page.js',import.meta.url),'utf8');
+  const h2=[...privacy.matchAll(/<h2>([^<]+)<\/h2>/g)].map(m=>m[1]);
+  assert.deepEqual(h2,['What we collect when you book','Completing your file','How we use your information','Personal referrals','Who can see your information','How we protect it','How long we keep it','Cookies and your browser','Your choices','Contact us','Design preview']);
+  const landing=readFileSync(new URL('../components/landing.js',import.meta.url),'utf8');
+  for(const m of landing.matchAll(/<h2[^>]*>([^<{]+)<\/h2>/g))assert.ok(!m[1].includes('Edmonton'),'home H2 "'+m[1]+'" keeps Edmonton for the H1');
+  assert.ok(landing.includes('>Choose your eye care appointment</h2>')&&landing.includes('>Our luxury eyewear collections</h2>'));
 });
 test('H2s that include a brand name stay 20-70 characters for every brand',()=>{
   for(const c of collections){

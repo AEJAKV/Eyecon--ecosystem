@@ -537,7 +537,7 @@ function Appointments({ serviceHref, shopHref }) {
     <section className="appointments" id="appointments" aria-labelledby="appointments-title">
       <div className="container">
         <div className="section-intro">
-          <h2 id="appointments-title">Choose your Edmonton eye care appointment</h2>
+          <h2 id="appointments-title">Choose your eye care appointment</h2>
           <p className="only-desktop">Every visit is with a licensed optometrist. Find the line that fits you.</p>
           <p className="only-mobile">Swipe to explore. Every visit is with a licensed optometrist.</p>
         </div>
@@ -615,7 +615,7 @@ function Collections({ href, shopHref }) {
     <section className="collections" id="collections" aria-labelledby="collections-title" onKeyDown={keys}>
       <div className="collections-inner">
         <div className="collections-story">
-          <h2 id="collections-title" className="collections-title">Luxury eyewear collections in Edmonton</h2>
+          <h2 id="collections-title" className="collections-title">Our luxury eyewear collections</h2>
           <p className="carousel-count" aria-live="polite" aria-atomic="true"><span className="sr-only">{brand.name}, </span>{active + 1} of {carousel.length}</p>
           <div className="brand-stories">
             {carousel.map((b, i) => <div key={b.slug} className={`brand-story ${i === active ? 'active' : ''}`} aria-hidden={i !== active}>
