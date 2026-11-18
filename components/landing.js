@@ -11,6 +11,7 @@ import { excerpt } from '@/lib/reviews';
 import SkinTechnologies from './skin-technologies';
 import Photo from './photo';
 import { withAffiliate } from '@/lib/affiliate';
+import { altText } from '@/lib/seo';
 
 /* Hero photograph. Art direction: a 16:9 crop above 860px and a 9:16 crop on phones.
    Only the matching source is downloaded, so it is prioritised with fetchPriority rather than preload. */
@@ -97,7 +98,7 @@ function Hero({ children }) {
   }
   return (
     <section className="hero" ref={ref} onPointerDown={move} onPointerMove={move} onPointerLeave={leave} onPointerCancel={leave} style={{ '--x': home.current.x + '%', '--y': home.current.y + '%' }}>
-      <HeroPhoto className="soft" alt="A couple on a sofa in a dusk penthouse, the man in gold Cartier frames and the woman in tortoiseshell, a Cartier box on the table behind them and the city skyline lit beyond" />
+      <HeroPhoto className="soft" alt="A couple on a sofa at dusk, the man in gold Cartier frames and the woman in tortoiseshell frames" />
       <div className="hero-lens" aria-hidden="true"><div className="hero-lens-zoom"><HeroPhoto /></div></div>
       <span className="lens-ring" aria-hidden="true" />
       <p className="lens-hint" aria-hidden="true">Move to bring into focus</p>
@@ -278,7 +279,7 @@ function Doctors({ serviceHref }) {
           const active = open === d.slug, name = `${d.title} ${d.first} ${d.last}`;
           return (
             <article className={`doctor-card ${active ? 'open' : ''}`} key={d.slug}>
-              <Image src={d.photo} alt={d.alt || name} fill sizes="(max-width: 860px) 86vw, 600px" />
+              <Image src={d.photo} alt={altText(d.alt) || name} fill sizes="(max-width: 860px) 86vw, 600px" />
               <div className="doctor-card-text" aria-hidden={active || undefined}>
                 <h3><em>{d.title} {d.first}</em> <span>{d.last}</span></h3>
                 <p>{d.line}</p>

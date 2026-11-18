@@ -109,7 +109,7 @@ function ProfileForm({ doctor = {}, isNew = false, busy, onSave, onPhoto }) {
       <Field label="Areas of focus" id={id + 'focus'} name="focus" defaultValue={doctor.focus || ''} maxLength={200} />
       <Field label="Languages spoken" id={id + 'languages'} name="languages" defaultValue={doctor.languages || ''} maxLength={200} />
       <Field label="The frames they wear" id={id + 'wears'} name="wears" defaultValue={doctor.wears || ''} maxLength={200} />
-      {!isNew && <Field label="Photo description (optional)" id={id + 'alt'} name="alt" defaultValue={doctor.alt || ''} maxLength={200} hint="Leave empty for a real portrait; the name is used." />}
+      {!isNew && <Field label="Photo description (optional)" id={id + 'alt'} name="alt" defaultValue={doctor.alt || ''} maxLength={125} hint="Leave empty for a real portrait; the name is used." />}
     </div>
     <fieldset className="choice-field">
       <legend>Services they perform</legend>

@@ -1930,3 +1930,76 @@ test('the home H1 names Edmonton in visible text, once',()=>{
   assert.equal((src.match(/<h1[ >]/g)||[]).length,2,'the introduction-error page and the hero are the only H1s');
   assert.ok(!/display:\s*none|hidden-keywords/.test(src),'no hidden keyword text');
 });
+
+// On-page SEO, stage 4: image alt text
+import { ALT_MAX,altText } from '../lib/seo.js';
+import { LIMITS as BLOG_LIMITS } from '../lib/blog.js';
+
+// Every opening <img>, <Image>, <Photo>, <ArtPhoto> or <Portrait> tag in a source file, read to its closing ">" (braces counted, so "=>" is safe).
+function imageTags(src){
+  const tags=[],open=/<(img|Image|Photo|ArtPhoto|Portrait)\b/g;let m;
+  while((m=open.exec(src))){
+    let i=m.index+m[0].length,depth=0,quote='';
+    for(;i<src.length;i++){
+      const c=src[i];
+      if(quote){if(c===quote&&src[i-1]!=='\\')quote='';continue;}
+      if(depth===0&&(c==='"'||c==="'")){quote=c;continue;}
+      if(c==='{')depth++;else if(c==='}')depth--;
+      else if(c==='>'&&depth===0&&src[i-1]!=='=')break;
+    }
+    tags.push({name:m[1],text:src.slice(m.index,i+1)});
+  }
+  return tags;
+}
+const PUBLIC_IMAGE_FILES=['components/landing.js','components/shop.js','components/photo.js','components/blog-post.js','components/skin-technologies.js','components/ui.js','components/reviews.js','components/blog-public.js','components/blog-demo.js','components/booking-flow.js'];
+
+test('every image on a public page passes an alt prop (a spread must come from getImageProps with alt)',()=>{
+  let found=0;
+  for(const f of PUBLIC_IMAGE_FILES){
+    const src=readFileSync(new URL('../'+f,import.meta.url),'utf8');
+    for(const t of imageTags(src)){
+      found++;
+      if(/\balt=/.test(t.text))continue;
+      const spreads=/\{\.\.\.rest\}/.test(t.text)&&/getImageProps\(\{\s*alt\b|const common = \{[^}]*\balt\b/.test(src);
+      assert.ok(spreads,f+': <'+t.name+'> has no alt: '+t.text.slice(0,90));
+    }
+  }
+  assert.ok(found>=15,'the check found the image tags ('+found+')');
+});
+test('the helper that finds image tags notices a missing alt',()=>{
+  assert.equal(imageTags('<img src={a} />').length,1);
+  assert.ok(!/\balt=/.test(imageTags('<Photo src={a} sizes="x" onSave={() => go()}>kid</Photo>')[0].text));
+  assert.ok(/\balt=/.test(imageTags('<Image src={a} alt="x" fill />')[0].text));
+});
+test('alt text written in the code is under 125 characters, and descriptive ones are not stuffed with keywords',()=>{
+  for(const f of PUBLIC_IMAGE_FILES){
+    const src=readFileSync(new URL('../'+f,import.meta.url),'utf8');
+    for(const m of src.matchAll(/\balt(?:=|: )(?:"([^"]*)"|'([^']*)')/g)){const text=m[1]??m[2];assert.ok(text.length<ALT_MAX,f+' alt is '+text.length+': '+text);assert.ok(!/edmonton.*edmonton|optometrist.*optometrist/i.test(text),f+' alt repeats a keyword');}
+  }
+});
+test('alt text built from data stays under 125 characters for every brand, service, technology and doctor',()=>{
+  for(const c of collections)assert.ok((c.name+' eyewear').length<ALT_MAX,c.slug);
+  for(const s of services)assert.ok(s.name.length<ALT_MAX&&s.name.length>0,s.id);
+  for(const t of skinTechnologies)assert.ok((t.name+' skin tightening device').length<ALT_MAX,t.slug);
+  for(const d of placeholderDoctors)assert.ok(altText(d.alt).length>0&&altText(d.alt).length<ALT_MAX,d.slug);
+});
+test('stored alt text is never missing on the page and is cut at a word when an older record is too long',()=>{
+  assert.equal(altText(undefined),'');assert.equal(altText(null),'');assert.equal(altText('  A   frame  '),'A frame');
+  const long=altText('word '.repeat(60));assert.ok(long.length<=ALT_MAX&&long.endsWith('…')&&!long.includes('wor…'));
+  assert.equal(altText('x'.repeat(125)).length,125);
+  const post=readFileSync(new URL('../components/blog-post.js',import.meta.url),'utf8');
+  assert.ok(post.includes('alt={altText(b.alt)}')&&post.includes('alt={altText(post.cover.alt)}'));
+  assert.ok(post.includes('<img src={post.cover.url} alt="" loading="lazy" />')||post.includes('alt="" loading="lazy"'),'post-card covers repeat the title next to them, so they are decorative');
+});
+test('the blog editor and the doctor profile form allow at most 125 characters of alt text',()=>{
+  assert.equal(BLOG_LIMITS.alt,ALT_MAX);assert.equal(ALT_MAX,125);
+  assert.ok(readFileSync(new URL('../components/doctors-admin.js',import.meta.url),'utf8').includes("name=\"alt\" defaultValue={doctor.alt || ''} maxLength={125}"));
+  assert.ok(readFileSync(new URL('../lib/schedule.js',import.meta.url),'utf8').includes('alt: clean(p?.alt, ALT_MAX)'));
+});
+test('purely decorative images keep an empty alt: the hero lens copy, the referral and booking avatars, post-card covers',()=>{
+  const landing=readFileSync(new URL('../components/landing.js',import.meta.url),'utf8');
+  assert.ok(landing.includes('<div className="hero-lens" aria-hidden="true"><div className="hero-lens-zoom"><HeroPhoto /></div></div>'));
+  assert.ok(landing.includes("function HeroPhoto({ alt = '', className = '' })"));
+  assert.ok(landing.includes('alt="A couple on a sofa at dusk, the man in gold Cartier frames and the woman in tortoiseshell frames"'));
+  assert.ok(readFileSync(new URL('../components/ui.js',import.meta.url),'utf8').includes('width="56" height="56" alt=""'));
+});

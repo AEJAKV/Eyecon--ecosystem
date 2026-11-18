@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { clinic } from '@/lib/config';
 import { bylineInitials, categorySlug } from '@/lib/blog';
+import { altText } from '@/lib/seo';
 
 // How a blog post looks: the public pages (/blog, /blog/[slug]) and the editor's Preview both use these, so authors see
 // exactly what readers will. A post here is publicPost's shape (lib/blog.js): text is runs, drawn as React elements,
@@ -23,7 +24,7 @@ function Block({ b, bookingHref }) {
   if (b.type === 'heading') return b.text ? (b.level === 3 ? <h3>{b.text}</h3> : <h2>{b.text}</h2>) : null;
   if (b.type === 'list') { const items = b.items.filter(i => i.length).map((i, n) => <li key={n}><Runs runs={i} /></li>); return items.length ? (b.ordered ? <ol>{items}</ol> : <ul>{items}</ul>) : null; }
   if (b.type === 'quote') return b.text?.length ? <blockquote><p><Runs runs={b.text} /></p>{b.cite && <cite>{b.cite}</cite>}</blockquote> : null;
-  if (b.type === 'image') return b.url ? <figure><img src={b.url} alt={b.alt} loading="lazy" />{b.caption && <figcaption>{b.caption}</figcaption>}</figure> : null;
+  if (b.type === 'image') return b.url ? <figure><img src={b.url} alt={altText(b.alt)} loading="lazy" />{b.caption && <figcaption>{b.caption}</figcaption>}</figure> : null;
   if (b.type === 'button') return <p className="post-cta"><Link className="button" href={bookingHref}>{b.label} →</Link></p>;
   return null;
 }
@@ -43,7 +44,7 @@ export function PostArticle({ post, children }) {
       {post.excerpt && <p className="post-dek">{post.excerpt}</p>}
       <Byline post={post} />
     </header>
-    {post.cover?.url && <figure className="post-cover"><img src={post.cover.url} alt={post.cover.alt} /></figure>}
+    {post.cover?.url && <figure className="post-cover"><img src={post.cover.url} alt={altText(post.cover.alt)} /></figure>}
     <div className="post-body">{post.blocks.map(b => <Block key={b.id} b={b} bookingHref={post.bookingHref} />)}</div>
     {post.tags.length > 0 && <ul className="post-tags" aria-label="Tags">{post.tags.map(t => <li key={t}><Link href={'/blog?tag=' + encodeURIComponent(t.replace(/ /g, '-'))}>#{t}</Link></li>)}</ul>}
     {children}

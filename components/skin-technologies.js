@@ -22,7 +22,7 @@ export default function SkinTechnologies({ value = '', onChange, hrefFor }) {
     e.preventDefault(); move(e.key === 'ArrowRight' ? 1 : -1);
   }
   const body = t => <>
-    <span className="tech-media"><Image src={t.image} alt="" fill sizes="(max-width: 860px) 70vw, 240px" /></span>
+    <span className="tech-media"><Image src={t.image} alt={t.name + ' skin tightening device'} fill sizes="(max-width: 860px) 70vw, 240px" /></span>
     <span className="tech-body"><strong>{t.name}</strong><small>{t.summary}</small><span className="tech-session">{t.session}</span></span>
   </>;
   return <div className="skin-tech">
