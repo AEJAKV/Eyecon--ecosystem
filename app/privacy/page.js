@@ -1,6 +1,7 @@
 import { Header,Footer } from '@/components/ui';
 import { clinic,DEMO,GIFT_CARD_DAYS } from '@/lib/config';
-export const metadata={title:'Privacy notice'};
+import { canonicalFor } from '@/lib/seo';
+export const metadata={title:'Privacy notice',alternates:canonicalFor('/privacy')};
 // The privacy notice the booking form, the "Complete your file" form and the footer link to. It describes what this
 // platform actually does: update it whenever the data collected, who can see it, or a service provider changes.
 const PRIVACY_UPDATED='November 9, 2026';
