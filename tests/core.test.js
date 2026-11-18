@@ -1811,8 +1811,8 @@ test('uploaded photos from this Supabase project are allowed by next/image, and 
 // On-page SEO, stage 1: site-wide metadata foundation
 import { rootSeo,canonicalFor,pageSocial,siteBase,SITE_NAME,SHARE_IMAGE } from '../lib/seo.js';
 test('root metadata sets the site URL base, Open Graph and a large Twitter card',()=>{
-  const m=rootSeo('https://eyeconcanada.ca');
-  assert.equal(m.metadataBase.href,'https://eyeconcanada.ca/');
+  const m=rootSeo('https://www.eyeconcanada.ca');
+  assert.equal(m.metadataBase.href,'https://www.eyeconcanada.ca/');
   assert.deepEqual([m.openGraph.type,m.openGraph.siteName,m.openGraph.locale],['website','Eyecon Optometry','en_CA']);
   assert.equal(SITE_NAME,'Eyecon Optometry');
   assert.equal(m.openGraph.images[0].url,SHARE_IMAGE.url);
