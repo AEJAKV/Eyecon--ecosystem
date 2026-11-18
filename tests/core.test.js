@@ -2147,19 +2147,19 @@ import { SITEMAP_PAGES,ROBOTS_DISALLOW,sitemapFor,robotsFor } from '../lib/seo.j
 const SM_SITE='https://www.eyeconcanada.ca';
 
 test('the sitemap lists the public pages and every brand page, and never /booking or /my-booking',()=>{
-  const built=new Date('2026-11-20T10:00:00Z');
-  const map=sitemapFor(SM_SITE,{collections,lastModified:built});
+  const map=sitemapFor(SM_SITE,{collections});
   const urls=map.map(e=>e.url);
   assert.equal(map.length,SITEMAP_PAGES.length+collections.length);
   for(const p of ['/','/shop','/blog','/privacy','/gift-card-terms',...collections.map(c=>'/shop/'+c.slug)])assert.ok(urls.includes(new URL(p,SM_SITE).toString()),p+' is listed');
   for(const u of urls){assert.ok(u.startsWith(SM_SITE+'/'),u);assert.ok(!u.includes('?')&&!u.includes('#'),'no query string: '+u);}
   assert.ok(!urls.some(u=>/\/(booking|my-booking|book\/|gift\/|documents|login|admin|desk|affiliate|api)/.test(u)),'no noindex or private page');
-  assert.ok(map.every(e=>e.lastModified===built),'the fixed and brand pages carry a lastModified date');
+  assert.ok(map.every(e=>!('lastModified' in e)),'the fixed and brand pages carry no lastModified date');
   assert.equal(new Set(urls).size,urls.length,'no page is listed twice');
 });
 test('published blog posts are added with the date they were published',()=>{
   const posts=[{slug:'dry-eye-winter',publishedAt:'2026-11-02T15:00:00.000Z'},{slug:'second',publishedAt:'2026-11-05T09:00:00.000Z'}];
-  const map=sitemapFor(SM_SITE,{collections:[],posts,lastModified:new Date()});
+  const map=sitemapFor(SM_SITE,{collections,posts});
+  assert.ok(map.slice(0,-2).every(e=>!('lastModified' in e)),'only the posts are dated');
   assert.deepEqual(map.slice(-2),[{url:SM_SITE+'/blog/dry-eye-winter',lastModified:'2026-11-02T15:00:00.000Z'},{url:SM_SITE+'/blog/second',lastModified:'2026-11-05T09:00:00.000Z'}]);
   assert.equal(sitemapFor(SM_SITE,{}).length,SITEMAP_PAGES.length,'no posts, no brands: the fixed pages only');
 });
@@ -2194,7 +2194,7 @@ test('every page marked noindex is kept out of the sitemap and disallowed in rob
 test('the sitemap and robots routes use the shared builders, and the README says what production needs',()=>{
   const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
   assert.ok(read('app/robots.js').includes('robotsFor(clinic.site,DEMO)'));
-  const sm=read('app/sitemap.js');assert.ok(sm.includes('sitemapFor(clinic.site,{collections,posts,lastModified:BUILT})')&&!sm.includes("'/booking'")&&!sm.includes("'/my-booking'"));
+  const sm=read('app/sitemap.js');assert.ok(sm.includes('sitemapFor(clinic.site,{collections,posts})')&&!sm.includes("'/booking'")&&!sm.includes("'/my-booking'"));
   const readme=read('README.md');
   assert.ok(readme.includes('NEXT_PUBLIC_SITE_URL=https://www.eyeconcanada.ca')&&readme.includes('NEXT_PUBLIC_DEMO_MODE=false')&&readme.includes('/robots.txt'));
   assert.ok(!/`\/booking`[^|]*\|[^|]*The public pages/.test(readme),'the README does not list /booking in the sitemap row');
