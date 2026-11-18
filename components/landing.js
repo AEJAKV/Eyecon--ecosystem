@@ -359,7 +359,7 @@ function Voices() {
       <div className="container voices-layout">
         <RatingSeal />
         <div className="voices-main" onKeyDown={keys}>
-          <h2 id="voices-title" className="voices-label">In their words</h2>
+          <h2 id="voices-title" className="voices-label">What our patients say about Eyecon</h2>
           {count === 0
             ? <>
                 <p className="voice-empty">Kind words from our patients will appear here soon.</p>
@@ -537,7 +537,7 @@ function Appointments({ serviceHref, shopHref }) {
     <section className="appointments" id="appointments" aria-labelledby="appointments-title">
       <div className="container">
         <div className="section-intro">
-          <h2 id="appointments-title">Choose your appointment</h2>
+          <h2 id="appointments-title">Choose your Edmonton eye care appointment</h2>
           <p className="only-desktop">Every visit is with a licensed optometrist. Find the line that fits you.</p>
           <p className="only-mobile">Swipe to explore. Every visit is with a licensed optometrist.</p>
         </div>
@@ -615,7 +615,7 @@ function Collections({ href, shopHref }) {
     <section className="collections" id="collections" aria-labelledby="collections-title" onKeyDown={keys}>
       <div className="collections-inner">
         <div className="collections-story">
-          <h2 id="collections-title" className="collections-title">Our collections</h2>
+          <h2 id="collections-title" className="collections-title">Luxury eyewear collections in Edmonton</h2>
           <p className="carousel-count" aria-live="polite" aria-atomic="true"><span className="sr-only">{brand.name}, </span>{active + 1} of {carousel.length}</p>
           <div className="brand-stories">
             {carousel.map((b, i) => <div key={b.slug} className={`brand-story ${i === active ? 'active' : ''}`} aria-hidden={i !== active}>
@@ -697,7 +697,7 @@ export default function Landing({ slug }) {
         <div className="hero-copy">
           <div className="hero-text">
             {affiliate && <Referral affiliate={affiliate} />}
-            <h1>Clear sight, exquisitely framed.</h1>
+            <h1>Clear sight, exquisitely framed in Edmonton.</h1>
             <p className="hero-description">A thorough eye exam and a private look at the world’s finest eyewear, in one unhurried visit.</p>
             {/* One main action. Through an affiliate's link it sits inside the gift tile, with the prescription claim
                 under it; the card itself is issued only once the visitor books or claims. */}

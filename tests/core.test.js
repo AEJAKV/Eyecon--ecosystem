@@ -182,7 +182,7 @@ test('the Shop page has its own title, heading and components file',()=>{
   const read=f=>readFileSync(new URL(f,import.meta.url),'utf8');
   const page=read('../app/shop/page.js'),shop=read('../components/shop.js');
   assert.ok(page.includes('title:{absolute:SHOP_SEO.title}'));
-  for(const part of ['>The boutique<','>Frames</h1>','Featured pieces and the houses we carry. Reserve any frame to try at your visit.','<Header','<Footer'])assert.ok(shop.includes(part),part);
+  for(const part of ['>The boutique<','>Designer Frames</h1>','Featured pieces and the houses we carry. Reserve any frame to try at your visit.','<Header','<Footer'])assert.ok(shop.includes(part),part);
   assert.ok(!read('../components/landing.js').includes('shop-heading'),'shop components stay out of landing.js');
 });
 test('collections are in boutique order, each with a tagline, a two-sentence blurb and a layout',()=>{
@@ -222,7 +222,7 @@ test('saved frames never throw, whatever the browser storage does',()=>{
 test('Featured this week: sample label in demo only, arrows and keys, phone and reduced-motion rules',()=>{
   const read=f=>readFileSync(new URL(f,import.meta.url),'utf8');
   const shop=read('../components/shop.js'),css=read('../app/site.css');
-  for(const part of ['>Featured this week<','{DEMO && <span className="featured-sample">Sample selection</span>}',"'/images/shop/frames/' + frame.slug + '.webp'",'Photograph to follow','{frame.isNew && <span className="frame-new">New</span>}','disabled={ends.start}','disabled={ends.end}',"e.key === 'ArrowRight'","reducedMotion() ? 'auto' : 'smooth'"])assert.ok(shop.includes(part),part);
+  for(const part of ['>Featured designer frames this week<','{DEMO && <span className="featured-sample">Sample selection</span>}',"'/images/shop/frames/' + frame.slug + '.webp'",'Photograph to follow','{frame.isNew && <span className="frame-new">New</span>}','disabled={ends.start}','disabled={ends.end}',"e.key === 'ArrowRight'","reducedMotion() ? 'auto' : 'smooth'"])assert.ok(shop.includes(part),part);
   assert.ok(read('../components/landing.js').includes("import Photo from './photo';"),'one shared Photo component');
   assert.match(css,/@media \(hover: none\) \{ \.frame-reserve \{ opacity: 1;/);
   assert.match(css,/@media \(max-width: 640px\) \{[^}]*\}\s*\.featured-arrows \{ display: none; \}\s*\.frame-row \{ --gap: \.9rem; --card: 66vw; margin-inline: calc\(50% - 50vw\); padding-inline: 16px;/);
@@ -1887,4 +1887,37 @@ test('the pages take their titles and descriptions from lib/seo and the noindex 
   assert.ok(read('gift-card-terms/page.js').includes('description:GIFT_TERMS_SEO.description'));
   for(const f of ['booking/page.js','my-booking/page.js','login/page.js','documents/page.js','admin/[[...section]]/page.js','desk/[[...section]]/page.js','affiliate/[[...section]]/page.js','gift/[number]/page.js'])
     assert.ok(read(f).includes('robots:{index:false,follow:false}')&&!read(f).includes('lib/seo'),f+' stays noindex and untouched');
+});
+
+// On-page SEO, stage 3: headings. Every H2 is 20-70 characters; each public page has one H1.
+test('every plain-text H2 on a public page is 20-70 characters',()=>{
+  const files=['../components/landing.js','../components/shop.js','../components/blog-comments.js','../app/privacy/page.js','../app/gift-card-terms/page.js'];
+  let count=0;
+  for(const f of files){
+    const src=readFileSync(new URL(f,import.meta.url),'utf8');
+    for(const m of src.matchAll(/<h2[^>]*>([^<{]+)<\/h2>/g)){count++;const text=m[1].trim();assert.ok(text.length>=20&&text.length<=70,f+' H2 "'+text+'" is '+text.length);}
+  }
+  assert.ok(count>=12,'the check found the H2s ('+count+')');
+});
+test('H2s that include a brand name stay 20-70 characters for every brand',()=>{
+  for(const c of collections){
+    for(const t of [c.name+' frames to try in Edmonton','Want to try '+c.name+' in person?'])assert.ok(t.length>=20&&t.length<=70,t+' '+t.length);
+  }
+});
+test('the shop page H1 is Designer Frames and each public page has a single H1 in its main render',()=>{
+  const read=f=>readFileSync(new URL(f,import.meta.url),'utf8');
+  const count=(src,tag)=>(src.match(new RegExp('<'+tag+'[ >]','g'))||[]).length;
+  assert.ok(read('../components/shop.js').includes('<h1 id="shop-title">Designer Frames</h1>'));
+  assert.equal(count(read('../app/privacy/page.js'),'h1'),1);
+  assert.equal(count(read('../app/gift-card-terms/page.js'),'h1'),1);
+  assert.equal(count(read('../components/blog-post.js'),'h1'),1);
+  const shop=read('../components/shop.js');
+  assert.ok(shop.includes("Heading = page ? 'h1' : 'h3'"),'a brand banner is the H1 on its own page and an H3 in the list');
+  assert.equal(count(shop,'h1'),1,'one literal H1 in the shop page');
+});
+test('the home H1 names Edmonton in visible text, once',()=>{
+  const src=readFileSync(new URL('../components/landing.js',import.meta.url),'utf8');
+  assert.ok(src.includes('<h1>Clear sight, exquisitely framed in Edmonton.</h1>'));
+  assert.equal((src.match(/<h1[ >]/g)||[]).length,2,'the introduction-error page and the hero are the only H1s');
+  assert.ok(!/display:\s*none|hidden-keywords/.test(src),'no hidden keyword text');
 });

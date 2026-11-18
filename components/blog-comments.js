@@ -22,7 +22,7 @@ export default function BlogComments({ slug, comments }) {
     catch (err) { setError(err.message); } finally { setBusy(false); }
   }
   return <section className="post-comments" aria-labelledby="comments-title">
-    <h2 id="comments-title">Comments{comments.length ? ' (' + comments.length + ')' : ''}</h2>
+    <h2 id="comments-title">Comments from our readers{comments.length ? ' (' + comments.length + ')' : ''}</h2>
     <p>{COMMENT_NOTE}</p>
     {comments.length > 0 && <ol>{comments.map(c => <li key={c.id}><strong>{c.name}</strong><small>{postDate(c.createdAt)}</small><p>{c.body}</p></li>)}</ol>}
     {sent ? <Notice>Thank you. Your comment will appear once the clinic approves it.</Notice> : <form className="comment-form" onSubmit={submit} noValidate>

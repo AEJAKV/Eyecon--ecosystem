@@ -35,7 +35,7 @@ function ShopHeading({ photo, onMissing }) {
   const words = (
     <div className="container">
       <p className="eyebrow">The boutique</p>
-      <h1 id="shop-title">Frames</h1>
+      <h1 id="shop-title">Designer Frames</h1>
       <p className="shop-subline">Featured pieces and the houses we carry. Reserve any frame to try at your visit.</p>
     </div>
   );
@@ -112,7 +112,7 @@ function FeaturedFrames({ affiliate }) {
     <section className="featured-frames" aria-labelledby="featured-title">
       <div className="container">
         <div className="featured-head">
-          <h2 id="featured-title" className="featured-title">Featured this week</h2>
+          <h2 id="featured-title" className="featured-title">Featured designer frames this week</h2>
           {DEMO && <span className="featured-sample">Sample selection</span>}
           <div className="featured-arrows">
             <button type="button" className="carousel-arrow" aria-label="Previous frames" disabled={ends.start} onClick={() => move(-1)}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M19 12H5m6-6-6 6 6 6" /></svg></button>
@@ -212,7 +212,7 @@ function TileRow({ items, affiliate }) {
 function Houses({ affiliate }) {
   return (
     <section className="houses" aria-labelledby="houses-title">
-      <h2 id="houses-title" className="sr-only">The houses we carry</h2>
+      <h2 id="houses-title" className="sr-only">Luxury eyewear houses we carry</h2>
       {brandGroups().map((group, i) => group.type === 'banner'
         ? <Banner key={group.items[0].slug} brand={group.items[0]} affiliate={affiliate} />
         : <TileRow key={'row-' + i} items={group.items} affiliate={affiliate} />)}
@@ -254,7 +254,7 @@ function BrandPageBody({ brand, affiliate }) {
       <div className="container brand-intro"><p className="brand-blurb">{brand.blurb}</p></div>
       <section className="container brand-frames" aria-labelledby="brand-frames-title">
         <div className="featured-head">
-          <h2 id="brand-frames-title" className="featured-title">{brand.name} frames</h2>
+          <h2 id="brand-frames-title" className="featured-title">{brand.name} frames to try in Edmonton</h2>
           {DEMO && pieces.length > 0 && <span className="featured-sample">Sample selection</span>}
         </div>
         {pieces.length
